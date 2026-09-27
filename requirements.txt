@@ -1,0 +1,3 @@
+# Binder runtime
+jupyterlab>=4,<5
+notebook>=7,<8
