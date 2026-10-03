@@ -2,22 +2,22 @@
 
 ## Active Workstreams (Coucou Sprint 2: Floating Window Animations & Sounds)
 - **@AGY (Architecture, Test Suite & Emulator QA — Pane 0):**
-  - Status: 🚀 **Sprint 2 Architecture & QA Lead** — Cloned upstream `Louis-CFM/coucou`, published Sprint 2 contracts & tasks
+  - Status: 🏁 **Sprint 2 Complete** — Verified full clean build, 32/32 tests green, refreshed published APK to `apks/coucou-android-1.0.0-debug.apk` (9.7MB), committed & pushed to `origin/main` (`42a0e65`). No active commands; standing by.
   - Current Scope: `tests/`, `docs/`, emulator QA pipelines & test verification
   - Output File: `tests/`, `docs/spec.md`, test suites & QA artifacts
 
 - **@Buffy (Themes, Colors, Tokens, Audio Assets & Drawables — Pane 1 / Pane 2):**
-  - Status: 🎵 **Sprint 2 Assigned** — Audio asset ingestion from upstream repo + color tokens
+  - Status: 🏁 **Sprint 2 Complete** — 28 upstream `.wav` sounds placed in `res/raw/coucou_*.wav` + dimension tokens landed, committed & pushed.
   - Current Scope: `res/raw/` (audio assets), `res/values/colors.xml`, `res/values/dimens.xml`
   - Output File: Sourced 28 `.wav` sounds, color & dimension token definitions
 
 - **@Cline (XML Layouts & Views — Pane 2 / Pane 3):**
-  - Status: 🖼️ **Sprint 2 Assigned** — Floating overlay layout updates for animated character view
+  - Status: 🏁 **Sprint 2 Complete** — `overlay_bubble.xml` & `overlay_ask_bar.xml` embedding `CoucouCharacterView` landed, committed & pushed.
   - Current Scope: `coucou-android/app/src/main/res/layout/` (`overlay_bubble.xml`, `overlay_ask_bar.xml`)
   - Output File: Updated bubble and ask bar layouts hosting the character canvas view
 
 - **@OpenCode (Kotlin Data Models, Adapters & Backend Logic — Pane 3 / Pane 1):**
-  - Status: 🎨 **Sprint 2 Delivered** — procedural character engine (Canvas 2D port), state machine wiring & sound triggers
+  - Status: 🏁 **Sprint 2 Complete** — Procedural character engine (Canvas 2D port), state machine wiring & sound triggers delivered (`eb905aa`).
   - Current Scope: `coucou-android/app/src/main/java/com/coucou/android/` (`*.kt`)
   - Output File: `CoucouCharacterView.kt`, `CoucouCharacterEngine.kt`, `CoucouCharacterEngineTest.kt`, state wiring in `OverlayService.kt`, sound names in `SoundPlayer.kt`
 
@@ -25,6 +25,7 @@
 
 ## Live Sync & Signals
 <!-- Use this section to flag blockers or publish finished interfaces -->
+- [@AGY]: 🛑 **Shutdown wrap (5-min alert):** COUCOU Sprint 2 CLOSED & SHIPPED — Full clean build PASS; 32/32 unit tests green (100%); 9.7MB APK published to `apks/coucou-android-1.0.0-debug.apk`; commits pushed to `origin/main` (`eb905aa`, `42a0e65`). Working tree clean; zero active background tasks. Standing by.
 - [System]: All 3 streams active.
 - [@OpenCode]: 🔌 **COUCOU SPRINT 2 INTERFACE CONTRACT PUBLISHED (consumers: @Cline layouts ✅ already bound, @Buffy tokens, @AGY QA/tests).** My lane is done; everything below is stable and compiled.
   - **New files (my scope only):** `CoucouCharacterEngine.kt` (pure Kotlin: 11 states, 13 eye shapes, 4 badges, tween/spring/particle maths ported 1:1 from `coucou/windows/src/mochi/engine.ts`) + `CoucouCharacterView.kt` (the `Canvas` renderer) + `CoucouCharacterEngineTest.kt` (19 JVM tests).
