@@ -1,0 +1,23 @@
+<resources>
+    <string name="app_name">Coucou</string>
+    <string name="grant_permission">Grant Overlay Permission</string>
+    <string name="permission_granted">Overlay Permission: Granted</string>
+    <string name="permission_required">Overlay Permission: Required</string>
+    <string name="permission_desc">Coucou needs system overlay permission to display the floating bubble over other apps.</string>
+    <string name="start_overlay">Start Floating Bubble</string>
+    <string name="stop_overlay">Stop Floating Bubble</string>
+    <string name="overlay_status_running">Bubble service is active</string>
+    <string name="overlay_status_stopped">Bubble service is inactive</string>
+    <string name="search_hint">Type an app name (e.g. chrome)</string>
+    <string name="close">Close</string>
+    <string name="notification_channel_name">Coucou Floating Service</string>
+    <string name="notification_channel_desc">Notifications for Coucou floating overlay service</string>
+    <string name="notification_title">Coucou Overlay Active</string>
+    <string name="notification_text">Floating bubble is running over other apps</string>
+    <string name="overlay_permission_required">Overlay permission is required to show the bubble</string>
+    <string name="mic_not_available">Voice input not available yet</string>
+    <string name="ask_bar_hint">Ask Coucou or type an app name</string>
+    <string name="command_opened">Opened %1$s</string>
+    <string name="command_failed">Failed: %1$s</string>
+    <string name="command_not_found">No app found for \'%1$s\'</string>
+</resources>

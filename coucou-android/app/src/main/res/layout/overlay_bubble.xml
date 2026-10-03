@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- COUCOU Sprint 1: collapsed floating bubble (inflated by OverlayService as
+     "overlay_bubble"; IDs resolved reflectively: bubble_root + bubble_mic + ask_result).
+     Owns res/layout in coucou-android. Coucou theme tokens only, zero raw hex. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/bubble_root"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/bubble_card"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        app:cardCornerRadius="28dp"
+        app:cardElevation="6dp"
+        app:cardBackgroundColor="?attr/colorPrimaryContainer">
+
+        <ImageView
+            android:id="@+id/bubble_icon"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/app_name"
+            app:srcCompat="@mipmap/ic_launcher"
+            app:tint="?attr/colorOnPrimaryContainer" />
+
+    </com.google.android.material.card.MaterialCardView>
+
+</FrameLayout>

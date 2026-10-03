@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="coucou_primary">#6750A4</color>
+    <color name="coucou_on_primary">#FFFFFF</color>
+    <color name="coucou_primary_container">#EADDFF</color>
+    <color name="coucou_on_primary_container">#21005D</color>
+    <color name="coucou_surface">#FEF7FF</color>
+    <color name="coucou_on_surface">#1D1B20</color>
+    <color name="coucou_surface_container">#F3EDF7</color>
+    <color name="coucou_outline">#79747E</color>
+    <color name="coucou_bubble_bg">#6750A4</color>
+</resources>

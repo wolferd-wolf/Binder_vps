@@ -1,0 +1,12 @@
+<resources>
+    <style name="Theme.Coucou" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/coucou_primary</item>
+        <item name="colorOnPrimary">@color/coucou_on_primary</item>
+        <item name="colorPrimaryContainer">@color/coucou_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/coucou_on_primary_container</item>
+        <item name="colorSurface">@color/coucou_surface</item>
+        <item name="colorOnSurface">@color/coucou_on_surface</item>
+        <item name="colorSurfaceContainer">@color/coucou_surface_container</item>
+        <item name="colorOutline">@color/coucou_outline</item>
+    </style>
+</resources>

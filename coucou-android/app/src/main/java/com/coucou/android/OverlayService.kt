@@ -293,7 +293,8 @@ class OverlayService : Service() {
             return null
         }
         return try {
-            LayoutInflater.from(this).inflate(resId, null, false)
+            val themedContext = android.view.ContextThemeWrapper(this, R.style.Theme_Coucou)
+            LayoutInflater.from(themedContext).inflate(resId, null, false)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to inflate layout '$name'", e)
             null
