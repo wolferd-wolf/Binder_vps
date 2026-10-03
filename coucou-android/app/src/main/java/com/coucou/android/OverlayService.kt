@@ -62,7 +62,7 @@ class OverlayService : Service() {
     private var downRawY = 0f
     private var downTouchX = 0f
     private var downTouchY = 0f
-    private val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+    private val touchSlop by lazy { ViewConfiguration.get(this).scaledTouchSlop }
 
     companion object {
         const val CHANNEL_ID = "coucou_overlay_channel"
