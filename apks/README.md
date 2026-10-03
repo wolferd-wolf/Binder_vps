@@ -15,6 +15,7 @@ Prebuilt installable APKs, so you can test without setting up a build.
 
 Sprint 1: floating bubble over other apps, drag to move, tap to expand,
 type an app name to launch it (e.g. "chrome" opens Chrome).
+For a detailed guide on how the app and its subsystems work under the hood, see [apk/app_systeans](file:///workspaces/Binder_vps/apk/app_systeans/README.md).
 
 ### Install
 
