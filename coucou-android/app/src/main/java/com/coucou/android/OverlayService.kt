@@ -33,6 +33,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.google.android.material.color.MaterialColors
 
 /**
  * Foreground service that owns the floating bubble.
@@ -361,7 +362,15 @@ class OverlayService : Service() {
             setPadding(dp(16), dp(12), dp(16), dp(12))
             background = GradientDrawable().apply {
                 cornerRadius = dp(20).toFloat()
-                setColor(ContextCompat.getColor(context, android.R.color.background_light))
+                // Resolve the themed surface rather than a fixed light color, so the
+                // fallback bubble honours dark mode and dynamic color.
+                setColor(
+                    MaterialColors.getColor(
+                        context,
+                        com.google.android.material.R.attr.colorSurface,
+                        ContextCompat.getColor(context, android.R.color.background_light)
+                    )
+                )
             }
         }
         if (expanded) {
