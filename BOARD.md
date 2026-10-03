@@ -9,10 +9,15 @@
   - Spine: `buffy-proposal.md` (adopted unanimously, 3–0)
   - Next: awaiting @Buffy's A3 core security review; @AGY Phase 3 is green
 
-- **@AGY (Architecture & Tests):**
-  - Status: Verified agents/core.py (22/22 tests passing in 0.17s); Provider Mapping Ratified
-  - Current Scope: `tests/` and `docs/` (Mocks, test runners, API contracts)
-  - Output File: `tests/test_core.py` and `docs/spec.md`
+- **@AGY (Architecture, Test Suite & Emulator QA — Pane 0):**
+  - Status: Roster updated; Standing by for architecture, test suite, and emulator QA tasking
+  - Current Scope: `tests/`, `docs/`, emulator QA pipelines & test verification
+  - Output File: `tests/test_core.py`, `docs/spec.md`, test suites & QA artifacts
+
+- **@OpenCode (Kotlin Data Models, Adapters & Backend Logic — Pane 3):**
+  - Status: Added to team pod (2026-10-03 per @Boss)
+  - Current Scope: Kotlin Data Models, Adapters & Backend Logic (`*.kt`)
+  - Output File: Kotlin models, adapters, repository & backend logic
 
 - **@Buffy (Security & Audit):**
   - Status: A3 COMPLETE — `agents/core.py` review **PASS** (16/16 probes, 0 Critical/High, 2 Low advisories) — implementation cleared
@@ -51,6 +56,10 @@
 - [@Cline]: 🛑 **Shutdown wrap — ntfy-android M3 workstream closed.** My scope delivered & verified end-to-end (P1–P4 layouts + 2 residual one-liners; anti-slop criterion 🏁 MET per @Buffy). **Committed in `ntfy-android/` repo: `fdb8f21a`** (4 layouts + `bg_priority_pill.xml` only — peers' `ui/` + `values/` changes left unstaged for their own commits). Board record: `ntfy-android/BOARD.md`. No active commands; standing by.
 - [@Buffy]: 🛑 **Shutdown wrap (5-min alert):** ntfy-android M3 modernization stream CLOSED — design-token contract landed, anti-slop exit criterion verified MET (full chain on `ntfy-android/BOARD.md`); memory consolidated in `agents/buffy.md`. My Binder_vps queue unchanged for next session: A2 config contract next, A1 CVE scan still pending user-approved `pip-audit` install, A4 after M4 integration.
 - [@AGY]: 🛑 **Shutdown wrap (5-min alert):** ntfy-android M3 modernization stream CLOSED — Phase 3 delivered (`DetailAdapter.kt` upgraded to `MaterialCardView`, `Colors.kt` anti-slop tokens modernized); 100% of adapter `R.id` bindings resolved; visual gate protocol documented. **Committed in `ntfy-android/` repo: `d6643bb3`**. No active background commands; standing by.
+- [@Cline]: 🗑️ **opencode fully removed per @Boss** → deleted symlink `/workspaces/Binder_vps/opencode`, binary dir `/home/codespace/.opencode/` (~178M), PATH lines in `~/.bashrc`; `/workspaces/opencode` clone already gone. Verified: all three paths absent, `which opencode` empty.
+- [@Buffy]: 👥 **POD UPDATE (2026-10-03): @OpenCode re-added as Pane 3 per @Boss** — supersedes the removal record above. Assignments: @AGY = Architecture, Test Suite & Emulator QA · @Buffy = Themes, Colors, Tokens & Drawables · @Cline = XML Layouts & Views · @OpenCode = Kotlin Data Models, Adapters & Backend Logic. `tell.sh` opencode target (pane 3) already wired. Design-token interface contract handed to @OpenCode (see `ntfy-android/BOARD.md`). Note for @Boss: new roster omits my Binder_vps Security & Audit queue (A2 config contract, A1 CVE scan, A4 notebook review) — treating those as PAUSED pending your next directive.
+- [@Cline]: 👋 **@OpenCode roster ack (2026-10-03, @Boss directive)** — pod now 4 agents: @AGY Pane 0 (arch/tests/QA), @Buffy Pane 1 (tokens/drawables), me Pane 2 (XML layouts & views), @OpenCode Pane 3 (Kotlin models/adapters/backend). My memory (`agents/cline.md`) updated with new roster + `tell.sh opencode` target. Scope understanding: I own `res/layout/` XML only; `*.kt` is @OpenCode's — I will not touch Kotlin. Radio silence holds: no ping sent (not a handoff). Standing by for layout tasking.
+- [@AGY]: 👋 **@OpenCode roster ack (2026-10-03, @Boss directive)** — pod now 4 agents: @AGY Pane 0 (Architecture, Test Suite & Emulator QA), @Buffy Pane 1 (Themes, Colors, Tokens & Drawables), @Cline Pane 2 (XML Layouts & Views), @OpenCode Pane 3 (Kotlin Data Models, Adapters & Backend Logic). Inspected `BOARD.md`. Scope boundaries ratified: Kotlin models, adapters, and backend logic are owned by @OpenCode; XML layouts by @Cline; themes/tokens/drawables by @Buffy; test suites, architecture contracts, and emulator QA by @AGY. Communication target configured (`tell.sh agy opencode "<message>"`). Standing by for QA & architecture tasking.
 
 
 ---
@@ -59,3 +68,19 @@
 1. **Strict File Isolation:** Never write to a directory owned by another active agent.
 2. **Interface First:** If an agent creates an interface (like an API schema or test harness), note it under `Live Sync & Signals` so the others can align.
 3. **Status Check:** Update your personal bullet under `Active Workstreams` when you finish a subtask.
+
+## COUCOU-ANDROID, Sprint 1
+Goal: floating bubble over other apps + Coucou-style animation + sound + type an app name to open it. No AI yet.
+
+- [ ] AGY: Kotlin project skeleton, manifest (SYSTEM_ALERT_WINDOW + foreground service), overlay permission screen, build + headless emulator, run the pass checklist last
+- [ ] OpenCode: OverlayService (WindowManager overlay, draggable, tap to expand), CommandRouter interface with a stub, AppLauncher via PackageManager
+- [ ] Cline: collapsed bubble layout, expanded ask bar layout (text field, mic button, close button), state swap with OpenCode's service
+- [ ] Buffy: inspect github.com/Louis-CFM/coucou FIRST and report what animation and sound assets are reusable. Do NOT port until Boss replies. Then theme tokens.
+
+Pass checklist:
+1. Bubble shows over another app
+2. Animation and sound play
+3. Typing "chrome" opens Chrome
+4. Service survives going to the home screen
+
+Rules: finish and commit any current task first. Radio silence until 100% done. Boss message to you means check this section.

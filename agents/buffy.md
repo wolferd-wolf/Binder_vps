@@ -1,5 +1,5 @@
 # @Buffy Memory (Freebuff Agent)
-*Last consolidated: 2026-09-27 (post A3 review + ntfy-android M3 modernization completion)*
+*Last consolidated: 2026-10-03 (pod re-org: @OpenCode joined as Pane 3; role roster updated; Binder_vps security queue paused pending @Boss)*
 
 ## Identity
 - I am **Buffy**, the coding agent behind **Freebuff** (freebuff.com).
@@ -14,6 +14,7 @@
 - **@Cline** — Implementation, owns `agents/` → `agents/core.py` ✅ delivered (M1–M4, 20/20 tests).
 - **@AGY** (Antigravity) — Architecture & Tests, owns `tests/` + `docs/` → `docs/spec.md` + `tests/test_core.py` ✅ delivered.
 - **@Cline + @AGY both read-only to me.** Rule: strict file isolation; I never write into their dirs.
+- **@OpenCode** — rejoined pod 2026-10-03 as Pane 3: Kotlin Data Models, Adapters & Backend Logic (absorbs adapter/Kotlin work formerly under @AGY). Full-pod roster per @Boss: AGY=Architecture/Test Suite/Emulator QA · Buffy=Themes, Colors, Tokens & Drawables · Cline=XML Layouts & Views · OpenCode=Kotlin models/adapters/backend. ⚠️ New roster omits my Binder_vps Security & Audit role → A2/A1/A4 queue PAUSED pending @Boss directive (flagged on root BOARD.md).
 
 ## Protocol Rules (MUST FOLLOW)
 1. Inspect `BOARD.md` before any action.
@@ -23,8 +24,9 @@
 5. **Radio Silence (@Boss):** only ping AFTER finishing edits/tests; never ping a busy agent; check `.agents/inbox/buffy.txt` when idle (dir may not exist yet); non-handoff messages = don't send.
 
 ## Messaging
-- `./tell.sh buffy <target> "<msg>"` → targets `cline` / `agy` (I am pane 1). Busy targets auto-queue to their inbox. Log: `.agents/chat.log`. Never request reciprocal pings.
-- Pings sent so far: AGY (land spec fixes), Cline (green light after verifying), AGY (role/artifact confirmation for @Boss's overlap check — queued, AGY was busy).
+- `./tell.sh buffy <target> "<msg>"` → targets `cline` / `agy` / `opencode` (also `oc`/`code`/`3`; I am pane 1). Busy targets auto-queue to their inbox. Log: `.agents/chat.log`. Never request reciprocal pings.
+- Pings sent so far: AGY (land spec fixes), Cline (green light after verifying), AGY (role/artifact confirmation for @Boss's overlap check — queued, AGY was busy), OpenCode (2026-10-03 onboarding: design-token contract handoff for Kotlin scope).
+- History note: OpenCode was previously REMOVED from the box by @Cline per @Boss (binary + PATH cleaned 2026-09-28), then re-added by @Boss on 2026-10-03 — removal records on boards are stale, treat OpenCode as an active peer.
 
 ## Project: Binder_vps ("binder as vps")
 - Runtime: `requirements.txt` = jupyterlab>=4,<5, notebook>=7,<8.
@@ -51,11 +53,15 @@
 - `pytest` NOT installed in this codespace (my probe suite used plain stdlib asserts instead). Don't install packages without user approval.
 - `.agents/inbox/` did not exist as of consolidation; tell.sh creates/queues as needed.
 
-## Project: ntfy-android M3 Modernization (COMPLETE 2026-09-27)
+## Project: ntfy-android M3 Modernization (REOPENED 2026-09-28 — @Boss M3 overhaul directive)
+- **Pod update 2026-10-03:** @OpenCode (Pane 3) now owns `app/src/main/java/**` — the design-token contract (zero literal colors in Kotlin; theme attrs or alias layer; `@dimen` tokens for geometry; token-file edits only via me) was handed to OpenCode via board signal + direct ping. Verified before handoff: alias layer intact in `values/colors.xml` (`action_bar`, `battery_alert_container`, `detail_activity_background`, `chip_*`), 5 `bg_*` shape drawables present, Kotlin consumers at `ui/Colors.kt` + `ui/MainAdapter.kt` + `ui/DetailAdapter.kt`.
+- **New directive:** baseline screenshot confirmed; item 1 (me): themes.xml — set M3 DayNight parent + map colorPrimary/colorSurface/colorContainer/dynamic tokens. Item 2 @Cline: activity_main + fragment_main overhaul (MaterialToolbar/LargeTopAppBar, battery banner → MaterialCardView 16dp + colorErrorContainer, FAB → M3 shape). Item 3 @AGY: verify MainActivity.kt bindings, `./gradlew assemblePlayDebug`, new screenshot.
+- **Item 1 verdict: ALREADY SATISFIED, zero edits made.** themes.xml already has M3 DayNight parent, colorPrimary/colorSurface, full container family, all 5 colorSurfaceContainer* levels. XML views have no bare `colorContainer` attr — container family is the M3 equivalent. Dynamic color = runtime `DynamicColors.applyToActivitiesIfAvailable()` (Application.kt:29) behind `DynamicColors` setting — do NOT hardcode dynamic tokens in XML; it fights the overlay.
+- **Intel handed to @Cline on ntfy-android/BOARD.md:** toolbar already MaterialToolbar (app_bar_drawer.xml:12) → re-style not swap; battery banner already MaterialCardView w/ BannerCardStyle but corners forced 0dp by BannerShapeAppearance (my file — per-layout `app:cardCornerRadius` override is cleanest; websocket banner shares the style), no backgroundTint yet (needs colorErrorContainer), 3 banner buttons still `Widget.MaterialComponents.Button.TextButton` (M2-namespace → M3 TextButton); FAB tokens already clean; AGY compile gate will fail (no Android SDK on box) — flagged on board.
 - **My role:** Design Tokens & Theming (`res/values/` + `values-night/`) + anti-slop gatekeeper. Team: @Cline (card/list layouts), @AGY (adapters/binding). Board: `ntfy-android/BOARD.md`.
 - **Baseline finding:** app was already `Theme.Material3.DayNight.NoActionBar` + full `md_theme_*` mapping + material 1.13.0 — my work was verify/refine + debt, NOT greenfield. Lesson: inspect before planning a migration.
 - **My deliverables:** legacy raw-hex colors → `md_theme_*` alias layer (`action_bar`, `detail_activity_background`, `chip_*` in both palettes); dark `detail_activity_background` deliberately moved #121212 → surfaceContainerLow (tonal elevation for cards); M3 shape/spacing/card dimens (`corner_*`, `spacing_*`, `card_corner_radius`=16dp, `card_stroke_width`=1dp); themes.xml de-hardcoded (ActionMode close tint white→`?attr/colorOnSurface` — was invisible on dark surface ActionMode; corners → dimen tokens).
 - **Contract (Interface First, on board):** zero raw hex outside token files; drawables' hex icon fills = ACCEPTED EXCEPTIONS (icon artwork, ~105 hits); Kotlin reads go through theme attrs or my alias layer.
 - **Gate process that worked:** inspect → signal contract → sweep read-only → assign exact one-line fixes to owning agent → verify each fix at artifact level in the FILE (never trust board claims alone — caught the detail dot half-fix that way: main-list badge tinted, detail twin forgotten) → declare MET only after repo-wide re-scan.
 - **Final state:** criterion MET declared 🏁; zero raw hex in all layouts + res/color; zero literal colors in Kotlin. Remaining: @AGY on-device visual QA (dot tint dark mode; red-max-priority pill on colorSecondaryContainer) — no Android SDK in this env, no Gradle build possible.
-- **Possible next phase:** Material You dynamic color rollout (setting key `DynamicColors` already exists); full Gradle/lint verification when SDK available.
+- **Previous completion record (2026-09-27):** token layer + anti-slop gate done (see board 🔁 closure; criterion MET). Remaining: on-device visual QA (dot tint dark mode; red-max-priority pill on colorSecondaryContainer). Next-phase candidate: Material You dynamic color rollout (setting key `DynamicColors` already exists); full Gradle/lint verification when SDK available.
