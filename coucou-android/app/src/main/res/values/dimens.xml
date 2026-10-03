@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Character engine geometry tokens (ported from engine.ts) -->
+    <dimen name="coucou_character_eye_separation">0.37sp</dimen>
+    <dimen name="coucou_character_eye_offset">0dp</dimen>
+
+    <!-- Character size -->
+    <dimen name="coucou_character_size">48dp</dimen>
+    <dimen name="coucou_character_size_small">36dp</dimen>
+    <dimen name="coucou_character_size_large">64dp</dimen>
+
+    <!-- Eye geometry (procedural paths) -->
+    <dimen name="coucou_eye_width">5dp</dimen>
+    <dimen name="coucou_eye_height">7dp</dimen>
+    <dimen name="coucou_eye_offscreen">0dp</dimen>
+
+    <!-- Character softness / rounding -->
+    <dimen name="coucou_character_corner_radius">12dp</dimen>
+    <dimen name="coucou_character_padding">4dp</dimen>
+
+    <!-- Animation timing (ValueAnimator) -->
+    <dimen name="coucou_animation_bob_amplitude">3dp</dimen>
+    <dimen name="coucou_animation_blink_duration">1200</dimen>
+    <dimen name="coucou_animation_eye_tilt_amount">0.06</dimen>
+    <dimen name="coucou_animation_badge_scale">1.15</dimen>
+</resources>

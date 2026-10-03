@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- COUCOU Sprint 1: expanded ask bar (inflated by OverlayService as
+<!-- COUCOU Sprint 2: expanded ask bar (inflated by OverlayService as
      "overlay_ask_bar"; IDs resolved reflectively: bubble_root + ask_input +
-     ask_close + bubble_mic + ask_result). Owns res/layout in coucou-android.
-     Coucou theme tokens only, zero raw hex. -->
+     ask_close + bubble_mic + ask_result + coucou_character). Owns res/layout
+     in coucou-android. Coucou theme tokens only, zero raw hex.
+     Sprint 2 change: procedural com.coucou.android.CoucouCharacterView avatar
+     (@OpenCode owner, lands separately) leads the query row as a status badge;
+     all Sprint 1 IDs preserved untouched. Until that class lands,
+     inflateLayoutByName catches the inflation error and falls back to the
+     programmatic bubble. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/bubble_root"
@@ -27,6 +32,13 @@
             android:paddingEnd="8dp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp">
+
+            <com.coucou.android.CoucouCharacterView
+                android:id="@+id/coucou_character"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:contentDescription="@string/app_name" />
 
             <EditText
                 android:id="@+id/ask_input"

@@ -9,10 +9,9 @@ mkdir -p /workspaces/Binder_vps/.agents/inbox /workspaces/Binder_vps/.agents/loc
 
 case "$(echo "$TARGET" | tr '[:upper:]' '[:lower:]')" in
   agy|antigravity|0)   PANE="agents:0.0"; TARGET_NAME="AGY" ;;
-  boss|human|1)        PANE="agents:0.1"; TARGET_NAME="Boss" ;;
-  opencode|oc|2)       PANE="agents:0.2"; TARGET_NAME="OpenCode" ;;
-  buffy|freebuff|3)    PANE="agents:0.3"; TARGET_NAME="Buffy" ;;
-  cline|4)             PANE="agents:0.4"; TARGET_NAME="Cline" ;;
+  opencode|oc|1)       PANE="agents:0.1"; TARGET_NAME="OpenCode" ;;
+  buffy|freebuff|2)    PANE="agents:0.2"; TARGET_NAME="Buffy" ;;
+  cline|3)             PANE="agents:0.3"; TARGET_NAME="Cline" ;;
   *)
     echo "Unknown target: $TARGET"
     exit 1
@@ -21,7 +20,7 @@ esac
 
 LOCK_FILE="/workspaces/Binder_vps/.agents/locks/${TARGET_NAME}.lock"
 if [ -f "$LOCK_FILE" ] && [ $(( $(date +%s) - $(stat -c %Y "$LOCK_FILE") )) -lt 15 ]; then
-  echo "BLOCKED: @$TARGET_NAME pinged recently. Queued in inbox."
+  echo "BLOCKED: @$TARGET_NAME was pinged recently. Queued in inbox."
   echo "[$(date -u +"%T")] From @$SENDER: $MSG" >> "/workspaces/Binder_vps/.agents/inbox/${TARGET_NAME}.txt"
   exit 0
 fi
