@@ -24,6 +24,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.ContextThemeWrapper
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
@@ -293,7 +294,7 @@ class OverlayService : Service() {
             return null
         }
         return try {
-            val themedContext = android.view.ContextThemeWrapper(this, R.style.Theme_Coucou)
+            val themedContext = ContextThemeWrapper(this, R.style.Theme_Coucou)
             LayoutInflater.from(themedContext).inflate(resId, null, false)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to inflate layout '$name'", e)
@@ -363,7 +364,10 @@ class OverlayService : Service() {
 
     /** Minimal programmatic bubble, used only if the layout resources are absent. */
     private fun buildFallbackView(expanded: Boolean): View {
-        val context = this
+        // Service contexts do not inherit the application theme, so theme attrs do not
+        // resolve here either. Same wrap as inflateLayoutByName, otherwise the fallback
+        // renders with unthemed defaults.
+        val context = ContextThemeWrapper(this, R.style.Theme_Coucou)
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(12), dp(16), dp(12))
