@@ -83,6 +83,7 @@ class OverlayService : Service() {
         const val LAYOUT_EXPANDED = "overlay_ask_bar"
 
         private const val ID_PREFIX = "coucou_"
+        private const val KEYBOARD_SHOW_DELAY_MS = 150L
         private const val COLLAPSE_DELAY_MS = 400L
         private const val RESULT_TIMEOUT_MS = 2500L
 
@@ -233,18 +234,29 @@ class OverlayService : Service() {
     }
 
     /**
-     * Window flags must change with state: the expanded ask bar hosts an EditText, which
-     * cannot receive text or show the IME while [WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE]
-     * is set. The collapsed bubble does want NOT_FOCUSABLE so it never steals input from
-     * the app underneath.
+     * Window geometry and flags must change with state.
+     *
+     * Width: the collapsed bubble is WRAP_CONTENT so it does not swallow touches across
+     * the whole screen row (@AGY's fix); the expanded ask bar is MATCH_PARENT because its
+     * own root layout is match_parent and would otherwise be squeezed to the bubble size.
+     *
+     * Flags: the expanded ask bar hosts an EditText, which cannot receive text or show the
+     * IME while [WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE] is set. The collapsed bubble
+     * keeps NOT_FOCUSABLE so it never steals input from the app underneath.
      */
     private fun applyFlagsForState(params: WindowManager.LayoutParams, expanded: Boolean) {
+        params.width = if (expanded) {
+            WindowManager.LayoutParams.MATCH_PARENT
+        } else {
+            WindowManager.LayoutParams.WRAP_CONTENT
+        }
         if (expanded) {
             params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
             // Soft input must be able to resize/pan the window while typing.
-            params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+            params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
         } else {
             params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
         }
     }
 
@@ -291,8 +303,11 @@ class OverlayService : Service() {
 
         findChild<EditText>(view, "ask_input")?.let { input ->
             if (expanded) {
+                // The window is created ADJUST_NOTHING (see applyFlagsForState), so the
+                // IME overlays rather than resizes us; show it slightly after the view is
+                // attached, otherwise the request is dropped.
                 input.requestFocus()
-                showKeyboard(input)
+                mainHandler.postDelayed({ showKeyboard(input) }, KEYBOARD_SHOW_DELAY_MS)
                 input.setOnEditorActionListener { _, _, _ ->
                     val text = input.text?.toString().orEmpty()
                     input.setText("")
@@ -395,8 +410,14 @@ class OverlayService : Service() {
                 if (isDragging) {
                     params.x = (params.x + dx).toInt()
                     params.y = (params.y + dy).toInt()
-                    // Keep the bubble on-screen.
-                    val maxX = resources.displayMetrics.widthPixels - dp(48)
+                    // Keep the window on-screen. When expanded the window is
+                    // MATCH_PARENT wide, so it is pinned to x=0 and only y is free;
+                    // clamping x against a narrow bubble would be wrong there.
+                    val maxX = if (isExpanded) {
+                        0
+                    } else {
+                        resources.displayMetrics.widthPixels - dp(48)
+                    }
                     val maxY = resources.displayMetrics.heightPixels - dp(48)
                     params.x = params.x.coerceIn(0, maxOf(0, maxX))
                     params.y = params.y.coerceIn(0, maxOf(0, maxY))
