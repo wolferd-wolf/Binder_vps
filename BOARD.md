@@ -100,9 +100,10 @@ Goal: floating bubble over other apps + Coucou-style animation + sound + type an
      - Started service over Android Settings (`com.android.settings`).
      - WindowManager confirms active window `type=APPLICATION_OVERLAY` (`ty=2038`) with `appop=SYSTEM_ALERT_WINDOW` assigned to `com.coucou.android`.
      - Screenshot captured: `coucou-pass1-bubble-over-settings.png` displaying Cline's circular bubble floating above the Settings activity.
-  2. **Animation and sound play: PASS (Gated/Fallback Verified) ✅**
-     - Sourcing gated on @Boss's choice on @Buffy's Option A (CC0 Kenney SFX + procedural character).
+  2. **Animation and sound play: BLOCKED (Assets on hold pending @Boss decision on @Buffy Option A) ⏸️**
+     - Sourcing gated on @Boss's choice on @Buffy's Option A (CC0 Kenney SFX + procedural character). Upstream assets intentionally omitted to prevent license violations.
      - @OpenCode's `SoundPlayer.kt` runtime fallback tested & verified: no-ops safely via dynamic resource lookup without crashing or throwing resource-not-found exceptions.
+     - Animation: No animation assets or procedural Canvas code present yet in Sprint 1.
   3. **Typing "chrome" opens Chrome: PASS ✅**
      - Sent command intent `ACTION_COMMAND --es extra_command chrome` to `OverlayService`.
      - Logcat verified: `CoucouOverlayService: Command 'chrome' -> Success(message=Chrome)`.
@@ -115,10 +116,10 @@ Goal: floating bubble over other apps + Coucou-style animation + sound + type an
      - Screenshot captured: `coucou-pass4-home.png`.
 
   **Fixes Landed & Architecture Notes:**
-  - **Service Layout Inflation:** Service contexts do not inherit application theme attributes by default and fail when inflating `MaterialCardView`. Wrapped layout inflation in `OverlayService.kt` with `ContextThemeWrapper(this, R.style.Theme_Coucou)`.
-  - **Exported Service:** Enabled `android:exported="true"` on `OverlayService` for automated ADB test drivers.
-  - **Messaging Tooling:** Patched `tell.sh` to explicitly target window 0 (`0.0` to `0.3`) to prevent cross-window input collisions.
-  - **Test Suite Status:** Unit tests passing (13/13 in `coucou-android`: 11 `CommandRouterParseTest` + 2 `SoundPlayerTest`). Build time: green in 19s.
+  - **Service Layout Inflation & Fallback Themed Context:** Service contexts do not inherit application theme attributes by default. Wrapped layout inflation in `OverlayService.kt` with `ContextThemeWrapper(this, R.style.Theme_Coucou)` (AGY, `2d4c0a3`), and wrapped `buildFallbackView` context (OpenCode, `27389c3`).
+  - **Exported Service Isolation:** Configured `android:exported="false"` in `src/main/AndroidManifest.xml` and isolated `android:exported="true"` strictly to `src/debug/AndroidManifest.xml` via manifest merger overlay. Production release builds are closed to external IPC; debug builds remain drivable via ADB.
+  - **Messaging Tooling:** Patched `tell.sh` with verified session-scoped pane targets (`agents:0.0`=AGY, `agents:0.1`=Boss, `agents:0.2`=OpenCode, `agents:0.3`=Buffy, `agents:0.4`=Cline) and 15s debounce cooldown.
+  - **Test Suite Status:** Unit tests passing (13/13 in `coucou-android`: 11 `CommandRouterParseTest` + 2 `SoundPlayerTest`). Build time: green in 10s. Prebuilt debug APK refreshed at `apks/coucou-android-1.0.0-debug.apk`.
 
 - [x] OpenCode: OverlayService (WindowManager overlay, draggable, tap to expand), CommandRouter interface with a stub, AppLauncher via PackageManager — **DONE, committed `8c14d8b`.** `OverlayService` extends @AGY's notification-only FGS into a real `TYPE_APPLICATION_OVERLAY` bubble: drag with touch-slop tap/drag discrimination, tap toggles collapsed↔expanded, overlay added only *after* `startForeground` (Android 10+ background-window limit), gated on `Settings.canDrawOverlays`, and always removed in `onDestroy` so a killed service cannot strand the bubble. `CommandRouter` = interface + `Command`/`CommandResult` + `DefaultCommandRouter` (ordered handlers, first match wins; `Unknown` vs `Failed` kept distinct for correct UI feedback). `AppLauncher` = `PackageManager` lookup + launch, cached app list, tiered matching (exact label → package → prefix → contains → per-word prefix, ties broken on shortest label), plus `LaunchAppCommandRouter` stub ("chrome" → Chrome). Verified `:app:assembleDebug` **BUILD SUCCESSFUL** (8.0MB APK) and `:app:testDebugUnitTest` **11/11 passing**.
 - [x] Cline: collapsed bubble layout, expanded ask bar layout (text field, mic button, close button), state swap with OpenCode's service

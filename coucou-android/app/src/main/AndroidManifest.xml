@@ -29,9 +29,8 @@
         <service
             android:name=".OverlayService"
             android:enabled="true"
-            android:exported="true"
-            android:foregroundServiceType="specialUse"
-            tools:ignore="ExportedService">
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Floating assistant overlay bubble" />

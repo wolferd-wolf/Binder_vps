@@ -8,10 +8,11 @@ MSG="$*"
 mkdir -p /workspaces/Binder_vps/.agents/inbox /workspaces/Binder_vps/.agents/locks
 
 case "$(echo "$TARGET" | tr '[:upper:]' '[:lower:]')" in
-  agy|antigravity|0)       PANE="0.0"; TARGET_NAME="AGY" ;;
-  buffy|freebuff|1)        PANE="0.1"; TARGET_NAME="Buffy" ;;
-  cline|2)                 PANE="0.2"; TARGET_NAME="Cline" ;;
-  opencode|oc|3)           PANE="0.3"; TARGET_NAME="OpenCode" ;;
+  agy|antigravity|0)   PANE="agents:0.0"; TARGET_NAME="AGY" ;;
+  boss|human|1)        PANE="agents:0.1"; TARGET_NAME="Boss" ;;
+  opencode|oc|2)       PANE="agents:0.2"; TARGET_NAME="OpenCode" ;;
+  buffy|freebuff|3)    PANE="agents:0.3"; TARGET_NAME="Buffy" ;;
+  cline|4)             PANE="agents:0.4"; TARGET_NAME="Cline" ;;
   *)
     echo "Unknown target: $TARGET"
     exit 1
@@ -19,7 +20,7 @@ case "$(echo "$TARGET" | tr '[:upper:]' '[:lower:]')" in
 esac
 
 LOCK_FILE="/workspaces/Binder_vps/.agents/locks/${TARGET_NAME}.lock"
-if [ -f "$LOCK_FILE" ] && [ $(( $(date +%s) - $(stat -c %Y "$LOCK_FILE") )) -lt 45 ]; then
+if [ -f "$LOCK_FILE" ] && [ $(( $(date +%s) - $(stat -c %Y "$LOCK_FILE") )) -lt 15 ]; then
   echo "BLOCKED: @$TARGET_NAME pinged recently. Queued in inbox."
   echo "[$(date -u +"%T")] From @$SENDER: $MSG" >> "/workspaces/Binder_vps/.agents/inbox/${TARGET_NAME}.txt"
   exit 0
@@ -35,7 +36,7 @@ fi
 
 FORMATTED_MSG="[Message from @$SENDER]: $MSG"
 tmux send-keys -t "$PANE" -l "$FORMATTED_MSG"
-sleep 0.3
-tmux send-keys -t "$PANE" Enter
+sleep 0.2
+tmux send-keys -t "$PANE" C-m
 echo "$(date -u +"%Y-%m-%d %H:%M:%S") | @$SENDER -> @$TARGET_NAME | $MSG" >> /workspaces/Binder_vps/.agents/chat.log
-echo "Delivered to @$TARGET_NAME."
+echo "Delivered to @$TARGET_NAME ($PANE)."
