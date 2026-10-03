@@ -57,6 +57,9 @@ class OverlayService : Service() {
     private var router: CommandRouter? = null
     private var appLauncher: AppLauncher? = null
 
+    /** Null-safe: no-ops until @Buffy's sound assets land. See [SoundPlayer]. */
+    private var soundPlayer: SoundPlayer? = null
+
     private var isExpanded = false
     private var isDragging = false
     private var downRawX = 0f
@@ -122,6 +125,7 @@ class OverlayService : Service() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         appLauncher = AppLauncher(this)
         router = DefaultCommandRouter(listOf(LaunchAppCommandRouter(appLauncher!!)))
+        soundPlayer = SoundPlayer(this).also { it.preloadAvailable() }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -195,6 +199,8 @@ class OverlayService : Service() {
             overlayView = view
             isExpanded = expanded
             isExpandedState = expanded
+            // No-op while the sound assets are on hold.
+            playSound(if (expanded) SoundPlayer.Sound.OPEN else SoundPlayer.Sound.POP)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add overlay view", e)
             overlayView = null
@@ -466,11 +472,21 @@ class OverlayService : Service() {
             is CommandResult.Success -> {
                 // Collapse back to the bubble after a successful launch.
                 mainHandler.postDelayed({ showOverlay(expanded = false) }, COLLAPSE_DELAY_MS)
+                playSound(SoundPlayer.Sound.SEND)
                 getString(R.string.command_opened, result.message ?: trimmed)
             }
-            is CommandResult.Failed -> getString(R.string.command_failed, result.reason)
-            is CommandResult.Unknown -> getString(R.string.command_not_found, trimmed)
-            null -> getString(R.string.command_not_found, trimmed)
+            is CommandResult.Failed -> {
+                playSound(SoundPlayer.Sound.ERROR)
+                getString(R.string.command_failed, result.reason)
+            }
+            is CommandResult.Unknown -> {
+                playSound(SoundPlayer.Sound.ERROR)
+                getString(R.string.command_not_found, trimmed)
+            }
+            null -> {
+                playSound(SoundPlayer.Sound.ERROR)
+                getString(R.string.command_not_found, trimmed)
+            }
         }
         Log.i(TAG, "Command '$trimmed' -> $result")
         showResult(message)
@@ -504,6 +520,16 @@ class OverlayService : Service() {
         imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
     }
 
+    private fun releaseSounds() {
+        soundPlayer?.release()
+        soundPlayer = null
+    }
+
+    /** Plays [sound] when assets are available; silently no-ops otherwise. */
+    private fun playSound(sound: SoundPlayer.Sound) {
+        soundPlayer?.play(sound)
+    }
+
     private fun hideKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager ?: return
         overlayView?.let { view ->
@@ -516,6 +542,7 @@ class OverlayService : Service() {
     private fun stopOverlayService() {
         hideKeyboard()
         removeOverlay()
+        releaseSounds()
         isRunning = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -561,6 +588,7 @@ class OverlayService : Service() {
         // stuck on screen with no way to interact with it.
         hideKeyboard()
         removeOverlay()
+        releaseSounds()
         isRunning = false
         super.onDestroy()
     }
