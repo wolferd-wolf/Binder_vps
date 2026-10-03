@@ -7,16 +7,16 @@ import android.util.Log
 /**
  * Plays short UI sounds for the overlay.
  *
- * Sprint 1 has no audio assets yet: @Buffy is holding the sound files pending @Boss's
- * decision on the asset source, though the resource *names* are final
- * (`res/raw/coucou_{greet,open,pop,blip,send,error}`).
- *
- * Sounds are therefore resolved by name at runtime rather than compiled in as
- * `R.raw.*` constants. Referencing `R.raw.coucou_open` today would be a compile error,
- * which would break every other agent's build while the assets are on hold. Name lookup
- * means the sounds start working the moment the files land, with no code change.
+ * Sounds are resolved by *name* at runtime rather than compiled in as `R.raw.*`
+ * constants. Referencing `R.raw.coucou_open` while the asset is absent would be a compile
+ * error, which would break every other agent's build; name lookup means the sounds start
+ * working the moment @Buffy's files land in `res/raw/`, with no code change.
  *
  * Every method is safe to call before the assets exist: it logs once and no-ops.
+ *
+ * The names below are @Buffy's contract (`res/raw/coucou_<name>`), covering both the UI
+ * sounds and the per-state sounds of the character engine
+ * ([CoucouCharacterEngine.STATE_SOUND]).
  */
 class SoundPlayer(context: android.content.Context) {
 
@@ -39,15 +39,34 @@ class SoundPlayer(context: android.content.Context) {
     private val loaded = mutableMapOf<Sound, Int>()
 
     enum class Sound(val rawName: String) {
+        // UI sounds.
         GREET("coucou_greet"),
         OPEN("coucou_open"),
         POP("coucou_pop"),
         BLIP("coucou_blip"),
         SEND("coucou_send"),
-        ERROR("coucou_error");
+        ERROR("coucou_error"),
+        TICK("coucou_tick"),
+
+        // Per-state sounds, matching STATE_SOUND in coucou/windows/src/mochi/engine.ts.
+        WORK("coucou_work"),
+        THINK("coucou_think"),
+        SEARCH("coucou_search"),
+        APPROVAL("coucou_approval"),
+        QUESTION("coucou_question"),
+        FINISH("coucou_finish"),
+        RATE("coucou_rate"),
+        SLEEP("coucou_sleep"),
+        DIZZY("coucou_dizzy"),
+        SLAP("coucou_slap"),
+        ANNOYED("coucou_annoyed");
 
         companion object {
             fun fromNameOrNull(name: String): Sound? = entries.firstOrNull { it.name == name }
+
+            /** Resolves a bare upstream sound name (`"think"`) to the prefixed resource. */
+            fun fromWireNameOrNull(name: String): Sound? =
+                entries.firstOrNull { it.rawName == "coucou_$name" || it.name.equals(name, true) }
         }
     }
 

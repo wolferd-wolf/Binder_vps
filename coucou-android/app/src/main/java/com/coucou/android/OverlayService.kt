@@ -45,6 +45,7 @@ import com.google.android.material.color.MaterialColors
  *  - add/update/remove the overlay view
  *  - drag the bubble, and treat a tap (vs. a drag) as "expand"
  *  - swap between the collapsed bubble and the expanded ask bar
+ *  - drive the procedural character's state machine ([CoucouCharacterView]) and its sounds
  *
  * The service is deliberately the only owner of the window: [onDestroy] removes the
  * view so a stopped service can never leave an orphan overlay on screen.
@@ -61,8 +62,12 @@ class OverlayService : Service() {
     /** Null-safe: no-ops until @Buffy's sound assets land. See [SoundPlayer]. */
     private var soundPlayer: SoundPlayer? = null
 
+    /** @Cline's layouts host this; resolved reflectively and optional in both layouts. */
+    private var characterView: CoucouCharacterView? = null
+
     private var isExpanded = false
     private var isDragging = false
+    private var hasGreeted = false
     private var downRawX = 0f
     private var downRawY = 0f
     private var downTouchX = 0f
@@ -92,12 +97,34 @@ class OverlayService : Service() {
         private const val COLLAPSE_DELAY_MS = 400L
         private const val RESULT_TIMEOUT_MS = 2500L
 
+        /** How long a transient character state (thinking/finished/error) stays on screen. */
+        private const val CHARACTER_RESET_MS = 1600L
+
         var isRunning: Boolean = false
             private set
 
         /** True while the ask bar is showing, for diagnostics and the pass checklist. */
         var isExpandedState: Boolean = false
             private set
+
+        /**
+         * Wire name of the character state currently on screen (`idle`, `thinking`, …), for
+         * @AGY's emulator pass — the character itself cannot be asserted from logcat.
+         */
+        var characterStateName: String = CoucouState.IDLE.wireName
+            private set
+
+        /** Id names @Cline may give the character view; resolved reflectively, all optional. */
+        private val CHARACTER_IDS = listOf("character", "character_view")
+
+        /** States that fall back to a resting state on their own. */
+        private val TRANSIENT_STATES = setOf(
+            CoucouState.THINKING,
+            CoucouState.WORKING,
+            CoucouState.FINISHED,
+            CoucouState.ERROR,
+            CoucouState.DIZZY
+        )
 
         /** Starts the service (no-op if already running). */
         fun start(context: Context) {
@@ -200,8 +227,15 @@ class OverlayService : Service() {
             overlayView = view
             isExpanded = expanded
             isExpandedState = expanded
-            // No-op while the sound assets are on hold.
+            val firstShow = characterStateName == CoucouState.IDLE.wireName && !hasGreeted
+            // No-op while the sound assets are still on hold.
             playSound(if (expanded) SoundPlayer.Sound.OPEN else SoundPlayer.Sound.POP)
+            if (firstShow) {
+                hasGreeted = true
+                // The "coucou" wave: greet on first appearance, then open/pop on swaps.
+                characterView?.greet()
+            }
+            setCharacterState(if (expanded) CoucouState.QUESTION else CoucouState.IDLE)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add overlay view", e)
             overlayView = null
@@ -216,6 +250,7 @@ class OverlayService : Service() {
             // View may already be detached; nothing to do.
         }
         overlayView = null
+        characterView = null
         isExpanded = false
         isExpandedState = false
     }
@@ -310,6 +345,8 @@ class OverlayService : Service() {
         val root = findChild<View>(view, "bubble_root") ?: view
         root.setOnTouchListener { _, event -> onRootTouch(event) }
 
+        bindCharacter(view)
+
         findChild<EditText>(view, "ask_input")?.let { input ->
             if (expanded) {
                 // The window is created ADJUST_NOTHING (see applyFlagsForState), so the
@@ -339,6 +376,63 @@ class OverlayService : Service() {
             result.visibility = View.GONE
         }
     }
+
+    // region character
+
+    /**
+     * Finds @Cline's [CoucouCharacterView] in the inflated layout, if it hosts one.
+     *
+     * The view is optional in both layouts: without it the overlay still works and only the
+     * animation is missing, so a layout that has not landed yet degrades instead of
+     * crashing. Character-originated sounds are forwarded to [playSound] here, which means
+     * the engine itself never needs a [SoundPlayer] and stays unit-testable.
+     */
+    private fun bindCharacter(view: View) {
+        val character = CHARACTER_IDS.firstNotNullOfOrNull { name ->
+            findChild<CoucouCharacterView>(view, name)
+        }
+        characterView = character
+        character?.onEvent = { event ->
+            when (event) {
+                is CoucouCharacterEngine.CharacterEvent.Sound -> playSound(event.sound)
+                CoucouCharacterEngine.CharacterEvent.Dizzy ->
+                    setCharacterState(CoucouState.DIZZY)
+            }
+        }
+        if (character != null) {
+            Log.i(TAG, "Character view bound; state=${character.characterState.wireName}")
+        } else {
+            Log.w(TAG, "No CoucouCharacterView in layout; running without the animation")
+        }
+    }
+
+    /**
+     * Moves the character to [state] and records it for QA.
+     *
+     * @param sound played alongside the transition, if any. Sound assets may not have
+     *   landed yet — [playSound] no-ops in that case.
+     */
+    private fun setCharacterState(state: CoucouState, sound: SoundPlayer.Sound? = null) {
+        characterStateName = state.wireName
+        sound?.let { playSound(it) }
+        val character = characterView ?: return
+        character.setState(state)
+        Log.i(TAG, "Character state -> ${state.wireName}")
+        if (state in TRANSIENT_STATES) scheduleCharacterReset(character)
+    }
+
+    /** Returns the character to a resting state once a transient one has played out. */
+    private fun scheduleCharacterReset(character: CoucouCharacterView) {
+        mainHandler.postDelayed({
+            runCatching {
+                if (characterView === character) {
+                    setCharacterState(if (isExpanded) CoucouState.QUESTION else CoucouState.IDLE)
+                }
+            }
+        }, CHARACTER_RESET_MS)
+    }
+
+    // endregion
 
     /**
      * Name kept distinct from [View.findViewById] so the generic bound is unambiguous.
@@ -397,6 +491,20 @@ class OverlayService : Service() {
                 text = getString(R.string.app_name)
             })
         }
+        // The fallback path builds its own view tree, so it hosts the character itself;
+        // the layouts owned by @Cline carry their own instance.
+        val fallbackCharacter = CoucouCharacterView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(64), dp(64))
+            id = idFor("character")
+        }
+        container.addView(fallbackCharacter, 0)
+        characterView = fallbackCharacter
+        fallbackCharacter.onEvent = { event ->
+            when (event) {
+                is CoucouCharacterEngine.CharacterEvent.Sound -> playSound(event.sound)
+                CoucouCharacterEngine.CharacterEvent.Dizzy -> setCharacterState(CoucouState.DIZZY)
+            }
+        }
         container.setOnTouchListener { _, event -> onRootTouch(event) }
         return container
     }
@@ -452,6 +560,8 @@ class OverlayService : Service() {
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (!isDragging) {
                     // A tap (not a drag) toggles the ask bar.
+                    characterView?.onTap()
+                    playSound(SoundPlayer.Sound.BLIP)
                     showOverlay(expanded = !isExpanded)
                 }
                 isDragging = false
@@ -472,24 +582,27 @@ class OverlayService : Service() {
             return
         }
         val command = CommandRouter.parse(trimmed)
+        // The character reacts before the router runs: a launch is fast, but the thinking
+        // pose is what makes the bubble feel alive while PackageManager does its lookup.
+        setCharacterState(CoucouState.THINKING)
         val result = router?.route(command)
         val message = when (result) {
             is CommandResult.Success -> {
                 // Collapse back to the bubble after a successful launch.
                 mainHandler.postDelayed({ showOverlay(expanded = false) }, COLLAPSE_DELAY_MS)
-                playSound(SoundPlayer.Sound.SEND)
+                setCharacterState(CoucouState.FINISHED, SoundPlayer.Sound.SEND)
                 getString(R.string.command_opened, result.message ?: trimmed)
             }
             is CommandResult.Failed -> {
-                playSound(SoundPlayer.Sound.ERROR)
+                setCharacterState(CoucouState.ERROR, SoundPlayer.Sound.ERROR)
                 getString(R.string.command_failed, result.reason)
             }
             is CommandResult.Unknown -> {
-                playSound(SoundPlayer.Sound.ERROR)
+                setCharacterState(CoucouState.ERROR, SoundPlayer.Sound.ERROR)
                 getString(R.string.command_not_found, trimmed)
             }
             null -> {
-                playSound(SoundPlayer.Sound.ERROR)
+                setCharacterState(CoucouState.ERROR, SoundPlayer.Sound.ERROR)
                 getString(R.string.command_not_found, trimmed)
             }
         }
@@ -548,6 +661,8 @@ class OverlayService : Service() {
         hideKeyboard()
         removeOverlay()
         releaseSounds()
+        hasGreeted = false
+        characterStateName = CoucouState.IDLE.wireName
         isRunning = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
