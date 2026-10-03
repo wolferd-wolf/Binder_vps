@@ -75,12 +75,18 @@ Goal: floating bubble over other apps + Coucou-style animation + sound + type an
 - [ ] AGY: Kotlin project skeleton, manifest (SYSTEM_ALERT_WINDOW + foreground service), overlay permission screen, build + headless emulator, run the pass checklist last
 - [ ] OpenCode: OverlayService (WindowManager overlay, draggable, tap to expand), CommandRouter interface with a stub, AppLauncher via PackageManager
 - [ ] Cline: collapsed bubble layout, expanded ask bar layout (text field, mic button, close button), state swap with OpenCode's service
-- [ ] Buffy: inspect github.com/Louis-CFM/coucou FIRST and report what animation and sound assets are reusable. Do NOT port until Boss replies. Then theme tokens.
+- [x] Buffy: inspected github.com/Louis-CFM/coucou (HEAD `c767db9`) → full report in the [@Buffy] block below (2026-10-03). **HOLDING: no porting, no theme tokens until Boss replies.**
+- [@Buffy]: 📋 **COUCOU ASSET-REUSE REPORT (my Sprint 1 gate item) — upstream `Louis-CFM/coucou` @ `c767db9`** ("NotchBuddy": macOS Swift/AppKit + Windows Tauri/Rust+TS; character "Mochi" lives in the notch, watches coding agents).
 
-Pass checklist:
-1. Bubble shows over another app
-2. Animation and sound play
-3. Typing "chrome" opens Chrome
-4. Service survives going to the home screen
+  **Verdict: source code = MIT ✅ · brand + artwork = ALL RIGHTS RESERVED ❌** via a separate `LICENSE-ASSETS.md` that reserves: the names **"Coucou"/"Mochi"**, the **Mochi character** (design, look, expressions, animations), the **app + menu-bar icons**, **all sounds** in `NotchBuddy/Resources/sounds/`, and images/GIFs in `docs/media/` + `design/`. Author's stated rule for forks: ship with **your own** name, icon, character and sounds. MIT attribution (© 2026 Louis Raillé) required if we port code mechanics.
+
+  1. **Sounds — technically ideal, legally blocked for distribution.** 28 `.wav`, 13.8KB (`tick`) → 222.6KB (`finish`), ≈3.1MB total: annoyed, approval, approve, attach, blip, close, dizzy, error, finish, greet, gulp, hover, love, open, peek, pop, proud, question, rate, search, send, slap, sleep, think, tick, wink, work, yawn. Android drop-in as `res/raw/` + `SoundPool`. Sprint-1-relevant 8 (`pop`/`open`/`peek`/`blip`/`tick`/`send`/`error`/`greet`) ≈ 686KB. ⚠️ Distributing any app containing them needs written permission (raillelouis@gmail.com or a GitHub issue).
+  2. **Animation — NO portable files exist; it is 100% procedural code.** No Lottie/sprite-sheet/GIF anywhere in the repo. Mochi is drawn per-frame: `BotEngine.swift` (63.3KB motion/state math), `BotCanvasView.swift`, `GreetingCanvasView.swift`, `IslandStateMachine.swift`; HTML prototypes in `design/animations/*.html`; Windows port re-implements it in TypeScript. Porting = re-implementing the **mechanics** in Kotlin (`Canvas`/`ValueAnimator`) — MIT-legal with attribution — but our character must be **visually distinct from Mochi**. Sprint-1-cheapest compliant option: own minimal character (rounded blob + eyes; `AnimatedVectorDrawable` bob/blink) — different silhouette, same "alive" feel.
+  3. **Icons:** upstream icons RESERVED. AGY's `coucou-android/` scaffold already generated its own launcher mipmaps — do NOT copy theirs; no action needed.
+  4. **⚠️ Name risk:** "Coucou" is a reserved name. `applicationId com.coucou.android` + visible app name is fine for local dev, but we must rename (or get written permission) **before any distribution** (GitHub release / store).
+
+  **Options for your call:** **(A)** own assets — CC0 SFX pack (e.g., Kenney) + own character: zero license risk, my recommendation for Sprint 1's "animation and sound play" gate; **(B)** in parallel, email/issue the author for written permission to use the real sounds (credit offered) for a later polish pass; **(C)** use their WAVs as local-dev placeholders only if this app never leaves this machine — I advise against normalizing that.
+
+  **Factual note (not blocking):** Cline's `coucou_bubble_collapsed.xml` + `coucou_ask_expanded.xml` are in `ntfy-android/app/src/main/res/layout/` while AGY's skeleton is the standalone `coucou-android/` project. Both layouts are well-formed, `?attr`-clean, already reference my `@dimen/corner_*`/`spacing_*` tokens with declared placeholders awaiting my pass. **My theme tokens will land in `coucou-android/app/src/main/res/values/` unless you point me at the ntfy-hosted variant.** — @Buffy
 
 Rules: finish and commit any current task first. Radio silence until 100% done. Boss message to you means check this section.
