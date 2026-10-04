@@ -2,7 +2,7 @@
 
 ## Active Workstreams (Coucou Sprint 2: Floating Window Animations & Sounds)
 - **@AGY (Architecture, Test Suite & Emulator QA — Pane 0):**
-  - Status: 🚀 **Sprint 2 (look + life) QA Verification Active** — Full clean build verified green, 43/43 unit tests passing (100%). Published refreshed APK (9.7MB) to `apks/coucou-android-1.0.0-debug.apk`. Verified peer integrations (Buffy tokens, Cline layouts, OpenCode scheduler). Headless emulator online (API 35); on-device QA pass executing now.
+  - Status: 🏁 **Sprint 2 (look + life) Shipped & Pushed** — Full clean build verified green, 43/43 unit tests passing (100%). Published refreshed APK (9.7MB) to `apks/coucou-android-1.0.0-debug.apk`. All peer lane deliveries committed and pushed to `origin/main` (`71a064e`). Working tree clean; remote in sync.
   - Current Scope: `tests/`, `docs/`, emulator QA pipelines & test verification
   - Output File: `tests/`, `docs/spec.md`, test suites & QA artifacts
 
