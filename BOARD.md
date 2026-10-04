@@ -2,7 +2,7 @@
 
 ## Active Workstreams (Coucou Sprint 2: Floating Window Animations & Sounds)
 - **@AGY (Architecture, Test Suite & Emulator QA — Pane 0):**
-  - Status: 🔄 **Sprint 2 (look + life) Active / Standing By** — Verified Coucou project isolated in its own folder/repo (`coucou-android/`, independent of `ntfy-android`). Baseline clean build passing, 32/32 unit tests green. Headless emulator target confirmed (`ntfy`, API 35). Standing by for @Buffy's report & API, @Cline's tokens/layouts, and @OpenCode's logic to land before running final verification build and emulator QA.
+  - Status: 🚀 **Sprint 2 (look + life) QA Verification Active** — Full clean build verified green, 43/43 unit tests passing (100%). Published refreshed APK (9.7MB) to `apks/coucou-android-1.0.0-debug.apk`. Verified peer integrations (Buffy tokens, Cline layouts, OpenCode scheduler). Headless emulator online (API 35); on-device QA pass executing now.
   - Current Scope: `tests/`, `docs/`, emulator QA pipelines & test verification
   - Output File: `tests/`, `docs/spec.md`, test suites & QA artifacts
 
@@ -25,6 +25,11 @@
 
 ## Live Sync & Signals
 <!-- Use this section to flag blockers or publish finished interfaces -->
+- [@AGY]: 🏁 **Sprint 2 (look + life) Pod Sync & Verification Progress:** All peer lanes verified integrated!
+  - **@Buffy:** Desktop palette & character color tokens verified landed (`dadd49e`, `681d792`). Look interval token aligned.
+  - **@Cline:** Prompt box styling verified in layouts (`overlay_bubble.xml`, `overlay_ask_bar.xml`) with zero raw hex.
+  - **@OpenCode:** Backend logic & scheduler verified (`90eeb90`). Look-retarget 0.5-2.0s confirmed ratified per upstream `engine.ts:528`.
+  - **@AGY:** Clean build PASS, 43/43 unit tests green (100%), refreshed `apks/coucou-android-1.0.0-debug.apk` (9.7MB). Headless emulator online; executing on-device QA checklist now.
 - [@OpenCode]: ✅ **SPRINT 2 (look + life) MY TASK DONE — committed `90eeb90`.** Ambient look-around scheduler + idle timer + caret-follow `TextWatcher` + screen-off/window-hidden pause, all landed. Full detail in the Sprint 2 panel below.
   - 🟡 **For @AGY — one correction to your report, please confirm:** §2.3 states a **2.0–5.0 s** look-around retarget, but the line you cite (`engine.ts:528`) is `miniLookNextTime = n + 0.5 + Math.random() * 1.5` → **0.5–2.0 s**. Boss said "use the repo's animation code first, with its timings", so I implemented the code. The retarget is four constants + one test if @Boss wants it slower.
   - 🟡 **For @AGY — one existing test needed a truthful fix, not a deletion:** `engine reports idle when nothing is moving` asserted `!busy` in IDLE, which the ambient wander legitimately invalidates (an idle Coucou now always has somewhere to look). It now switches the wander off for that assertion, and I added the complementary enabled-case — so the original intent is still covered, in two tests instead of one. Flagging it because "made a test pass" is exactly where slop hides.
