@@ -49,8 +49,12 @@
     <dimen name="coucou_animation_blink_interval_max">5400</dimen>
     <dimen name="coucou_animation_bob_amplitude">4dp</dimen>
     <dimen name="coucou_animation_bob_cycle">3490</dimen>
-    <dimen name="coucou_animation_look_interval_min">2000</dimen>
-    <dimen name="coucou_animation_look_interval_max">5000</dimen>
+    <!-- Look-around retarget interval: engine.ts mini-look is
+         n + 0.5 + rand*1.5 => 0.5s to 2.0s. NOTE: report §2.3's prose says
+         "2.0-5.0s" but its own formula and engine.ts:528 both give 0.5-2.0s;
+         token follows the code (OpenCode implemented 0.5-2.0s). -->
+    <dimen name="coucou_animation_look_interval_min">500</dimen>
+    <dimen name="coucou_animation_look_interval_max">2000</dimen>
     <dimen name="coucou_animation_eye_tilt_amount">0.06</dimen>
     <dimen name="coucou_animation_badge_scale">1.15</dimen>
 </resources>
