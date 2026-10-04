@@ -2,7 +2,7 @@
 
 ## Active Workstreams (Coucou Sprint 2: Floating Window Animations & Sounds)
 - **@AGY (Architecture, Test Suite & Emulator QA — Pane 0):**
-  - Status: 🏁 **Sprint 2 Complete** — Verified full clean build, 32/32 tests green, refreshed published APK to `apks/coucou-android-1.0.0-debug.apk` (9.7MB), committed & pushed to `origin/main` (`42a0e65`). No active commands; standing by.
+  - Status: 🔄 **Sprint 2 (look + life) Active / Standing By** — Verified Coucou project isolated in its own folder/repo (`coucou-android/`, independent of `ntfy-android`). Baseline clean build passing, 32/32 unit tests green. Headless emulator target confirmed (`ntfy`, API 35). Standing by for @Buffy's report & API, @Cline's tokens/layouts, and @OpenCode's logic to land before running final verification build and emulator QA.
   - Current Scope: `tests/`, `docs/`, emulator QA pipelines & test verification
   - Output File: `tests/`, `docs/spec.md`, test suites & QA artifacts
 
@@ -25,6 +25,7 @@
 
 ## Live Sync & Signals
 <!-- Use this section to flag blockers or publish finished interfaces -->
+- [@AGY]: ⏱️ **Sprint 2 (look + life) Lane Status:** Verified Coucou project isolation in `/workspaces/Binder_vps/coucou-android` (independent of `ntfy-android`). Clean build passing, 32/32 unit tests green. Headless emulator target confirmed (`ntfy`, Android 15/API 35). Standing by for @Buffy's report & CharacterView API, @Cline's tokens/layout updates, and @OpenCode's scheduler/TextWatcher logic to land before running final verification build and emulator QA.
 - [@AGY]: 🛑 **Shutdown wrap (5-min alert):** COUCOU Sprint 2 CLOSED & SHIPPED — Full clean build PASS; 32/32 unit tests green (100%); 9.7MB APK published to `apks/coucou-android-1.0.0-debug.apk`; commits pushed to `origin/main` (`eb905aa`, `42a0e65`). Working tree clean; zero active background tasks. Standing by.
 - [System]: All 3 streams active.
 - [@OpenCode]: 🔌 **COUCOU SPRINT 2 INTERFACE CONTRACT PUBLISHED (consumers: @Cline layouts ✅ already bound, @Buffy tokens, @AGY QA/tests).** My lane is done; everything below is stable and compiled.
@@ -159,6 +160,7 @@ Goal: floating bubble over other apps + Coucou-style animation + sound + type an
   - **Still HOLDING:** theme tokens + any asset porting await @Boss. — @Buffy
 
 - [@Cline]: ✅ **Ready for new phase.** Coucou app confirmed working by @Boss. My lane (`coucou-android/app/src/main/res/layout/` → `overlay_bubble.xml` + `overlay_ask_bar.xml`) is committed, bound by @OpenCode's service (all 5 IDs resolve), `assembleDebug` green. No open edits in my scope, working tree clean on my files. Awaiting new-phase tasking. — @Cline
+- [@Cline]: ⏳ **Holding per @Boss 11:46 order** — Sprint 2 layouts DONE, no edits pending in my scope; waiting for @Buffy's report + API before any new layout work. No messages sent (radio silence). — @Cline
 - [@AGY]: 🚀 **PHASE 2 / SPRINT 2 KICKOFF: Upstream Coucou Animation & Audio Integration** (2026-10-03 per @Boss):
   - Cloned upstream repository to `/workspaces/Binder_vps/coucou`.
   - Research completed: 28 `.wav` sounds in `coucou/NotchBuddy/Resources/sounds/`; full procedural animation engine in `coucou/windows/src/mochi/engine.ts` (TS/Canvas 2D) and `coucou/NotchBuddy/Sources/App/BotEngine.swift` (Swift/Canvas).
@@ -200,3 +202,14 @@ Goal: floating bubble over other apps + Coucou-style animation + sound + type an
 
 Rules: finish and commit any current task first. Radio silence until 100% done. Boss message to you means check this section.
 
+## COUCOU-ANDROID, Sprint 2 (look + life)
+Spec:
+- Floating window, collapsed bubble and ask bar: follow how the Coucou desktop prompt box looks (colors, shape, corner radius, padding, shadow, layout). Use Buffy's report. Do NOT use a colour or shape we made up.
+- Animations: use the Coucou repo's animation code first (idle breathing, blinking, eyes following, etc., with its timings). Only build our own for what the repo does not have.
+- Still wanted if the repo lacks them: gentle floating bob (about 4dp, about 3s cycle, infinite), look left/right/up/down every 2-5s, blink every 3-6s, eyes follow the caret while typing (overrides idle).
+- Pause all animation when the screen is off or the window is hidden.
+
+- [ ] Buffy: read windows/ in github.com/Louis-CFM/coucou. Report (1) prompt box design values, (2) which animations exist in the code and their timings. Then build CharacterView API: setState(IDLE, TYPING), setLookAt(x, y).
+- [ ] OpenCode: idle timer and look-around scheduler, TextWatcher on the ask bar calling setLookAt for caret follow, pause on screen off. Wait for Buffy's API.
+- [ ] Cline: apply Buffy's prompt box report to the bubble and ask bar via colour/shape tokens.
+- [ ] AGY: keep Coucou in its own folder/repo, not inside ntfy-android. Build, test on emulator, run the checks after all done.
