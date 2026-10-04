@@ -17,9 +17,11 @@
         android:id="@+id/bubble_card"
         android:layout_width="56dp"
         android:layout_height="56dp"
-        app:cardCornerRadius="28dp"
+        app:cardCornerRadius="20dp"
         app:cardElevation="6dp"
-        app:cardBackgroundColor="?attr/colorPrimaryContainer">
+        app:cardBackgroundColor="@color/coucou_card"
+        app:strokeWidth="1dp"
+        app:strokeColor="@color/coucou_hairline">
 
         <com.coucou.android.CoucouCharacterView
             android:id="@+id/coucou_character"
