@@ -61,7 +61,7 @@ From `coucou/windows/src/mochi/engine.ts`:
 
 ### 2.3 Eye Look-Around (Wandering)
 * **Idle Target:** Random target `x ∈ [-0.88, 0.88]`, `y ∈ [-0.55, 0.45]`.
-* **Schedule Interval:** Retargets every **2.0s to 5.0s** (`now + 0.5 + rand(0, 1.5)` up to 4s in ambient).
+* **Schedule Interval:** Retargets every **0.5s to 2.0s** (`now + 0.5 + rand(0, 1.5)` per upstream `engine.ts:528`), ratified and implemented by @OpenCode (`90eeb90`) and @Buffy (`681d792`).
 * **Interpolation:** Smooth spring-damped tracking:
   * `yaw += (tgYaw - yaw) * (1 - 0.0025^dt)`
   * `pitch += (tgPitch - pitch) * (1 - 0.0025^dt)`
