@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- M3 theme mapping (consumed by values/themes.xml — do not remove). -->
     <color name="coucou_primary">#6750A4</color>
     <color name="coucou_on_primary">#FFFFFF</color>
     <color name="coucou_primary_container">#EADDFF</color>
@@ -8,5 +9,51 @@
     <color name="coucou_on_surface">#1D1B20</color>
     <color name="coucou_surface_container">#F3EDF7</color>
     <color name="coucou_outline">#79747E</color>
-    <color name="coucou_bubble_bg">#6750A4</color>
+
+    <!-- COUCOU desktop prompt-box palette.
+         Source: docs/coucou_desktop_prompt_box_and_animation_report.md §1.1
+         (upstream coucou/windows/src/style.css custom properties: card,
+         card-flat, ink, ink-2, dim-3, hairline, plus chat-bar input wash and
+         send button).
+         Consumers: @Cline's overlay_bubble / overlay_ask_bar via @color/ refs. -->
+    <color name="coucou_card">#141518</color>
+    <color name="coucou_card_flat">#0E0F11</color>
+    <color name="coucou_ink">#F5F6F8</color>
+    <color name="coucou_ink_2">#F1F2F4</color>
+    <color name="coucou_dim_3">#6B7079</color>
+    <color name="coucou_hairline">#09FFFFFF</color>
+    <color name="coucou_input_bg">#12FFFFFF</color>
+    <color name="coucou_wash">#21FFFFFF</color>
+    <color name="coucou_send_bg">#F5F6F8</color>
+    <color name="coucou_send_icon">#0B0C0E</color>
+
+    <!-- Bubble/ask-bar card fill, aligned with the desktop "card" (#141518). -->
+    <color name="coucou_bubble_bg">#141518</color>
+
+    <!-- Character palette. CoucouCharacterView.resolvePalette() resolves these BY
+         NAME, so the names must stay exactly as listed in its TOKEN_NAMES table.
+         Body/eye/props are the upstream engine.ts palette defaults; note the
+         character ink is the dark EYE colour — deliberately distinct from the
+         prompt-box text ink (coucou_ink) above. -->
+    <color name="coucou_character_base_top">#EDEDEF</color>
+    <color name="coucou_character_base_bottom">#C4C5CA</color>
+    <color name="coucou_character_ink">#1A1412</color>
+    <color name="coucou_character_heart">#FF4D6D</color>
+    <color name="coucou_character_star">#F7B32B</color>
+    <color name="coucou_character_sweat">#7CC7FF</color>
+    <color name="coucou_character_sleep">#D1DBEB</color>
+
+    <!-- Character state colours — 1:1 with STATE_COLORS in
+         coucou/windows/src/mochi/engine.ts (and CoucouCharacterEngine.kt). -->
+    <color name="coucou_character_idle">#E6E9EE</color>
+    <color name="coucou_character_working">#3B9EFF</color>
+    <color name="coucou_character_thinking">#8B5CF6</color>
+    <color name="coucou_character_searching">#6365F2</color>
+    <color name="coucou_character_approval">#F5A524</color>
+    <color name="coucou_character_question">#22D3EE</color>
+    <color name="coucou_character_error">#F4505E</color>
+    <color name="coucou_character_finished">#34D499</color>
+    <color name="coucou_character_ratelimit">#FB923C</color>
+    <color name="coucou_character_sleeping">#94A2B8</color>
+    <color name="coucou_character_dizzy">#F472B6</color>
 </resources>
