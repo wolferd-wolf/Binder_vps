@@ -15,6 +15,7 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -69,6 +70,25 @@ class OverlayService : Service() {
     /** @Cline's layouts host this; resolved reflectively and optional in both layouts. */
     private var characterView: CoucouCharacterView? = null
 
+    /**
+     * Sprint 3 (Plan A): the upstream desktop island running in a WebView, and the bridge
+     * that stands in for Tauri. Null when the WebView could not be created, in which case
+     * the native bubble below is used instead.
+     */
+    private var island: CoucouIslandWebView? = null
+    private var islandBridge: IslandBridgeHost? = null
+
+    /** True while the island is in charge of the window, so expand/collapse comes from the page. */
+    private var islandActive = false
+
+    /** Island geometry pushed by the page (CSS px), applied to [layoutParams] on the main thread. */
+    private var islandWidthCss = IslandBridgeCommands.STAGE_WIDTH_CSS.toDouble()
+    private var islandHeightCss = 0.0
+    private var islandCollapsed = false
+
+    /** Whether the window may take keyboard focus right now; mirrors the chat field. */
+    private var islandFocused = false
+
     private var isExpanded = false
     private var isDragging = false
     private var hasGreeted = false
@@ -108,6 +128,12 @@ class OverlayService : Service() {
         private const val COLLAPSE_DELAY_MS = 400L
         private const val RESULT_TIMEOUT_MS = 2500L
 
+        /**
+         * Grace period between the page reporting ready and revealing the island, so the
+         * reveal lands after the boot sequence has finished wiring its listeners.
+         */
+        private const val ISLAND_REVEAL_DELAY_MS = 300L
+
         /** How long a transient character state (thinking/finished/error) stays on screen. */
         private const val CHARACTER_RESET_MS = 1600L
 
@@ -129,11 +155,21 @@ class OverlayService : Service() {
         var screenOn: Boolean = true
             private set
 
-        /**
-         * Full character diagnostic for @AGY's emulator pass, e.g.
+        /** Full character diagnostic for @AGY's emulator pass, e.g.
          * `adb shell ... | grep "CoucouOverlayService"`. Empty when no character view is bound.
          */
         var characterDescription: String = ""
+            private set
+
+        /**
+         * Island (Plan A) diagnostic for @AGY's emulator pass: whether the WebView is
+         * hosting, the rect it last pushed and whether it holds keyboard focus.
+         */
+        var islandDescription: String = "island: off"
+            private set
+
+        /** True while the WebView island is hosting the overlay instead of the native bubble. */
+        var islandHosting: Boolean = false
             private set
 
         /** Id names @Cline may give the character view; resolved reflectively, all optional. */
@@ -176,7 +212,82 @@ class OverlayService : Service() {
         appLauncher = AppLauncher(this)
         router = DefaultCommandRouter(listOf(LaunchAppCommandRouter(appLauncher!!)))
         soundPlayer = SoundPlayer(this).also { it.preloadAvailable() }
+        islandBridge = IslandBridgeHost(this, IslandListener())
         registerScreenReceiver()
+    }
+
+    /**
+     * What the island asks the window for.
+     *
+     * Every method here is called on the WebView's JavaScript thread, so each one hops to
+     * the main thread before touching [layoutParams] or the window. `onChatQuery` is the
+     * exception: the page is blocked on its answer, and [CommandRouter] is synchronous.
+     */
+    private inner class IslandListener : IslandBridgeHost.Listener {
+
+        override fun onIslandRect(widthCss: Double, heightCss: Double) {
+            islandWidthCss = widthCss
+            islandHeightCss = heightCss
+            // A non-zero height means the island is on screen, so it has left the
+            // collapsed wake strip.
+            if (heightCss > 0 && islandCollapsed) {
+                islandCollapsed = false
+            }
+            mainHandler.post { applyIslandGeometry() }
+        }
+
+        override fun onIslandCollapsed(collapsed: Boolean) {
+            islandCollapsed = collapsed
+            mainHandler.post { applyIslandGeometry() }
+        }
+
+        override fun onIslandFocus(focused: Boolean) {
+            islandFocused = focused
+            mainHandler.post { setIslandFocus(focused) }
+        }
+
+        override fun onChatQuery(query: String): String {
+            // Runs on the JS thread: routing is blocking PackageManager work, which is
+            // exactly what the page is waiting for.
+            val result = router?.route(query)
+            val text = when (result) {
+                is CommandResult.Success -> getString(R.string.command_opened, result.message ?: query)
+                is CommandResult.Failed -> getString(R.string.command_failed, result.reason)
+                else -> getString(R.string.command_not_found, query)
+            }
+            setCharacterState(
+                if (result is CommandResult.Success) CoucouState.FINISHED else CoucouState.ERROR,
+                if (result is CommandResult.Success) SoundPlayer.Sound.SEND else SoundPlayer.Sound.ERROR
+            )
+            Log.i(TAG, "Island command '$query' -> $result")
+            return text
+        }
+
+        override fun onOpenUrl(url: String) {
+            mainHandler.post { openExternalUrl(url) }
+        }
+
+        override fun onSettingsChanged(settings: IslandBridgeCommands.IslandSettings) {
+            Log.i(TAG, "Island settings -> sound=${settings.soundEnabled} " +
+                "volume=${settings.soundVolume} autoClose=${settings.autoCloseSeconds}s")
+            // The page applies its own settings on the echoed event; nothing else to do
+            // natively, but the character sound follows the same switch.
+            if (!settings.soundEnabled) releaseSounds()
+        }
+
+        override fun screen() = IslandBridgeCommands.Screen(
+            widthPx = resources.displayMetrics.widthPixels,
+            heightPx = resources.displayMetrics.heightPixels,
+            density = resources.displayMetrics.density
+        )
+
+        override fun onPageLog(message: String) {
+            Log.i(TAG, "Island page: $message")
+        }
+
+        override fun onQuitRequested() {
+            mainHandler.post { stopOverlayService() }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -236,15 +347,27 @@ class OverlayService : Service() {
         }
         val current = overlayView
         if (current != null) {
-            if (isExpanded == expanded) {
+            if (islandActive) {
+                // The page owns its own collapsed/expanded cycle; a repeated request with
+                // the same intent is still handled, because ACTION_EXPAND from the
+                // notification means "show the chat", not "re-add the window".
+                if (isExpanded == expanded) {
+                    island?.reveal(if (expanded) CoucouIslandWebView.VIEW_CHAT else CoucouIslandWebView.VIEW_HOME)
+                    return
+                }
+            } else if (isExpanded == expanded) {
                 return
             }
             wm.removeView(current)
             overlayView = null
         }
-        val view = inflateBubble(expanded)
+        val view = inflateIsland() ?: inflateBubble(expanded)
         val params = layoutParams ?: buildLayoutParams().also { layoutParams = it }
-        applyFlagsForState(params, expanded)
+        if (islandActive) {
+            applyIslandParams(params)
+        } else {
+            applyFlagsForState(params, expanded)
+        }
         try {
             wm.addView(view, params)
             overlayView = view
@@ -253,25 +376,173 @@ class OverlayService : Service() {
             // Window is up: the character may run again even if the screen had been off.
             characterView?.setHostVisible(true)
             characterView?.let { characterDescription = CoucouCharacterView.describeState(it) }
-            val firstShow = characterStateName == CoucouState.IDLE.wireName && !hasGreeted
-            // No-op while the sound assets are still on hold.
-            playSound(if (expanded) SoundPlayer.Sound.OPEN else SoundPlayer.Sound.POP)
-            if (firstShow) {
-                hasGreeted = true
-                // The "coucou" wave: greet on first appearance, then open/pop on swaps.
-                characterView?.greet()
+            if (islandActive) {
+                island?.resume()
+                island?.load()
+            } else {
+                val firstShow = characterStateName == CoucouState.IDLE.wireName && !hasGreeted
+                // No-op while the sound assets are still on hold.
+                playSound(if (expanded) SoundPlayer.Sound.OPEN else SoundPlayer.Sound.POP)
+                if (firstShow) {
+                    hasGreeted = true
+                    // The "coucou" wave: greet on first appearance, then open/pop on swaps.
+                    characterView?.greet()
+                }
+                setCharacterState(if (expanded) CoucouState.QUESTION else CoucouState.IDLE)
             }
-            setCharacterState(if (expanded) CoucouState.QUESTION else CoucouState.IDLE)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add overlay view", e)
             overlayView = null
         }
     }
 
+    /**
+     * The island in a WebView, or null to let the caller fall back to the native bubble.
+     *
+     * A device with no WebView provider, or a WebView that cannot be constructed, must
+     * still show the overlay — so this is a soft failure, not a fatal one.
+     */
+    private fun inflateIsland(): View? {
+        val host = islandBridge ?: return null
+        if (island != null) return island!!.view
+        val created = CoucouIslandWebView.create(this, host) ?: run {
+            Log.w(TAG, "Island WebView unavailable; falling back to the native bubble")
+            return null
+        }
+        created.onReady = { mainHandler.postDelayed({ revealIsland() }, ISLAND_REVEAL_DELAY_MS) }
+        created.onExternalUrl = { url -> mainHandler.post { openExternalUrl(url) } }
+        island = created
+        islandActive = true
+        islandHosting = true
+        islandDescription = "island: on loading"
+        Log.i(TAG, "Island WebView created; loading ${CoucouIslandWebView.PAGE_URL}")
+        return created.view
+    }
+
+    /**
+     * Opens the island on its home view once the page has booted.
+     *
+     * The desktop build is woken by a `tray` event; with no host events arriving the
+     * island would play its greeting and then retract, so the same event is emitted here.
+     */
+    private fun revealIsland() {
+        val page = island ?: return
+        if (overlayView == null) return
+        page.reveal(CoucouIslandWebView.VIEW_HOME)
+        setCharacterState(CoucouState.IDLE)
+    }
+
+    /** Sizes and positions the window around the rect the page pushed. */
+    private fun applyIslandGeometry() {
+        val params = layoutParams ?: return
+        val view = overlayView ?: return
+        if (!islandActive) return
+        val screenWidth = resources.displayMetrics.widthPixels
+        val bounds = if (islandCollapsed) {
+            IslandBridgeCommands.collapsedWindowBounds(screenWidth, screenWidth)
+        } else {
+            IslandBridgeCommands.windowBounds(islandWidthCss, islandHeightCss, screenWidth, screenWidth)
+        }
+        params.width = bounds[0]
+        params.height = bounds[1]
+        params.x = bounds[2]
+        islandHosting = true
+        islandDescription = "island: on rect=${islandWidthCss}x${islandHeightCss}css " +
+            "window=${bounds[0]}x${bounds[1]}px x=${bounds[2]} " +
+            "collapsed=$islandCollapsed focus=$islandFocused"
+        runCatching { windowManager?.updateViewLayout(view, params) }
+            .onFailure { Log.w(TAG, "Could not resize the island window", it) }
+    }
+
+    private fun applyIslandParams(params: WindowManager.LayoutParams) {
+        params.width = WindowManager.LayoutParams.WRAP_CONTENT
+        params.height = WindowManager.LayoutParams.WRAP_CONTENT
+        params.gravity = Gravity.TOP or Gravity.START
+        if (params.y == 0 && params.x == 0) {
+            params.y = dp(120)
+        }
+        // The WebView measures itself, so the window starts on its natural size and the
+        // page's first rect settles it.
+        params.flags = WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
+        islandFocused = false
+    }
+
+    /**
+     * Gives the window keyboard focus when the chat field asks for it, and takes it back
+     * when it does not.
+     *
+     * This is the part that makes typing work at all: with `FLAG_NOT_FOCUSABLE` the
+     * overlay never receives key events, so the page's `<input>` cannot be edited. The
+     * flag change has to be re-applied by re-adding the window, and the IME has to be
+     * requested after that, or the request is dropped for having no focus.
+     */
+    private fun setIslandFocus(focused: Boolean) {
+        val params = layoutParams ?: return
+        val view = overlayView ?: return
+        if (!islandActive) return
+        if (islandFocused == focused) return
+        islandFocused = focused
+        val flags = params.flags
+        params.flags = if (focused) {
+            (flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()) or
+                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM.inv()
+        } else {
+            flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        }
+        params.softInputMode = if (focused) {
+            // Resize, so the island is pushed up instead of being covered by the keyboard.
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        } else {
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
+        }
+        val windowManager = windowManager
+        val webView = island?.view
+        if (windowManager != null && webView != null) {
+            runCatching {
+                windowManager.removeView(view)
+                windowManager.addView(view, params)
+            }.onFailure {
+                Log.w(TAG, "Could not switch window focus for the island", it)
+                return
+            }
+            if (focused) {
+                webView.requestFocus()
+                mainHandler.postDelayed({
+                    if (islandFocused && overlayView === view) {
+                        showKeyboard(webView)
+                    }
+                }, KEYBOARD_SHOW_DELAY_MS)
+            } else {
+                hideKeyboard()
+            }
+        }
+        Log.i(TAG, "Island keyboard focus -> $focused")
+    }
+
+    /** Opens a URL outside the overlay; `coucou://settings` comes back to this app. */
+    private fun openExternalUrl(url: String) {
+        val intent = if (url == IslandBridgeHost.SETTINGS_DEEP_LINK) {
+            // The desktop build opens a second settings window; on Android that is this
+            // app's own screen, which is already behind the overlay.
+            packageManager.getLaunchIntentForPackage(packageName)
+        } else {
+            Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        if (intent == null) {
+            Log.w(TAG, "Nothing on this device can open $url")
+            return
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        runCatching { startActivity(intent) }
+            .onFailure { Log.w(TAG, "Could not open $url", it) }
+    }
+
     private fun removeOverlay() {
         val view = overlayView ?: return
         // Window hidden is the other pause trigger; stop the loop before the view detaches.
         characterView?.setHostVisible(false)
+        island?.pause()
         try {
             windowManager?.removeView(view)
         } catch (_: Exception) {
@@ -282,6 +553,22 @@ class OverlayService : Service() {
         characterDescription = ""
         isExpanded = false
         isExpandedState = false
+    }
+
+    /**
+     * Tears the island down for good. The WebView cannot be reused once destroyed, so
+     * the next start builds a fresh one.
+     */
+    private fun releaseIsland() {
+        island?.destroy()
+        island = null
+        islandActive = false
+        islandFocused = false
+        islandCollapsed = false
+        islandHosting = false
+        islandDescription = "island: off"
+        islandWidthCss = IslandBridgeCommands.STAGE_WIDTH_CSS.toDouble()
+        islandHeightCss = 0.0
     }
 
     private fun buildLayoutParams(): WindowManager.LayoutParams {
@@ -555,6 +842,10 @@ class OverlayService : Service() {
         screenOn = on
         characterView?.setScreenOn(on)
         characterView?.let { characterDescription = CoucouCharacterView.describeState(it) }
+        // Same rule for the island: no rAF and no timers behind a locked screen.
+        if (islandActive) {
+            if (on) island?.resume() else island?.pause()
+        }
         Log.i(TAG, "Screen ${if (on) "on" else "off"}; animation paused=${!on}")
     }
 
@@ -761,9 +1052,9 @@ class OverlayService : Service() {
         }
     }
 
-    private fun showKeyboard(input: EditText) {
+    private fun showKeyboard(target: View) {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager ?: return
-        imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+        imm.showSoftInput(target, InputMethodManager.SHOW_IMPLICIT)
     }
 
     private fun releaseSounds() {
@@ -778,9 +1069,11 @@ class OverlayService : Service() {
 
     private fun hideKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager ?: return
-        overlayView?.let { view ->
-            findChild<EditText>(view, "ask_input")?.let { imm.hideSoftInputFromWindow(it.windowToken, 0) }
-        }
+        val view = overlayView ?: return
+        // The island's own WebView carries the focus in island mode; the native bubble
+        // keeps an EditText.
+        val target: View = island?.view ?: findChild<EditText>(view, "ask_input") ?: return
+        imm.hideSoftInputFromWindow(target.windowToken, 0)
     }
 
     // endregion
@@ -788,6 +1081,7 @@ class OverlayService : Service() {
     private fun stopOverlayService() {
         hideKeyboard()
         removeOverlay()
+        releaseIsland()
         releaseSounds()
         unregisterScreenReceiver()
         hasGreeted = false
@@ -838,6 +1132,7 @@ class OverlayService : Service() {
         // stuck on screen with no way to interact with it.
         hideKeyboard()
         removeOverlay()
+        releaseIsland()
         releaseSounds()
         unregisterScreenReceiver()
         isRunning = false
