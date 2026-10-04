@@ -154,6 +154,9 @@ class CoucouCharacterEngineTest {
     fun `engine reports idle when nothing is moving`() {
         val engine = engine()
         engine.setState(CoucouState.IDLE)
+        // The ambient look-around is motion in its own right, so "nothing moving" has to be
+        // asserted with it switched off; see the look-around region for the enabled case.
+        engine.ambientLook = false
         engine.step(1f)
         assertFalse("idle character should not be busy", engine.busy)
     }
@@ -258,6 +261,170 @@ class CoucouCharacterEngineTest {
         // A capsule, not a circle: wider than tall but bounded.
         assertTrue("outline should be about rx-sized", maxRadius in 1.0f..1.3f)
         assertTrue("outline must not be empty", points[0] != 0f || points[1] != 0f)
+    }
+
+    // endregion
+
+    // region look-around, caret follow & idle timer
+
+    @Test
+    fun `ambient look-around wanders inside the upstream ranges`() {
+        val engine = engine()
+        var retargets = 0
+        var lastTarget = Float.NaN
+        repeat(60 * 60) {
+            engine.update(1f / 60f)
+            val x = engine.gazeX
+            val y = engine.gazeY
+            assertTrue("gaze x out of range: $x", x >= CoucouCharacterEngine.LOOK_MIN_X)
+            assertTrue("gaze x out of range: $x", x <= CoucouCharacterEngine.LOOK_MAX_X)
+            assertTrue("gaze y out of range: $y", y >= CoucouCharacterEngine.LOOK_MIN_Y)
+            assertTrue("gaze y out of range: $y", y <= CoucouCharacterEngine.LOOK_MAX_Y)
+            if (x != lastTarget) {
+                retargets++
+                lastTarget = x
+            }
+        }
+        // 60 s of idle at a 0.5-2.0 s cadence: many retargets, and never a stuck gaze.
+        assertTrue("should retarget often, got $retargets", retargets > 20)
+    }
+
+    @Test
+    fun `ambient look-around can be switched off`() {
+        val engine = engine()
+        engine.ambientLook = false
+        repeat(60 * 10) { engine.update(1f / 60f) }
+        assertEquals(0f, engine.gazeX, 0f)
+        assertEquals(0f, engine.gazeY, 0f)
+    }
+
+    @Test
+    fun `caret follow overrides the ambient gaze and releases after the hold`() {
+        val engine = engine()
+        repeat(60 * 5) { engine.update(1f / 60f) }
+        val ambient = engine.gazeX
+        assertTrue("precondition: ambient gaze should have wandered", ambient != 0f)
+
+        engine.setLook(0.8f, CoucouCharacterEngine.CARET_LOOK_Y)
+        assertTrue(engine.lookOverride)
+        assertEquals(0.8f, engine.gazeX, 0f)
+
+        // Still held just before the 1.5 s deadline, released just after.
+        engine.step(1.4f)
+        assertTrue("hold must outlive a fast typist's gap", engine.lookOverride)
+        engine.step(0.2f)
+        assertFalse("hold expires at CARET_LOOK_HOLD", engine.lookOverride)
+        // The wander owns the gaze again and may well have picked a new target meanwhile.
+        assertTrue(
+            "gaze must return to the wander range, was ${engine.gazeX}",
+            engine.gazeX >= CoucouCharacterEngine.LOOK_MIN_X &&
+                engine.gazeX <= CoucouCharacterEngine.LOOK_MAX_X
+        )
+        assertTrue("gaze must not stay pinned at the caret", engine.gazeX != 0.8f)
+    }
+
+    @Test
+    fun `each keystroke refreshes the caret hold`() {
+        val engine = engine()
+        engine.setLook(0.5f, 0.2f)
+        engine.step(1f)
+        // A second keystroke 1 s later must push the deadline out, not let it lapse.
+        engine.setLook(0.6f, 0.2f)
+        engine.step(1f)
+        assertTrue(engine.lookOverride)
+        engine.step(0.6f)
+        assertFalse(engine.lookOverride)
+    }
+
+    @Test
+    fun `resetLook centres the eyes immediately`() {
+        val engine = engine()
+        engine.setLook(-0.7f, -0.7f)
+        engine.releaseLook()
+        assertFalse(engine.lookOverride)
+        assertEquals(0f, engine.lookX, 0f)
+        assertEquals(0f, engine.lookY, 0f)
+    }
+
+    @Test
+    fun `host gaze is clamped to the normalised range`() {
+        val engine = engine()
+        engine.setLook(9f, -9f)
+        assertEquals(1f, engine.gazeX, 0f)
+        assertEquals(-1f, engine.gazeY, 0f)
+        engine.setLook(-9f, 9f)
+        assertEquals(-1f, engine.gazeX, 0f)
+        assertEquals(1f, engine.gazeY, 0f)
+    }
+
+    @Test
+    fun `clearing the field releases the caret hold`() {
+        val engine = engine()
+        engine.setLook(0.9f, 0.2f)
+        engine.releaseLook()
+        engine.step(0.1f)
+        // Already released, so a stale reset cannot resurrect the override.
+        assertFalse(engine.lookOverride)
+    }
+
+    @Test
+    fun `caret index maps to a normalised gaze`() {
+        assertEquals(0f, CoucouCharacterEngine.caretLookX(5, 10), 1e-6f)
+        assertEquals(1f, CoucouCharacterEngine.caretLookX(10, 10), 1e-6f)
+        assertEquals(-1f, CoucouCharacterEngine.caretLookX(0, 10), 1e-6f)
+        assertEquals(0f, CoucouCharacterEngine.caretLookX(0, 0), 1e-6f)
+        // A stale selectionStart of -1 must not send the gaze off screen.
+        assertEquals(0f, CoucouCharacterEngine.caretLookX(-1, 4), 1e-6f)
+        assertEquals(1f, CoucouCharacterEngine.caretLookX(99, 4), 1e-6f)
+    }
+
+    @Test
+    fun `state gaze overrides the ambient wander`() {
+        val engine = engine()
+        repeat(60 * 4) { engine.update(1f / 60f) }
+        assertTrue("precondition: ambient gaze should be off centre", engine.gazeX != 0f)
+
+        // Sleeping centres the eyes regardless of where the wander left them.
+        engine.setState(CoucouState.SLEEPING)
+        engine.step(3f)
+        assertTrue("sleeping must recentre, yaw=${engine.yaw}", kotlin.math.abs(engine.yaw) < 0.05f)
+
+        // Thinking blends the host gaze with its own fixed look, exactly as upstream does:
+        // freeze the wander first so the expected target is deterministic.
+        engine.ambientLook = false
+        val frozen = engine.gazeX
+        engine.setState(CoucouState.THINKING)
+        engine.step(3f)
+        val look = CoucouCharacterEngine.BOT_STATES.getValue(CoucouState.THINKING).look!!
+        // update() composes `ty = gazeX * 0.62`, then `ty * 0.35 + look.x * 0.55`.
+        val expected = frozen * 0.62f * 0.35f + look.x * 0.55f
+        assertTrue(
+            "thinking must own the gaze, yaw=${engine.yaw} expected=$expected",
+            kotlin.math.abs(engine.yaw - expected) < 0.02f
+        )
+    }
+
+    @Test
+    fun `idle timer counts up and restarts on activity`() {
+        val engine = engine()
+        repeat(60 * 3) { engine.update(1f / 60f) }
+        assertTrue("idle timer should have accumulated", engine.idleSeconds > 2.5f)
+        engine.notifyUserActive()
+        assertEquals(0f, engine.idleSeconds, 1e-4f)
+        engine.step(1f)
+        engine.setLook(0.3f, 0.2f)
+        assertEquals("typing counts as activity", 0f, engine.idleSeconds, 1e-4f)
+    }
+
+    @Test
+    fun `pausing the clock freezes the gaze but keeps the hold deadline`() {
+        val engine = engine()
+        engine.setLook(0.8f, 0.2f)
+        // update(0) and negative steps are no-ops, which is what a paused loop produces.
+        engine.update(0f)
+        engine.update(-1f)
+        assertTrue("a paused loop must not advance the hold", engine.lookOverride)
+        assertEquals(0.8f, engine.gazeX, 0f)
     }
 
     // endregion

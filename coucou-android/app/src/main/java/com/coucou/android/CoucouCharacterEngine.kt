@@ -61,8 +61,33 @@ class CoucouCharacterEngine(
 
     // region geometry constants (MochiConst / PISTES.mochi)
 
+    /** Where the host is pointing the eyes, normalised to -1..1. Ignored unless [lookOverride]. */
     var lookX = 0f
+        private set
+
+    /** Vertical half of the host-driven gaze; negative is up, as on the Canvas y axis. */
     var lookY = 0f
+        private set
+
+    /**
+     * True while a host-driven target (caret follow) owns the gaze.
+     *
+     * Upstream's `miniLookTarget` only wanders when nothing else is pointing the character,
+     * so the override — not a separate code path — is what keeps ambient look-around from
+     * fighting the caret.
+     */
+    var lookOverride: Boolean = false
+        private set
+
+    /** Seconds since the last host interaction; the idle timer QA reads. */
+    val idleSeconds: Float get() = time - lastInputAt
+
+    /** Current gaze, whether it comes from the host or from the ambient wander. */
+    val gazeX: Float get() = if (lookOverride) lookX else ambientLookX
+    val gazeY: Float get() = if (lookOverride) lookY else ambientLookY
+
+    /** Lets the host switch the ambient look-around off entirely (e.g. collapsed bubble). */
+    var ambientLook: Boolean = true
 
     /** Superellipse outline of the body, sampled the way upstream's `bodyPath` is. */
     fun bodyOutline(rx: Float, ry: Float, r: Float, out: FloatArray): Int {
@@ -172,6 +197,14 @@ class CoucouCharacterEngine(
     private var tgSy = 1f
     private var tgSx = 1f
 
+    // Ambient look-around, a port of upstream's `miniLookTarget` (the menu-bar mini bots,
+    // which are the closest upstream analogue of our always-on-screen bubble).
+    private var ambientLookX = 0f
+    private var ambientLookY = 0f
+    private var nextLookAt = LOOK_FIRST_DELAY + random.nextFloat() * LOOK_DELAY_SPREAD
+    private var lookOverrideUntil = 0f
+    private var lastInputAt = 0f
+
     // endregion
 
     // region public API
@@ -211,6 +244,37 @@ class CoucouCharacterEngine(
             else -> if (prev != CoucouState.IDLE || next != CoucouState.IDLE) blink()
         }
         return true
+    }
+
+    /**
+     * Points the eyes at a host-driven position — the caret-follow entry point.
+     *
+     * The gaze stays pinned here for [CARET_LOOK_HOLD] seconds so a single keystroke is
+     * visible, then [releaseLook] hands it back to the ambient scheduler. Every call also
+     * refreshes [idleSeconds], so typing counts as activity.
+     */
+    fun setLook(x: Float, y: Float) {
+        lookX = x.coerceIn(-1f, 1f)
+        lookY = y.coerceIn(-1f, 1f)
+        lookOverride = true
+        lookOverrideUntil = time + CARET_LOOK_HOLD
+        lastInputAt = time
+    }
+
+    /** Drops the host gaze immediately and centres the eyes. */
+    fun releaseLook() {
+        lookOverride = false
+        lookOverrideUntil = 0f
+        lookX = 0f
+        lookY = 0f
+    }
+
+    /**
+     * Records user activity (a tap, a drag, a keystroke) without changing the gaze, and
+     * restarts the idle timer. Called by the view whenever the frame loop resumes.
+     */
+    fun notifyUserActive() {
+        lastInputAt = time
     }
 
     fun setBadge(next: Badge?) {
@@ -509,8 +573,12 @@ class CoucouCharacterEngine(
         }
 
         val t = time
-        var ty = lookX * 0.62f
-        var tp = lookY * 0.5f
+        // Upstream `miniLook*`: the wander owns the gaze only while nothing else wants it.
+        if (lookOverride && t > lookOverrideUntil) releaseLook()
+        tickLookAround(t)
+
+        var ty = gazeX * 0.62f
+        var tp = gazeY * 0.5f
 
         cfg.look?.let { look ->
             ty = ty * 0.35f + look.x * 0.55f
@@ -616,6 +684,30 @@ class CoucouCharacterEngine(
     // endregion
 
     // region internals
+
+    /**
+     * Ambient look-around scheduler.
+     *
+     * Ports upstream `miniLookTarget` verbatim: a new random target every
+     * `0.5 + rand(0..1.5)` s within `x ∈ [-0.88, 0.88]`, `y ∈ [-0.55, 0.45]`, and only
+     * while no state has a gaze of its own and nothing is scanning. States that do
+     * (`thinking`, `searching`, `sleeping`, `dizzy`) override the result further down in
+     * [update], exactly as they do upstream.
+     *
+     * Note on timings: the report in `docs/coucou_desktop_prompt_box_and_animation_report.md`
+     * §2.3 quotes a 2.0–5.0 s retarget, but the line it cites (`engine.ts:528`) is
+     * `nextTime = n + 0.5 + Math.random() * 1.5`, i.e. 0.5–2.0 s. The code wins; the
+     * constants below are the single place to change if Boss prefers the slower cadence.
+     */
+    private fun tickLookAround(t: Float) {
+        if (lookOverride || !ambientLook) return
+        if (cfg.look != null || cfg.scans) return
+        if (state == CoucouState.SLEEPING || state == CoucouState.DIZZY) return
+        if (t <= nextLookAt) return
+        ambientLookX = LOOK_MIN_X + random.nextFloat() * (LOOK_MAX_X - LOOK_MIN_X)
+        ambientLookY = LOOK_MIN_Y + random.nextFloat() * (LOOK_MAX_Y - LOOK_MIN_Y)
+        nextLookAt = t + LOOK_FIRST_DELAY + random.nextFloat() * LOOK_DELAY_SPREAD
+    }
 
     private fun runScheduled() {
         if (scheduled.isEmpty()) return
@@ -774,6 +866,34 @@ class CoucouCharacterEngine(
         private const val TWO_PI = 6.2831855f
         private const val OMEGA = 25.132742f // 2π / 0.25
         private const val ZETA = 0.6f
+
+        /** Caret follow holds the gaze this long after the last keystroke. */
+        const val CARET_LOOK_HOLD = 1.5f
+
+        /** Vertical caret-follow gaze: looking slightly down at the input (report §2.4). */
+        const val CARET_LOOK_Y = 0.2f
+
+        /**
+         * Maps a caret index to a normalised gaze `x`, as upstream does while typing.
+         *
+         * `(caret / length) * 2 - 1`, clamped to -1..1. An empty field maps to 0 (centred),
+         * and a negative caret — the value `selectionStart` reports when the field loses
+         * focus mid-edit — is treated as "unknown" and centred too, rather than snapping
+         * the gaze to the far left.
+         */
+        fun caretLookX(caret: Int, length: Int): Float {
+            if (length <= 0 || caret < 0) return 0f
+            val x = (caret.coerceAtMost(length).toFloat() / length) * 2f - 1f
+            return x.coerceIn(-1f, 1f)
+        }
+
+        /** Ambient look-around: upstream `miniLookTarget` ranges and cadence. */
+        const val LOOK_MIN_X = -0.88f
+        const val LOOK_MAX_X = 0.88f
+        const val LOOK_MIN_Y = -0.55f
+        const val LOOK_MAX_Y = 0.45f
+        const val LOOK_FIRST_DELAY = 0.5f
+        const val LOOK_DELAY_SPREAD = 1.5f
 
         private fun pow(v: Float, p: Float): Float =
             Math.pow(v.toDouble(), p.toDouble()).toFloat()

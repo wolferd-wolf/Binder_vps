@@ -55,8 +55,18 @@ class CoucouCharacterView @JvmOverloads constructor(
     var isAnimating: Boolean = false
         private set
 
+    /** Screen state as last reported by the host; false means the loop is paused. */
+    val isScreenOn: Boolean get() = screenOn
+
+    /** Window state as last reported by the host; false means the loop is paused. */
+    val isHostVisible: Boolean get() = hostVisible
+
     private var animator: ValueAnimator? = null
     private var lastFrameNanos = 0L
+    private var animateRequested = true
+    private var screenOn = true
+    private var hostVisible = true
+    private var attached = false
 
     private val bodyPath = Path()
     private val shapePath = Path()
@@ -109,19 +119,65 @@ class CoucouCharacterView @JvmOverloads constructor(
         engine.emit(type, count)
     }
 
-    /** Points the eyes at a normalised (-1..1) position. */
-    fun setLook(x: Float, y: Float) {
-        engine.lookX = x.coerceIn(-1f, 1f)
-        engine.lookY = y.coerceIn(-1f, 1f)
+    /**
+     * Points the eyes at a normalised (-1..1) position.
+     *
+     * Host-driven, so it overrides the ambient look-around for
+     * [CoucouCharacterEngine.CARET_LOOK_HOLD] seconds — that is what makes the character
+     * appear to watch the caret while typing (report §2.4). Call it again on every keystroke
+     * to keep the hold alive, and [resetLook] when typing stops.
+     */
+    fun setLook(x: Float, y: Float) = engine.setLook(x, y)
+
+    /** Alias of [setLook], matching the published CharacterView API (report §3). */
+    fun setLookAt(x: Float, y: Float) = setLook(x, y)
+
+    /** Hands the gaze back to the ambient look-around scheduler and centres the eyes. */
+    fun resetLook() = engine.releaseLook()
+
+    /** The gaze actually driving the eyes right now, override or ambient. */
+    val gazeX: Float get() = engine.gazeX
+    val gazeY: Float get() = engine.gazeY
+
+    /** Seconds since the last host interaction (keystroke, tap, resume). */
+    val idleSeconds: Float get() = engine.idleSeconds
+
+    /** Turns the ambient look-around on/off without touching the host gaze. */
+    var ambientLook: Boolean
+        get() = engine.ambientLook
+        set(value) {
+            engine.ambientLook = value
+            if (!value) engine.releaseLook()
+        }
+
+    /** Records user activity so the idle timer restarts. */
+    fun notifyUserActive() = engine.notifyUserActive()
+
+    /**
+     * Screen on/off. False pauses the frame loop outright, so a screen-off device costs
+     * nothing (report §2.5, "0 % CPU consumption in background").
+     */
+    fun setScreenOn(on: Boolean) {
+        if (screenOn == on) return
+        screenOn = on
+        if (on) engine.notifyUserActive()
+        applyAnimation()
     }
 
-    fun resetLook() = setLook(0f, 0f)
+    /** Window shown/hidden — the other half of the pause rule. */
+    fun setHostVisible(visible: Boolean) {
+        if (hostVisible == visible) return
+        hostVisible = visible
+        if (visible) engine.notifyUserActive()
+        applyAnimation()
+    }
 
-    /** Set by the host when the character should animate even while not visible. */
-    var animate: Boolean = true
+    /** Host request, honoured only while the screen is on and the window is up. */
+    var animate: Boolean
+        get() = animateRequested
         set(value) {
-            field = value
-            if (value) startLoop() else stopLoop()
+            animateRequested = value
+            applyAnimation()
         }
 
     // endregion
@@ -130,22 +186,46 @@ class CoucouCharacterView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        startLoop()
+        attached = true
+        applyAnimation()
     }
 
     override fun onDetachedFromWindow() {
+        attached = false
         stopLoop()
         super.onDetachedFromWindow()
     }
 
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
-        if (visibility == VISIBLE) startLoop() else stopLoop()
+        applyAnimation()
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        applyAnimation()
+    }
+
+    /**
+     * Single gate for the frame loop.
+     *
+     * Everything that can make the character invisible funnels through here — host request,
+     * screen on/off, window shown/hidden, attach/detach, view visibility — so pausing is one
+     * decision instead of five, and the loop cannot be left running by one of them.
+     */
+    private fun applyAnimation() {
+        val shouldRun = animateRequested && screenOn && hostVisible && attached &&
+            windowVisibility == VISIBLE && isShown
+        if (shouldRun) startLoop() else stopLoop()
     }
 
     private fun startLoop() {
-        if (!animate || animator != null || windowVisibility != VISIBLE) return
+        if (!animateRequested || !screenOn || !hostVisible || !attached) return
+        if (animator != null || windowVisibility != VISIBLE) return
         lastFrameNanos = 0L
+        // Resuming after a pause must not be read as a long frame: without this the first
+        // dt after a screen-off would jump the animation forward.
+        engine.notifyUserActive()
         val running = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = FRAME_INTERVAL_MS
             repeatCount = ValueAnimator.INFINITE
@@ -783,6 +863,8 @@ class CoucouCharacterView @JvmOverloads constructor(
 
         /** Diagnostic string for QA — asserts which state the bubble is really showing. */
         fun describeState(view: CoucouCharacterView): String =
-            "state=${view.characterState.wireName} animating=${view.isAnimating}"
+            "state=${view.characterState.wireName} animating=${view.isAnimating} " +
+                "screenOn=${view.isScreenOn} hostVisible=${view.isHostVisible} " +
+                "look=(${view.gazeX},${view.gazeY}) idle=${view.idleSeconds}"
     }
 }

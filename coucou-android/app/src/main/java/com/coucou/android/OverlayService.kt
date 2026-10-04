@@ -6,10 +6,12 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -32,6 +34,8 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.text.Editable
+import android.text.TextWatcher
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.color.MaterialColors
@@ -68,6 +72,13 @@ class OverlayService : Service() {
     private var isExpanded = false
     private var isDragging = false
     private var hasGreeted = false
+
+    /** Screen state as far as we know; drives the character's pause rule (report §2.5). */
+    private var isScreenOn = true
+
+    /** Kept so the receiver can be unregistered exactly once, in [onDestroy]. */
+    private var screenReceiverRegistered = false
+    private var screenReceiver: BroadcastReceiver? = null
     private var downRawX = 0f
     private var downRawY = 0f
     private var downTouchX = 0f
@@ -114,6 +125,17 @@ class OverlayService : Service() {
         var characterStateName: String = CoucouState.IDLE.wireName
             private set
 
+        /** Screen state last broadcast to the service; `false` means animation is paused. */
+        var screenOn: Boolean = true
+            private set
+
+        /**
+         * Full character diagnostic for @AGY's emulator pass, e.g.
+         * `adb shell ... | grep "CoucouOverlayService"`. Empty when no character view is bound.
+         */
+        var characterDescription: String = ""
+            private set
+
         /** Id names @Cline may give the character view; resolved reflectively, all optional. */
         private val CHARACTER_IDS = listOf("character", "character_view")
 
@@ -154,6 +176,7 @@ class OverlayService : Service() {
         appLauncher = AppLauncher(this)
         router = DefaultCommandRouter(listOf(LaunchAppCommandRouter(appLauncher!!)))
         soundPlayer = SoundPlayer(this).also { it.preloadAvailable() }
+        registerScreenReceiver()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -227,6 +250,9 @@ class OverlayService : Service() {
             overlayView = view
             isExpanded = expanded
             isExpandedState = expanded
+            // Window is up: the character may run again even if the screen had been off.
+            characterView?.setHostVisible(true)
+            characterView?.let { characterDescription = CoucouCharacterView.describeState(it) }
             val firstShow = characterStateName == CoucouState.IDLE.wireName && !hasGreeted
             // No-op while the sound assets are still on hold.
             playSound(if (expanded) SoundPlayer.Sound.OPEN else SoundPlayer.Sound.POP)
@@ -244,6 +270,8 @@ class OverlayService : Service() {
 
     private fun removeOverlay() {
         val view = overlayView ?: return
+        // Window hidden is the other pause trigger; stop the loop before the view detaches.
+        characterView?.setHostVisible(false)
         try {
             windowManager?.removeView(view)
         } catch (_: Exception) {
@@ -251,6 +279,7 @@ class OverlayService : Service() {
         }
         overlayView = null
         characterView = null
+        characterDescription = ""
         isExpanded = false
         isExpandedState = false
     }
@@ -360,6 +389,7 @@ class OverlayService : Service() {
                     submitCommand(text)
                     true
                 }
+                bindCaretFollow(input)
             }
         }
 
@@ -378,6 +408,35 @@ class OverlayService : Service() {
     }
 
     // region character
+
+    /**
+     * Makes the character watch the caret while the user types (report §2.4).
+     *
+     * The mapping is upstream's: the caret's normalised position across the text becomes
+     * the gaze `x`, with `y = 0.2` so the character looks slightly down at the input.
+     * Every change — keystroke, paste, cut, selection move, undo — re-aims it, and clearing
+     * the field releases the gaze so the ambient look-around takes over again.
+     */
+    private fun bindCaretFollow(input: EditText) {
+        input.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+
+            override fun afterTextChanged(s: Editable?) {
+                val character = characterView ?: return
+                val length = s?.length ?: 0
+                if (length == 0) {
+                    character.resetLook()
+                    return
+                }
+                // selectionStart is -1 when the field loses focus mid-edit; caretLookX
+                // centres the gaze rather than snapping it to an edge.
+                val x = CoucouCharacterEngine.caretLookX(input.selectionStart, length)
+                character.setLookAt(x, CoucouCharacterEngine.CARET_LOOK_Y)
+            }
+        })
+    }
 
     /**
      * Finds @Cline's [CoucouCharacterView] in the inflated layout, if it hosts one.
@@ -400,7 +459,15 @@ class OverlayService : Service() {
             }
         }
         if (character != null) {
-            Log.i(TAG, "Character view bound; state=${character.characterState.wireName}")
+            // A freshly bound view inherits the current screen state, so the bubble never
+            // spins behind a locked screen.
+            character.setScreenOn(isScreenOn)
+            character.setHostVisible(overlayView != null)
+            Log.i(
+                TAG,
+                "Character view bound; state=${character.characterState.wireName} " +
+                    "screenOn=$isScreenOn"
+            )
         } else {
             Log.w(TAG, "No CoucouCharacterView in layout; running without the animation")
         }
@@ -430,6 +497,65 @@ class OverlayService : Service() {
                 }
             }
         }, CHARACTER_RESET_MS)
+    }
+
+    /**
+     * Pauses/resumes the character with the screen (report §2.5).
+     *
+     * `ACTION_SCREEN_ON`/`ACTION_SCREEN_OFF` cannot be declared in the manifest, so the
+     * receiver is registered here for as long as the service lives.
+     */
+    private fun registerScreenReceiver() {
+        if (screenReceiverRegistered) return
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        }
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                when (intent?.action) {
+                    Intent.ACTION_SCREEN_OFF -> setScreenState(false)
+                    Intent.ACTION_SCREEN_ON -> setScreenState(true)
+                }
+            }
+        }
+        screenReceiver = receiver
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(
+                    receiver,
+                    filter,
+                    // System broadcasts only; NOT_EXPORTED keeps other apps out and still
+                    // delivers SCREEN_ON/OFF.
+                    Context.RECEIVER_NOT_EXPORTED
+                )
+            } else {
+                @Suppress("UnspecifiedRegisterReceiverFlag")
+                registerReceiver(receiver, filter)
+            }
+            screenReceiverRegistered = true
+        } catch (e: Exception) {
+            // Losing the receiver only costs us the pause optimisation, never correctness:
+            // the character still animates, because `animate` defaults to true.
+            Log.w(TAG, "Could not register screen on/off receiver", e)
+        }
+    }
+
+    private fun unregisterScreenReceiver() {
+        if (!screenReceiverRegistered) return
+        screenReceiverRegistered = false
+        val receiver = screenReceiver
+        screenReceiver = null
+        if (receiver != null) runCatching { unregisterReceiver(receiver) }
+    }
+
+    private fun setScreenState(on: Boolean) {
+        if (isScreenOn == on) return
+        isScreenOn = on
+        screenOn = on
+        characterView?.setScreenOn(on)
+        characterView?.let { characterDescription = CoucouCharacterView.describeState(it) }
+        Log.i(TAG, "Screen ${if (on) "on" else "off"}; animation paused=${!on}")
     }
 
     // endregion
@@ -482,10 +608,12 @@ class OverlayService : Service() {
             container.addView(TextView(context).apply {
                 text = getString(R.string.ask_bar_hint)
             })
-            container.addView(EditText(context).apply {
+            val input = EditText(context).apply {
                 hint = getString(R.string.search_hint)
                 id = idFor("ask_input")
-            })
+            }
+            container.addView(input)
+            bindCaretFollow(input)
         } else {
             container.addView(TextView(context).apply {
                 text = getString(R.string.app_name)
@@ -661,8 +789,10 @@ class OverlayService : Service() {
         hideKeyboard()
         removeOverlay()
         releaseSounds()
+        unregisterScreenReceiver()
         hasGreeted = false
         characterStateName = CoucouState.IDLE.wireName
+        characterDescription = ""
         isRunning = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -709,7 +839,10 @@ class OverlayService : Service() {
         hideKeyboard()
         removeOverlay()
         releaseSounds()
+        unregisterScreenReceiver()
         isRunning = false
+        screenOn = true
+        isScreenOn = true
         super.onDestroy()
     }
 
