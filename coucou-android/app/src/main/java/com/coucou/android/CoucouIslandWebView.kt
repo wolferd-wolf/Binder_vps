@@ -269,7 +269,7 @@ private class PrefixAssetsPathHandler(
 ) : WebViewAssetLoader.PathHandler {
 
     override fun handle(path: String): WebResourceResponse? {
-        val relative = path.trimStart('/').ifEmpty { "index.html" }
+        val relative = IslandBridgeCommands.assetPathFor(path, prefix)
         // AssetLoader already normalises, but this is the only thing standing between a
         // request and `assets/`, so the shape is checked rather than trusted.
         if (!relative.matches(SAFE_ASSET_PATH)) return null

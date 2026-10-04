@@ -253,6 +253,19 @@ internal object IslandBridgeCommands {
     fun collapsedWindowBounds(stageWidthPx: Int, screenWidthPx: Int): IntArray =
         windowBounds(WAKE_STRIP_WIDTH_CSS.toDouble(), WAKE_STRIP_HEIGHT_CSS.toDouble(), stageWidthPx, screenWidthPx)
 
+    /**
+     * Maps one intercepted request path to the asset it should open, relative to the
+     * bundle root [prefix].
+     *
+     * The bundle lives in `assets/<prefix>/` but the page is loaded *from* that prefix
+     * and requests its bundle at the origin root (`/assets/x.js`, `/tauri-shim.js`), so
+     * the leading `prefix/` has to come off the document request without touching the
+     * absolute ones. Getting this wrong 404s the main document, which means no page at
+     * all — hence a test rather than a comment.
+     */
+    fun assetPathFor(path: String, prefix: String): String =
+        path.trimStart('/').removePrefix("$prefix/").ifEmpty { "index.html" }
+
     /** Success envelope understood by `tauri-shim.js`. */
     fun envelope(valueJson: String): String = "{\"ok\":true,\"value\":$valueJson}"
 

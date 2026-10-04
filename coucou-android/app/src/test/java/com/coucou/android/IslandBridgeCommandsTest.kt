@@ -246,6 +246,58 @@ class IslandBridgeCommandsTest {
 
     // endregion
 
+    // region asset paths
+
+    @Test
+    fun `the document request maps to the bundle root, not a doubled folder`() {
+        // The page is loaded FROM assets/coucou/ and requests its bundle at the origin
+        // root. Failing to strip the prefix here 404s the main document, i.e. no page at
+        // all — this is the check that was missed the first time round.
+        assertEquals("index.html", IslandBridgeCommands.assetPathFor("coucou/index.html", "coucou"))
+        assertEquals("index.html", IslandBridgeCommands.assetPathFor("/coucou/index.html", "coucou"))
+    }
+
+    @Test
+    fun `root-absolute bundle urls are left alone`() {
+        assertEquals("tauri-shim.js", IslandBridgeCommands.assetPathFor("tauri-shim.js", "coucou"))
+        assertEquals(
+            "assets/island-abc123.js",
+            IslandBridgeCommands.assetPathFor("assets/island-abc123.js", "coucou")
+        )
+    }
+
+    @Test
+    fun `a bare directory request serves the document`() {
+        assertEquals("index.html", IslandBridgeCommands.assetPathFor("", "coucou"))
+        assertEquals("index.html", IslandBridgeCommands.assetPathFor("/", "coucou"))
+        assertEquals("index.html", IslandBridgeCommands.assetPathFor("coucou/", "coucou"))
+    }
+
+    @Test
+    fun `a folder that merely starts like the prefix is not stripped`() {
+        assertEquals("coucoufoo/x", IslandBridgeCommands.assetPathFor("coucoufoo/x", "coucou"))
+    }
+
+    @Test
+    fun `every url the shipped document requests resolves inside the bundle`() {
+        // Mirrors what index.html asks for; a mismatch here is a silent 404 on boot.
+        // Gradle runs unit tests with the module directory as the working directory.
+        val root = "src/main/assets/coucou"
+        val document = java.io.File(root, "index.html").readText()
+        val urls = Regex("(?:src|href)=\"(/[^\"]+)\"").findAll(document)
+            .map { it.groupValues[1] }
+            .toList()
+        assertTrue("the document should request its bundle", urls.isNotEmpty())
+        for (url in urls) {
+            val file = java.io.File(root, url)
+            assertTrue("$url is requested but not staged", file.exists())
+        }
+        // And the document itself, which is the one that used to 404.
+        assertTrue(java.io.File(root, "index.html").exists())
+    }
+
+    // endregion
+
     // region unknown commands
 
     @Test
