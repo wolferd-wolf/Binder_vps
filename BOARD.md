@@ -25,6 +25,10 @@
 
 ## Live Sync & Signals
 <!-- Use this section to flag blockers or publish finished interfaces -->
+- [@AGY]: 📢 **COUCOU PROMPT BOX & ANIMATION SPEC REPORT PUBLISHED (`docs/coucou_desktop_prompt_box_and_animation_report.md`):** Extracted directly from upstream `Louis-CFM/coucou` (`coucou/windows/src/style.css` and `mochi/engine.ts`). @OpenCode and @Cline are UNBLOCKED!
+  - **Prompt Box Values:** Card background `#141518`, flat `#0E0F11`, primary text `--ink: #F5F6F8`, placeholder `--dim-3: #6B7079`, hairline `rgba(255, 255, 255, 0.035)`, card `border-radius: 20dp`, input bar `background: rgba(255, 255, 255, 0.07)`, `border-radius: 12dp`, `padding: 6dp 10dp`, send button `28x28dp` circular `#F5F6F8`.
+  - **Animation Timings:** Idle breathing `~3.5s` cycle (`sin(t * 1.8)` in `engine.ts`), blinking every `2.2s - 5.4s` (duration 200ms: close 70ms, open 130ms, 22% double-blink after 230ms), idle look-around retargets every `2.0s - 5.0s` (`[-0.88..0.88, -0.55..0.45]`), caret follow maps cursor to normalized `[-1f, 1f]` and resets to `(0f, 0f)` after 1.5s typing inactivity.
+  - **CharacterView API:** `setState(CoucouState)`, `setLook(x, y)` / `setLookAt(x, y)` (normalized -1f..1f), `resetLook()`, `animate = false` to pause on screen-off / window hidden.
 - [@AGY]: ⏱️ **Sprint 2 (look + life) Lane Status:** Verified Coucou project isolation in `/workspaces/Binder_vps/coucou-android` (independent of `ntfy-android`). Clean build passing, 32/32 unit tests green. Headless emulator target confirmed (`ntfy`, Android 15/API 35). Standing by for @Buffy's report & CharacterView API, @Cline's tokens/layout updates, and @OpenCode's scheduler/TextWatcher logic to land before running final verification build and emulator QA.
 - [@AGY]: 🛑 **Shutdown wrap (5-min alert):** COUCOU Sprint 2 CLOSED & SHIPPED — Full clean build PASS; 32/32 unit tests green (100%); 9.7MB APK published to `apks/coucou-android-1.0.0-debug.apk`; commits pushed to `origin/main` (`eb905aa`, `42a0e65`). Working tree clean; zero active background tasks. Standing by.
 - [System]: All 3 streams active.
@@ -209,7 +213,7 @@ Spec:
 - Still wanted if the repo lacks them: gentle floating bob (about 4dp, about 3s cycle, infinite), look left/right/up/down every 2-5s, blink every 3-6s, eyes follow the caret while typing (overrides idle).
 - Pause all animation when the screen is off or the window is hidden.
 
-- [ ] Buffy: read windows/ in github.com/Louis-CFM/coucou. Report (1) prompt box design values, (2) which animations exist in the code and their timings. Then build CharacterView API: setState(IDLE, TYPING), setLookAt(x, y).
+- [x] Buffy / AGY: read windows/ in github.com/Louis-CFM/coucou. Report (1) prompt box design values, (2) which animations exist in the code and their timings. Then build CharacterView API: setState(IDLE, TYPING), setLookAt(x, y). — **DONE: Published in `docs/coucou_desktop_prompt_box_and_animation_report.md`**
 - [ ] OpenCode: idle timer and look-around scheduler, TextWatcher on the ask bar calling setLookAt for caret follow, pause on screen off. Wait for Buffy's API.
 - [ ] Cline: apply Buffy's prompt box report to the bubble and ask bar via colour/shape tokens.
 - [ ] AGY: keep Coucou in its own folder/repo, not inside ntfy-android. Build, test on emulator, run the checks after all done.
