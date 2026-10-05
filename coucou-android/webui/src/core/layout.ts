@@ -48,14 +48,24 @@ export interface ViewLayout {
   agentMode: AgentLayoutMode;
 }
 
-// The window is a fixed 720×320 (largest view) like the macOS panel; the island is
-// drawn inside it, glued to the top edge and horizontally centred.
-// On Android, we use the screen width (minus margins) instead of fixed desktop sizes.
+// On desktop the window is a fixed 720×320 (largest view) like the macOS panel; the
+// island is drawn inside it, glued to the top edge and horizontally centred. On Android
+// the window is the screen minus [PANEL_MARGIN] on each side, and this module measures
+// the screen to match it.
 export const PANEL_H = 320;
 
 // No notch on a PC: these are the hidden/compact sizes from docs/SPEC.md.
 export const NOTCH_W = 184;
 export const NOTCH_H = 32;
+
+/**
+ * Panel margin per side, in CSS px — 16dp, so 32dp total.
+ *
+ * Must stay equal to `SCREEN_MARGIN_DP` in `IslandBridgeCommands.kt`: the overlay window
+ * is sized natively as `screen − 2 × margin`, and this is what centres the island
+ * inside that window. If the two drift, the island sits off-centre by the difference.
+ */
+export const PANEL_MARGIN = 16;
 
 // Desktop defaults (used when screen width is not available)
 const DESKTOP_COMPACT_W = 288; // NOTCH_W + 104
@@ -68,8 +78,18 @@ export const EXPANDED_CORNER = 22;
 
 export const WAKE_STRIP_H = 6;
 
-/** Screen width in logical pixels (set by Island on init). */
+/** Screen width in CSS px, i.e. dp on Android. Set by the host at boot. */
 let screenWidth = 0;
+
+/**
+ * The width the host reported in `boot`, or 0 when there is no host (`npm run dev`).
+ *
+ * Held apart from [screenWidth] because the overlay window is sized *from* this: the
+ * WebView's `innerWidth` is the window, and the window is derived from the screen, so
+ * reading it back would close the loop and every rect would be measured against the
+ * previous frame's window rather than the screen.
+ */
+let hostScreenWidth = 0;
 
 /** Callbacks to notify when screen width changes. */
 const screenWidthCallbacks: Array<(w: number) => void> = [];
@@ -84,6 +104,24 @@ export function setScreenWidth(w: number) {
   }
 }
 
+/**
+ * Adopts the screen width the host reported in `boot`, in dp.
+ *
+ * A rotation re-reports through the same path, so the panel follows the screen rather
+ * than whatever the window happens to be. Non-positive values are ignored: outside the
+ * app there is no host, and the viewport is the fallback.
+ */
+export function setHostScreenWidth(w: number) {
+  if (!(w > 0)) return;
+  hostScreenWidth = w;
+  setScreenWidth(w);
+}
+
+/** The host's screen width in dp, or 0 when there is no host. */
+export function getHostScreenWidth(): number {
+  return hostScreenWidth;
+}
+
 /** Subscribe to screen width changes. */
 export function onScreenWidthChange(cb: (w: number) => void) {
   screenWidthCallbacks.push(cb);
@@ -93,12 +131,10 @@ export function onScreenWidthChange(cb: (w: number) => void) {
   };
 }
 
-/** Get the panel width — uses screen width minus margins on phone, desktop default otherwise. */
+/** Get the panel width — the screen less its margins, capped at the desktop stage. */
 export function getPanelWidth(): number {
   if (screenWidth > 0) {
-    // On phone: use full screen width minus 16dp margins on each side = 32dp total
-    // Convert dp to px: assume 1dp ≈ 1px for logical pixels in WebView
-    return Math.min(screenWidth - 32, DESKTOP_PANEL_W);
+    return Math.min(screenWidth - 2 * PANEL_MARGIN, DESKTOP_PANEL_W);
   }
   return DESKTOP_PANEL_W;
 }

@@ -14,12 +14,15 @@ async function main() {
 
   void Sound.preload();
 
-  const island = new Island(root);
-
+  // Boot first: `screen.width` is the screen in dp, and the whole island geometry is
+  // measured from it. The WebView viewport cannot stand in for that — it is the overlay
+  // window, which is itself sized from the screen, so it closes the loop instead.
   const boot = await Bridge.boot();
   if (boot) {
     State.settings = { ...State.settings, ...boot.settings };
   }
+
+  const island = new Island(root, boot?.screen.width ?? 0);
   island.applySettings();
   State.loadIntegrationTasks();
   if (boot && !boot.cursorPoll) island.followPageCursor();

@@ -6,7 +6,8 @@ import { Bridge, IS_TAURI, onDragDrop, onEvent } from "../core/bridge";
 import {
   EXPANDED_CORNER, PANEL_H,
   ROUNDED_CORNER, VIEW_LAYOUTS, botGlowColor, botGlowOpacity, botPosition, chatPromptHeight,
-  islandSize, getCompactWidth, getExpandedWidth, getPanelWidth, getWakeStripWidth, setScreenWidth,
+  islandSize, getCompactWidth, getExpandedWidth, getHostScreenWidth, getPanelWidth,
+  getWakeStripWidth, setHostScreenWidth, setScreenWidth,
   onScreenWidthChange,
   type IslandMode, type IslandViewName,
 } from "../core/layout";
@@ -89,26 +90,31 @@ export class Island {
   private uploadTens = 0;
   private uploadDone = false;
 
-  constructor(root: HTMLElement) {
+  /**
+   * @param screenWidth the real screen width in dp, from `boot.screen.width` — 0 when
+   *   there is no host, in which case the viewport is measured instead.
+   *
+   * The host width has to be in hand before the island is built: the geometry chain runs
+   * screen → panel → island → pushed rect → window, so starting from the window's own
+   * `innerWidth` measures this frame's window instead of the screen, and the panel never
+   * settles.
+   */
+  constructor(root: HTMLElement, screenWidth = 0) {
     this.root = root;
-    // Initialize screen width for responsive layout (Android WebView)
-    const sw = typeof window !== "undefined" ? window.innerWidth : 0;
-    setScreenWidth(sw);
-
-    // Listen for window resize to update responsive layout
-    if (typeof window !== "undefined") {
-      window.addEventListener("resize", () => {
-        setScreenWidth(window.innerWidth);
-      });
+    if (screenWidth > 0) {
+      setHostScreenWidth(screenWidth);
+    } else {
+      setScreenWidth(typeof window !== "undefined" ? window.innerWidth : 0);
     }
 
-    // Listen for screen-changed event from Android (rotation, etc.)
-    if (IS_TAURI) {
-      void onEvent<null>("screen-changed", () => {
-        const sw = typeof window !== "undefined" ? window.innerWidth : 0;
-        setScreenWidth(sw);
-      });
-    }
+    // A rotation changes the screen. The host re-reports it through `boot`; until then
+    // the viewport is the fallback, so a plain browser dev session still resizes.
+    const followScreen = () => {
+      const host = getHostScreenWidth();
+      setScreenWidth(host > 0 ? host : window.innerWidth);
+    };
+    if (typeof window !== "undefined") window.addEventListener("resize", followScreen);
+    if (IS_TAURI) void onEvent<null>("screen-changed", followScreen);
 
     // Subscribe to screen width changes to update island geometry
     onScreenWidthChange(() => {

@@ -30,13 +30,9 @@ import android.view.ViewConfiguration
 import android.view.ContextThemeWrapper
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
-import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import android.text.Editable
-import android.text.TextWatcher
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.color.MaterialColors
@@ -81,6 +77,9 @@ class OverlayService : Service() {
     /** True while the island is in charge of the window, so expand/collapse comes from the page. */
     private var islandActive = false
 
+    /** View the window was last asked to show; applied once the page reports ready. */
+    private var islandTarget = CoucouIslandWebView.VIEW_HOME
+
     /** Island geometry pushed by the page (CSS px), applied to [layoutParams] on the main thread. */
     private var islandWidthCss = IslandBridgeCommands.STAGE_WIDTH_CSS.toDouble()
     private var islandHeightCss = 0.0
@@ -119,14 +118,12 @@ class OverlayService : Service() {
 
         const val TAG = "CoucouOverlayService"
 
-        /** Layout names owned by @Cline, resolved reflectively so this compiles standalone. */
+        /** Layout name owned by @Cline, resolved reflectively so this compiles standalone. */
         const val LAYOUT_COLLAPSED = "overlay_bubble"
-        const val LAYOUT_EXPANDED = "overlay_ask_bar"
 
         private const val ID_PREFIX = "coucou_"
         private const val KEYBOARD_SHOW_DELAY_MS = 150L
         private const val COLLAPSE_DELAY_MS = 400L
-        private const val RESULT_TIMEOUT_MS = 2500L
 
         /**
          * Grace period between the page reporting ready and revealing the island, so the
@@ -352,7 +349,8 @@ class OverlayService : Service() {
                 // the same intent is still handled, because ACTION_EXPAND from the
                 // notification means "show the chat", not "re-add the window".
                 if (isExpanded == expanded) {
-                    island?.reveal(if (expanded) CoucouIslandWebView.VIEW_CHAT else CoucouIslandWebView.VIEW_HOME)
+                    islandTarget = viewFor(expanded)
+                    island?.reveal(islandTarget)
                     return
                 }
             } else if (isExpanded == expanded) {
@@ -361,12 +359,13 @@ class OverlayService : Service() {
             wm.removeView(current)
             overlayView = null
         }
-        val view = inflateIsland() ?: inflateBubble(expanded)
+        val view = inflateIsland() ?: inflateBubble()
         val params = layoutParams ?: buildLayoutParams().also { layoutParams = it }
         if (islandActive) {
+            islandTarget = viewFor(expanded)
             applyIslandParams(params)
         } else {
-            applyFlagsForState(params, expanded)
+            applyBubbleParams(params)
         }
         try {
             wm.addView(view, params)
@@ -382,13 +381,13 @@ class OverlayService : Service() {
             } else {
                 val firstShow = characterStateName == CoucouState.IDLE.wireName && !hasGreeted
                 // No-op while the sound assets are still on hold.
-                playSound(if (expanded) SoundPlayer.Sound.OPEN else SoundPlayer.Sound.POP)
+                playSound(SoundPlayer.Sound.POP)
                 if (firstShow) {
                     hasGreeted = true
-                    // The "coucou" wave: greet on first appearance, then open/pop on swaps.
+                    // The "coucou" wave: greet on first appearance.
                     characterView?.greet()
                 }
-                setCharacterState(if (expanded) CoucouState.QUESTION else CoucouState.IDLE)
+                setCharacterState(CoucouState.IDLE)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add overlay view", e)
@@ -420,7 +419,7 @@ class OverlayService : Service() {
     }
 
     /**
-     * Opens the island on its home view once the page has booted.
+     * Opens the island on [islandTarget] once the page has booted.
      *
      * The desktop build is woken by a `tray` event; with no host events arriving the
      * island would play its greeting and then retract, so the same event is emitted here.
@@ -428,20 +427,24 @@ class OverlayService : Service() {
     private fun revealIsland() {
         val page = island ?: return
         if (overlayView == null) return
-        page.reveal(CoucouIslandWebView.VIEW_HOME)
+        page.reveal(islandTarget)
         setCharacterState(CoucouState.IDLE)
     }
+
+    /** The island view "expanded" means now that the native ask bar is gone: the chat. */
+    private fun viewFor(expanded: Boolean): String =
+        if (expanded) CoucouIslandWebView.VIEW_CHAT else CoucouIslandWebView.VIEW_HOME
 
     /** Sizes and positions the window around the rect the page pushed. */
     private fun applyIslandGeometry() {
         val params = layoutParams ?: return
         val view = overlayView ?: return
         if (!islandActive) return
-        val screenWidth = resources.displayMetrics.widthPixels
+        val metrics = resources.displayMetrics
         val bounds = if (islandCollapsed) {
-            IslandBridgeCommands.collapsedWindowBounds(screenWidth, screenWidth)
+            IslandBridgeCommands.collapsedWindowBounds(metrics.density, metrics.widthPixels)
         } else {
-            IslandBridgeCommands.windowBounds(islandWidthCss, islandHeightCss, screenWidth, screenWidth)
+            IslandBridgeCommands.windowBounds(islandHeightCss, metrics.density, metrics.widthPixels)
         }
         params.width = bounds[0]
         params.height = bounds[1]
@@ -569,6 +572,7 @@ class OverlayService : Service() {
         islandDescription = "island: off"
         islandWidthCss = IslandBridgeCommands.STAGE_WIDTH_CSS.toDouble()
         islandHeightCss = 0.0
+        islandTarget = CoucouIslandWebView.VIEW_HOME
     }
 
     private fun buildLayoutParams(): WindowManager.LayoutParams {
@@ -593,48 +597,38 @@ class OverlayService : Service() {
     }
 
     /**
-     * Window geometry and flags must change with state.
+     * Window geometry and flags for the native bubble.
      *
-     * Width: the collapsed bubble is WRAP_CONTENT so it does not swallow touches across
-     * the whole screen row (@AGY's fix); the expanded ask bar is MATCH_PARENT because its
-     * own root layout is match_parent and would otherwise be squeezed to the bubble size.
-     *
-     * Flags: the expanded ask bar hosts an EditText, which cannot receive text or show the
-     * IME while [WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE] is set. The collapsed bubble
-     * keeps NOT_FOCUSABLE so it never steals input from the app underneath.
+     * Sprint 3 replaced the native ask bar with the desktop island in a WebView, so
+     * there is no longer a second native state to size: the bubble is always
+     * WRAP_CONTENT (so it does not swallow touches across the whole screen row, @AGY's
+     * Sprint 1 finding) and always NOT_FOCUSABLE (so it never steals input from the app
+     * underneath). Anything that wants a text field now goes through the island's chat
+     * view and [setIslandFocus].
      */
-    private fun applyFlagsForState(params: WindowManager.LayoutParams, expanded: Boolean) {
-        params.width = if (expanded) {
-            WindowManager.LayoutParams.MATCH_PARENT
-        } else {
-            WindowManager.LayoutParams.WRAP_CONTENT
-        }
-        if (expanded) {
-            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-            // Soft input must be able to resize/pan the window while typing.
-            params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
-        } else {
-            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-            params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
-        }
+    private fun applyBubbleParams(params: WindowManager.LayoutParams) {
+        params.width = WindowManager.LayoutParams.WRAP_CONTENT
+        params.height = WindowManager.LayoutParams.WRAP_CONTENT
+        params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
     }
 
     /**
-     * Inflates the collapsed bubble or the expanded ask bar.
+     * Inflates the collapsed bubble.
      *
-     * @Cline owns `res/layout`; both layouts are looked up by name so this compiles and
-     * runs whether or not they have landed. If a layout is missing, a minimal
-     * programmatic fallback keeps the bubble usable instead of crashing.
+     * This is only the fallback for a device that cannot host the island WebView at
+     * all; the ask bar that used to inflate here is gone with the rest of the native
+     * expanded state. A missing layout falls back to a minimal programmatic bubble so
+     * the overlay still shows something.
      */
     @SuppressLint("InflateParams")
-    private fun inflateBubble(expanded: Boolean): View {
-        val name = if (expanded) LAYOUT_EXPANDED else LAYOUT_COLLAPSED
-        val view = inflateLayoutByName(name)
+    private fun inflateBubble(): View {
+        val view = inflateLayoutByName(LAYOUT_COLLAPSED)
         if (view != null) {
-            bindBubble(view, expanded)
+            bindBubble(view)
             return view
         }
-        return buildFallbackView(expanded)
+        return buildFallbackView()
     }
 
     @SuppressLint("InflateParams")
@@ -654,76 +648,22 @@ class OverlayService : Service() {
     }
 
     /**
-     * Wires up whatever ids the inflated layout happens to provide. Every id is
-     * optional so the service is resilient to layout revisions on @Cline's side.
+     * Wires up whatever ids the inflated bubble happens to provide. Every id is optional
+     * so the service is resilient to layout revisions on @Cline's side.
      */
-    private fun bindBubble(view: View, expanded: Boolean) {
+    private fun bindBubble(view: View) {
         val root = findChild<View>(view, "bubble_root") ?: view
         root.setOnTouchListener { _, event -> onRootTouch(event) }
 
         bindCharacter(view)
 
-        findChild<EditText>(view, "ask_input")?.let { input ->
-            if (expanded) {
-                // The window is created ADJUST_NOTHING (see applyFlagsForState), so the
-                // IME overlays rather than resizes us; show it slightly after the view is
-                // attached, otherwise the request is dropped.
-                input.requestFocus()
-                mainHandler.postDelayed({ showKeyboard(input) }, KEYBOARD_SHOW_DELAY_MS)
-                input.setOnEditorActionListener { _, _, _ ->
-                    val text = input.text?.toString().orEmpty()
-                    input.setText("")
-                    submitCommand(text)
-                    true
-                }
-                bindCaretFollow(input)
-            }
-        }
-
-        findChild<ImageButton>(view, "ask_close")?.setOnClickListener {
-            showOverlay(expanded = false)
-        }
-
         findChild<View>(view, "bubble_mic")?.setOnClickListener {
             // Voice input is a later sprint; acknowledge rather than fail silently.
             Toast.makeText(this, R.string.mic_not_available, Toast.LENGTH_SHORT).show()
         }
-
-        findChild<View>(view, "ask_result")?.let { result ->
-            result.visibility = View.GONE
-        }
     }
 
     // region character
-
-    /**
-     * Makes the character watch the caret while the user types (report §2.4).
-     *
-     * The mapping is upstream's: the caret's normalised position across the text becomes
-     * the gaze `x`, with `y = 0.2` so the character looks slightly down at the input.
-     * Every change — keystroke, paste, cut, selection move, undo — re-aims it, and clearing
-     * the field releases the gaze so the ambient look-around takes over again.
-     */
-    private fun bindCaretFollow(input: EditText) {
-        input.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-
-            override fun afterTextChanged(s: Editable?) {
-                val character = characterView ?: return
-                val length = s?.length ?: 0
-                if (length == 0) {
-                    character.resetLook()
-                    return
-                }
-                // selectionStart is -1 when the field loses focus mid-edit; caretLookX
-                // centres the gaze rather than snapping it to an edge.
-                val x = CoucouCharacterEngine.caretLookX(input.selectionStart, length)
-                character.setLookAt(x, CoucouCharacterEngine.CARET_LOOK_Y)
-            }
-        })
-    }
 
     /**
      * Finds @Cline's [CoucouCharacterView] in the inflated layout, if it hosts one.
@@ -881,7 +821,7 @@ class OverlayService : Service() {
     }
 
     /** Minimal programmatic bubble, used only if the layout resources are absent. */
-    private fun buildFallbackView(expanded: Boolean): View {
+    private fun buildFallbackView(): View {
         // Service contexts do not inherit the application theme, so theme attrs do not
         // resolve here either. Same wrap as inflateLayoutByName, otherwise the fallback
         // renders with unthemed defaults.
@@ -902,21 +842,9 @@ class OverlayService : Service() {
                 )
             }
         }
-        if (expanded) {
-            container.addView(TextView(context).apply {
-                text = getString(R.string.ask_bar_hint)
-            })
-            val input = EditText(context).apply {
-                hint = getString(R.string.search_hint)
-                id = idFor("ask_input")
-            }
-            container.addView(input)
-            bindCaretFollow(input)
-        } else {
-            container.addView(TextView(context).apply {
-                text = getString(R.string.app_name)
-            })
-        }
+        container.addView(TextView(context).apply {
+            text = getString(R.string.app_name)
+        })
         // The fallback path builds its own view tree, so it hosts the character itself;
         // the layouts owned by @Cline carry their own instance.
         val fallbackCharacter = CoucouCharacterView(context).apply {
@@ -964,11 +892,11 @@ class OverlayService : Service() {
                 if (isDragging) {
                     params.x = (params.x + dx).toInt()
                     params.y = (params.y + dy).toInt()
-                    // Keep the window on-screen. When expanded the window is
-                    // MATCH_PARENT wide, so it is pinned to x=0 and only y is free;
+                    // Keep the window on-screen. The island's panel spans the screen less
+                    // its margins, so it is pinned to that margin and only y is free;
                     // clamping x against a narrow bubble would be wrong there.
                     val maxX = if (isExpanded) {
-                        0
+                        dp(16)
                     } else {
                         resources.displayMetrics.widthPixels - dp(48)
                     }
@@ -985,7 +913,7 @@ class OverlayService : Service() {
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (!isDragging) {
-                    // A tap (not a drag) toggles the ask bar.
+                    // A tap (not a drag) wakes the island up onto its chat view.
                     characterView?.onTap()
                     playSound(SoundPlayer.Sound.BLIP)
                     showOverlay(expanded = !isExpanded)
@@ -1033,7 +961,6 @@ class OverlayService : Service() {
             }
         }
         Log.i(TAG, "Command '$trimmed' -> $result")
-        showResult(message)
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
@@ -1041,22 +968,6 @@ class OverlayService : Service() {
     private fun copyToClipboard(label: String, text: String) {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
         clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
-    }
-
-    private fun showResult(message: String) {
-        val view = overlayView ?: return
-        val target = findChild<TextView>(view, "ask_result")
-        if (target != null) {
-            target.text = message
-            target.visibility = View.VISIBLE
-            mainHandler.postDelayed({
-                runCatching {
-                    if (overlayView === view) {
-                        target.visibility = View.GONE
-                    }
-                }
-            }, RESULT_TIMEOUT_MS)
-        }
     }
 
     private fun showKeyboard(target: View) {
@@ -1076,10 +987,8 @@ class OverlayService : Service() {
 
     private fun hideKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager ?: return
-        val view = overlayView ?: return
-        // The island's own WebView carries the focus in island mode; the native bubble
-        // keeps an EditText.
-        val target: View = island?.view ?: findChild<EditText>(view, "ask_input") ?: return
+        // Only the island has a text field now; the native bubble is character-only.
+        val target: View = island?.view ?: return
         imm.hideSoftInputFromWindow(target.windowToken, 0)
     }
 

@@ -42,13 +42,34 @@ class IslandBridgeCommandsTest {
     }
 
     @Test
-    fun `boot payload reports the screen when the host has metrics`() {
-        val screen = IslandBridgeCommands.Screen(1080, 2340, 3f)
+    fun `boot payload reports the screen in dp, because that is what the page lays out in`() {
+        // A 1080x2340 px screen at 420dpi (density 2.625) is 411.4dp wide. Reporting the
+        // px instead is what made the panel ~2.6x too wide on the device.
+        val screen = IslandBridgeCommands.Screen(1080, 2340, 2.625f)
         val boot = Json.parseObject(IslandBridgeCommands.bootJson(IslandSettings(), screen))
         val reported = boot["screen"] as Map<*, *>
-        assertEquals(1080.0, reported["width"])
-        assertEquals(2340.0, reported["height"])
-        assertEquals(3.0, reported["scale"])
+        assertEquals(411.43, reported["width"] as Double, 0.01)
+        assertEquals(891.43, reported["height"] as Double, 0.01)
+        assertEquals(2.625, reported["scale"] as Double, 1e-9)
+    }
+
+    @Test
+    fun `boot reports dp even when the density is not a round number`() {
+        // 720x1280 at 320dpi: exactly 360dp, the emulator Boss tests on.
+        val boot = Json.parseObject(
+            IslandBridgeCommands.bootJson(IslandSettings(), IslandBridgeCommands.Screen(720, 1280, 2f))
+        )
+        val reported = boot["screen"] as Map<*, *>
+        assertEquals(360.0, reported["width"] as Double, 0.001)
+        assertEquals(640.0, reported["height"] as Double, 0.001)
+        assertEquals(2.0, reported["scale"] as Double, 1e-9)
+    }
+
+    @Test
+    fun `a broken density reports dp rather than dividing by zero`() {
+        val screen = IslandBridgeCommands.Screen(1080, 2340, 0f)
+        assertEquals(1.0, screen.scale, 1e-9)
+        assertEquals(1080.0, screen.widthDp, 0.01)
     }
 
     @Test
@@ -120,38 +141,59 @@ class IslandBridgeCommandsTest {
     }
 
     @Test
-    fun `window bounds centre the island and leave the screen row free`() {
-        // 720 CSS px stage across a 1080 px screen: 1.5x.
-        val bounds = IslandBridgeCommands.windowBounds(640.0, 160.0, 1080, 1080)
+    fun `window bounds are the screen minus the panel margin`() {
+        // 720px wide at density 2 (360dp): a 16dp margin each side leaves 688px.
+        val bounds = IslandBridgeCommands.windowBounds(160.0, 2f, 720)
 
-        // 640 + 2*8 margin, scaled.
-        assertEquals(984, bounds[0])
-        assertEquals(264, bounds[1])
-        // Centred, so the page's own left:50% centring lands on the screen centre.
-        assertEquals((1080 - 984) / 2, bounds[2])
-        assertTrue("must not span the whole row", bounds[0] < 1080)
+        assertEquals(720 - 2 * 16 * 2, bounds[0])
+        // Offset by the same margin, so the panel's own centring lands on screen centre.
+        assertEquals(16 * 2, bounds[2])
+        assertTrue("must never be wider than the screen", bounds[0] < 720)
     }
 
     @Test
-    fun `window bounds track the compact bar, not just the expanded panel`() {
-        val compact = IslandBridgeCommands.windowBounds(288.0, 32.0, 1080, 1080)
-        val expanded = IslandBridgeCommands.windowBounds(640.0, 240.0, 1080, 1080)
+    fun `window height follows the island, scaled from dp to px`() {
+        // A 160dp-tall island at density 2.625 is 420px, plus the margin on each side.
+        val bounds = IslandBridgeCommands.windowBounds(160.0, 2.625f, 1080)
+        assertEquals((160 * 2.625).toInt() + 2 * (16 * 2.625).toInt(), bounds[1])
+    }
+
+    @Test
+    fun `window bounds track the island height, not just the panel width`() {
+        val compact = IslandBridgeCommands.windowBounds(32.0, 2f, 720)
+        val expanded = IslandBridgeCommands.windowBounds(240.0, 2f, 720)
+        // The panel is the screen either way; only the height follows the island.
+        assertEquals(compact[0], expanded[0])
         assertTrue(compact[1] < expanded[1])
-        assertTrue(compact[0] < expanded[0])
     }
 
     @Test
-    fun `collapsed window is the wake strip`() {
-        val bounds = IslandBridgeCommands.collapsedWindowBounds(1080, 1080)
-        assertEquals((240 + 16) * 1080 / 720, bounds[0])
-        assertTrue("a 6px island still needs room to be tapped", bounds[1] >= 1)
+    fun `collapsed window is the wake strip, narrow and centred`() {
+        val bounds = IslandBridgeCommands.collapsedWindowBounds(2f, 720)
+        assertEquals((240 + 16) * 2, bounds[0])
+        // Narrow and centred, so the sleeping island never eats a whole screen row.
+        assertTrue("must not span the screen row", bounds[0] < 720)
+        assertEquals((720 - bounds[0]) / 2, bounds[2])
+        assertTrue("a 6dp island still needs room to be tapped", bounds[1] > 0)
     }
 
     @Test
-    fun `window bounds survive a degenerate screen width`() {
-        val bounds = IslandBridgeCommands.windowBounds(640.0, 160.0, 0, 0)
+    fun `collapsed window cannot outgrow a narrow screen`() {
+        // A 240dp strip on a 300px screen: capped to the panel, never past it.
+        val bounds = IslandBridgeCommands.collapsedWindowBounds(3f, 300)
+        assertTrue(bounds[0] <= 300)
+        assertEquals((300 - bounds[0]) / 2, bounds[2])
+    }
+
+    @Test
+    fun `window bounds survive a degenerate screen width and density`() {
+        val bounds = IslandBridgeCommands.windowBounds(160.0, 0f, 0)
         assertTrue(bounds.all { it >= 0 })
         assertTrue(bounds[0] > 0 && bounds[1] > 0)
+
+        val collapsed = IslandBridgeCommands.collapsedWindowBounds(0f, 0)
+        assertTrue(collapsed.all { it >= 0 })
+        assertTrue(collapsed[0] > 0 && collapsed[1] > 0)
     }
 
     // endregion
@@ -294,6 +336,23 @@ class IslandBridgeCommandsTest {
         }
         // And the document itself, which is the one that used to 404.
         assertTrue(java.io.File(root, "index.html").exists())
+    }
+
+    @Test
+    fun `the shipped document keeps the device-width viewport, so a css px is a dp`() {
+        // The window is the screen less its margins and `boot` reports the screen in dp,
+        // so the whole geometry chain only lines up while the WebView lays out 1 CSS px
+        // per dp. Pinning the viewport to the 720px desktop stage broke that: the WebView
+        // squeezed 720 CSS px into the window and the island's own 12.5px type rendered
+        // at ~6dp. A regression here is invisible on a desktop browser, hence the test.
+        val root = "src/main/assets/coucou"
+        val viewport = requireNotNull(
+            Regex("""<meta name="viewport"[^>]*>""")
+                .find(java.io.File(root, "index.html").readText())
+                ?.value
+        ) { "the document has no viewport meta" }
+        assertTrue("viewport must not be pinned to the 720px stage: $viewport", !viewport.contains("width=720"))
+        assertTrue("viewport must follow the device: $viewport", viewport.contains("device-width"))
     }
 
     // endregion

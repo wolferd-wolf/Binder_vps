@@ -2,15 +2,18 @@
  * Stages upstream `coucou/windows` into the Android app's WebView assets.
  *
  * Runs `vite build` in the existing clone (no second clone, no cargo) and then adapts
- * the two files the browser would otherwise reject:
+ * the one file the browser would otherwise reject:
  *
- *  1. `viewport` — upstream ships `width=device-width`, but the island geometry is a
- *     fixed 720px stage (`layout.ts` PANEL_W, `#island { left:50% }`). On a phone that
- *     viewport would be ~360 CSS px and the 640px island would be clipped, so the
- *     viewport is pinned to 720 and the WebView scales it to the overlay width.
- *  2. the shim — `tauri-shim.js` is injected as the first classic script in <head> so
+ *  1. the shim — `tauri-shim.js` is injected as the first classic script in <head> so
  *     `window.__TAURI_INTERNALS__` exists before the deferred module bundle runs
  *     (`core/bridge.ts` probes it at module-eval time).
+ *
+ * The viewport is deliberately left at upstream's `width=device-width`. It used to be
+ * pinned to the 720px desktop stage so the whole 640px island would fit, but that made
+ * one CSS px stop being a dp: the WebView squeezed 720 CSS px into the window and the
+ * island's 12.5px type rendered at ~6dp on a phone. The window is now the screen minus
+ * its margins and `boot` reports the screen in dp, so the page can measure the real
+ * screen and lay out in dp — which is what the rest of the geometry assumes.
  *
  * Sounds are deliberately NOT copied: they are already in `res/raw/coucou_*.wav`
  * (@Buffy's lane) and are served from there at `/sounds/<name>.wav` by
@@ -42,15 +45,12 @@ console.log("· vite build");
 execFileSync("npx", ["vite", "build"], { cwd: upstream, stdio: "inherit" });
 
 const index = readFileSync(join(dist, "index.html"), "utf8");
-const patched = index
-  .replace(
-    /<meta name="viewport" content="width=device-width, initial-scale=1"/,
-    '<meta name="viewport" content="width=720, initial-scale=1, maximum-scale=1, user-scalable=no"'
-  )
-  .replace("<head>", '<head>\n    <script src="/tauri-shim.js"></script>');
+const patched = index.replace("<head>", '<head>\n    <script src="/tauri-shim.js"></script>');
 
 if (!patched.includes("/tauri-shim.js")) throw new Error("shim was not injected into <head>");
-if (!patched.includes("width=720")) throw new Error("viewport was not pinned to 720");
+if (/name="viewport"[^>]*width=720/.test(patched)) {
+  throw new Error("viewport is pinned to 720; CSS px would stop being dp");
+}
 
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });

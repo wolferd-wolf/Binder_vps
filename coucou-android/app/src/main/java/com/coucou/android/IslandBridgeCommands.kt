@@ -264,31 +264,55 @@ internal object IslandBridgeCommands {
     fun chatReply(text: String): String = "{\"text\":${Json.quote(text)}}"
 
     /**
-     * Window bounds, in physical pixels, for an island of [islandWidthCss] x
-     * [islandHeightCss] on a [stageWidthPx]-wide screen.
+     * Window bounds, in physical pixels, for an island of [islandHeightCss] on a
+     * [screenWidthPx]-wide screen at [density].
      *
-     * The page lays out against a fixed [STAGE_WIDTH_CSS] stage, so the whole stage is
-     * scaled to the screen width and the window is then cut down to the island plus
-     * [WINDOW_MARGIN_CSS]. That keeps the island centred — the page draws it at
-     * `left:50%` of the stage — while leaving the rest of the screen row free for taps,
-     * which a full-width window would swallow.
+     * The window *is* the page's panel: the screen less [SCREEN_MARGIN_DP] on each
+     * side. That width is not a guess — `layout.ts` `getPanelWidth` measures the panel
+     * as `screenWidth - 32` and centres the island in it, so the window has to be
+     * exactly that or the island is drawn off-centre. Anything wider spills past the
+     * screen edge, which is the bar @Boss reported across the bottom of the overlay.
+     *
+     * Height follows the island, scaled by [density]: the island's CSS px are dp on
+     * Android, so dp × density is the physical px the window has to be tall. (Scaling
+     * the fixed 720px desktop stage to the screen instead — what this used to do — put
+     * the island's own 12.5px type at ~6dp on a phone.)
      */
-    fun windowBounds(
-        islandWidthCss: Double,
-        islandHeightCss: Double,
-        stageWidthPx: Int,
-        screenWidthPx: Int
-    ): IntArray {
-        val scale = if (stageWidthPx > 0) stageWidthPx.toDouble() / STAGE_WIDTH_CSS else 1.0
-        val width = ((islandWidthCss + 2 * WINDOW_MARGIN_CSS) * scale).toInt().coerceAtLeast(1)
-        val height = ((islandHeightCss + 2 * WINDOW_MARGIN_CSS) * scale).toInt().coerceAtLeast(1)
+    fun windowBounds(islandHeightCss: Double, density: Float, screenWidthPx: Int): IntArray {
+        val margin = marginPx(density)
+        val width = (screenWidthPx - 2 * margin).coerceAtLeast(1)
+        val height = ((islandHeightCss * density).toInt() + 2 * margin).coerceAtLeast(1)
+        return intArrayOf(width, height, margin)
+    }
+
+    /**
+     * The same, for the collapsed wake strip the island retracts into.
+     *
+     * Unlike the panel this one stays narrow and is centred on the screen: it is only
+     * [WAKE_STRIP_HEIGHT_CSS] tall and lives at the screen's top edge, so a full-width
+     * window there would swallow taps along the whole edge for as long as the island
+     * sleeps.
+     */
+    fun collapsedWindowBounds(density: Float, screenWidthPx: Int): IntArray {
+        val density = if (density > 0f) density else 1f
+        val pad = (WINDOW_MARGIN_CSS * density).toInt()
+        val maxWidth = (screenWidthPx - 2 * marginPx(density)).coerceAtLeast(1)
+        val width = ((WAKE_STRIP_WIDTH_CSS * density).toInt() + 2 * pad)
+            .coerceAtMost(maxWidth)
+            .coerceAtLeast(1)
+        val height = ((WAKE_STRIP_HEIGHT_CSS * density).toInt() + 2 * pad).coerceAtLeast(1)
         val x = ((screenWidthPx - width) / 2).coerceAtLeast(0)
         return intArrayOf(width, height, x)
     }
 
-    /** The same, for the collapsed wake strip the island retracts into. */
-    fun collapsedWindowBounds(stageWidthPx: Int, screenWidthPx: Int): IntArray =
-        windowBounds(WAKE_STRIP_WIDTH_CSS.toDouble(), WAKE_STRIP_HEIGHT_CSS.toDouble(), stageWidthPx, screenWidthPx)
+    /** The panel margin in physical pixels; the density guard keeps it non-zero. */
+    private fun marginPx(density: Float): Int {
+        val safe = if (density > 0f) density else 1f
+        return (SCREEN_MARGIN_DP * safe).toInt()
+    }
+
+    /** Two decimals is well under a pixel on any real screen and keeps `boot` readable. */
+    private fun round2(value: Double): Double = Math.round(value * 100.0) / 100.0
 
     /**
      * Maps one intercepted request path to the asset it should open, relative to the
