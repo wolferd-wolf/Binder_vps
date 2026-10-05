@@ -3,11 +3,15 @@ package com.coucou.android
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.AssetFileDescriptor
-import android.view.ContextThemeWrapper
 import android.net.Uri
+import android.net.http.SslError
 import android.os.Build
 import android.util.Log
+import android.view.ContextThemeWrapper
 import android.view.ViewGroup
+import android.webkit.ConsoleMessage
+import android.webkit.SslErrorHandler
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -45,6 +49,15 @@ internal class CoucouIslandWebView private constructor(
     /** Called with every page navigation the WebView asks us to open externally. */
     var onExternalUrl: ((String) -> Unit)? = null
 
+    /**
+     * The document itself failed to load — no `index.html`, a bad bundle URL, no asset.
+     *
+     * Called instead of leaving an empty window up: a translucent window over a WebView
+     * that never painted is indistinguishable from a black screen on the device, which is
+     * what @Boss recorded.
+     */
+    var onFailed: ((String) -> Unit)? = null
+
     private var pageLoaded = false
 
     private fun configure(webView: WebView) {
@@ -80,7 +93,8 @@ internal class CoucouIslandWebView private constructor(
             }
         }
         // The island is drawn on transparent, so the page must be too or it would show
-        // as an opaque slab over whatever app is behind the overlay.
+        // as an opaque slab over whatever app is behind the overlay — which, on a page that
+        // fails to paint, is the black screen @Boss recorded.
         webView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
         webView.isVerticalScrollBarEnabled = false
         webView.isHorizontalScrollBarEnabled = false
@@ -96,6 +110,7 @@ internal class CoucouIslandWebView private constructor(
 
         webView.addJavascriptInterface(bridge, NATIVE_INTERFACE)
         webView.webViewClient = IslandWebViewClient()
+        webView.webChromeClient = IslandChromeClient()
     }
 
     /** Loads the island. Safe to call again after the process reloads the page. */
@@ -228,12 +243,60 @@ internal class CoucouIslandWebView private constructor(
             // Sub-resources fail all the time (a sound that is not in res/raw yet) and
             // upstream swallows those itself, so only the document is worth reporting.
             if (!request.isForMainFrame) return
-            Log.e(TAG, "Island page failed: ${error.errorCode} ${request.url}")
+            reportFailure("document ${error.errorCode} (${request.url})")
+        }
+
+        override fun onReceivedHttpError(
+            view: WebView,
+            request: WebResourceRequest,
+            errorResponse: WebResourceResponse
+        ) {
+            if (!request.isForMainFrame) return
+            reportFailure("HTTP ${errorResponse.statusCode} (${request.url})")
+        }
+
+        override fun onReceivedSslError(
+            view: WebView,
+            handler: SslErrorHandler,
+            error: SslError
+        ) {
+            // Nothing here is ever fetched over the network, so an SSL error means the
+            // asset loader handed the WebView something it cannot vouch for. Refuse it and
+            // say so, rather than showing an empty window.
+            handler.cancel()
+            reportFailure("TLS ${error.primaryError} (${error.url})")
+        }
+    }
+
+    /** Tells the host the page is not coming, and logs the same line for logcat. */
+    private fun reportFailure(reason: String) {
+        Log.e(TAG, "Island page failed: $reason")
+        onFailed?.invoke(reason)
+    }
+
+    /**
+     * The page's own console, mirrored into logcat under [TAG].
+     *
+     * Without a `WebChromeClient` the WebView throws `console.error` away. The page is
+     * remote content being served out of `assets/`, so a boot that fails does so in the
+     * console — and with nothing mirroring it, the only symptom is an empty window and
+     * completely silent logcat. This is the difference between "the page is broken" and
+     * "the app is broken", which is the whole of @Boss's device report.
+     */
+    private inner class IslandChromeClient : WebChromeClient() {
+        override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+            val text = "page[${consoleMessage.messageLevel()}] ${consoleMessage.message()} (${consoleMessage.sourceId()}:${consoleMessage.lineNumber()})"
+            when (consoleMessage.messageLevel()) {
+                ConsoleMessage.MessageLevel.ERROR -> Log.e(TAG, text)
+                ConsoleMessage.MessageLevel.WARNING -> Log.w(TAG, text)
+                else -> Log.i(TAG, text)
+            }
+            return true
         }
     }
 
     /**
-     * Serves the page from `assets/coucou/` and the 28 sounds from `res/raw/`.
+     * Answers every request from `assets/coucou/` and the 28 sounds from `res/raw/`.
      *
      * Sounds are deliberately not vendored into the assets bundle: they already live in
      * `res/raw/coucou_*.wav` (@Buffy's lane), and this keeps a single copy in the APK.

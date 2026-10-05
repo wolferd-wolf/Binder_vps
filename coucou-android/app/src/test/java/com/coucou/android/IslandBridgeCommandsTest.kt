@@ -141,37 +141,42 @@ class IslandBridgeCommandsTest {
     }
 
     @Test
-    fun `window bounds are the screen minus the panel margin`() {
-        // 720px wide at density 2 (360dp): a 16dp margin each side leaves 688px.
-        val bounds = IslandBridgeCommands.windowBounds(160.0, 2f, 720)
-
-        assertEquals(720 - 2 * 16 * 2, bounds[0])
-        // Offset by the same margin, so the panel's own centring lands on screen centre.
-        assertEquals(16 * 2, bounds[2])
-        assertTrue("must never be wider than the screen", bounds[0] < 720)
+    fun `the window is the island rect, scaled from dp to px`() {
+        // A 328x160dp prompt box at density 2.625 on a 1080px screen.
+        val bounds = IslandBridgeCommands.windowBounds(328.0, 160.0, 2.625f, 1080)
+        assertEquals((328 * 2.625).toInt(), bounds[0])
+        assertEquals((160 * 2.625).toInt(), bounds[1])
     }
 
     @Test
-    fun `window height follows the island, scaled from dp to px`() {
-        // A 160dp-tall island at density 2.625 is 420px, plus the margin on each side.
-        val bounds = IslandBridgeCommands.windowBounds(160.0, 2.625f, 1080)
-        assertEquals((160 * 2.625).toInt() + 2 * (16 * 2.625).toInt(), bounds[1])
+    fun `the window is never wider than the screen, whatever the page asks for`() {
+        // This is the black-screen guard. The page is remote content: a rect larger than
+        // the display would put us back to a full-screen window that swallows touches.
+        val huge = IslandBridgeCommands.windowBounds(4000.0, 160.0, 2f, 720)
+        assertEquals(720, huge[0])
+        // A rect at or under the screen width is passed through untouched.
+        val normal = IslandBridgeCommands.windowBounds(360.0, 160.0, 2f, 720)
+        assertEquals(720, normal[0])
+        assertTrue("a screen-wide island is legal", normal[0] <= 720)
     }
 
     @Test
-    fun `window bounds track the island height, not just the panel width`() {
-        val compact = IslandBridgeCommands.windowBounds(32.0, 2f, 720)
-        val expanded = IslandBridgeCommands.windowBounds(240.0, 2f, 720)
-        // The panel is the screen either way; only the height follows the island.
-        assertEquals(compact[0], expanded[0])
+    fun `window bounds track the island rect on both axes`() {
+        val compact = IslandBridgeCommands.windowBounds(288.0, 32.0, 2f, 1080)
+        val expanded = IslandBridgeCommands.windowBounds(640.0, 240.0, 2f, 1080)
+        assertTrue(compact[0] < expanded[0])
         assertTrue(compact[1] < expanded[1])
     }
 
     @Test
     fun `window bounds survive a degenerate screen width and density`() {
-        val bounds = IslandBridgeCommands.windowBounds(160.0, 0f, 0)
-        assertTrue(bounds.all { it >= 0 })
-        assertTrue(bounds[0] > 0 && bounds[1] > 0)
+        val bounds = IslandBridgeCommands.windowBounds(160.0, 160.0, 0f, 0)
+        // Width is capped, and never zero: a zero-sized window is an invisible one, which
+        // reads as "nothing happened" rather than "something went wrong".
+        assertEquals(1, bounds[0])
+        // Height is not capped — a prompt box taller than a short landscape screen is
+        // legitimate, and clipping it would cut the text field off.
+        assertEquals(160, bounds[1])
     }
 
     // endregion

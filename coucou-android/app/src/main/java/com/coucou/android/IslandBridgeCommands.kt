@@ -15,17 +15,6 @@ package com.coucou.android
  */
 internal object IslandBridgeCommands {
 
-    /**
-     * Panel margin on each side, in dp. Matches `layout.ts` `getPanelWidth`, which
-     * measures its panel as `screenWidth - 32`: the window has to be exactly this wide
-     * for the page's own centring to land on the screen centre.
-     *
-     * There is no wake-strip geometry here any more. The collapsed shape is the native
-     * rectangle, which the window wraps rather than measures, so nothing has to be sized
-     * for a hidden page state.
-     */
-    private const val SCREEN_MARGIN_DP = 16
-
     /** Largest island height, from `layout.ts` `PANEL_H`; used as a sanity bound. */
     private const val MAX_HEIGHT_CSS = 320
 
@@ -281,31 +270,34 @@ internal object IslandBridgeCommands {
     fun chatReply(text: String): String = "{\"text\":${Json.quote(text)}}"
 
     /**
-     * Window bounds, in physical pixels, for a panel [islandHeightCss] tall on a
-     * [screenWidthPx]-wide screen at [density].
+     * Window bounds, in physical pixels, for the island rect the page pushed
+     * ([islandWidthCss] x [islandHeightCss]) on a [screenWidthPx]-wide screen at
+     * [density].
      *
-     * The window *is* the page's panel: the screen less [SCREEN_MARGIN_DP] on each side.
-     * That width is not a guess — `layout.ts` `getPanelWidth` measures the panel as
-     * `screenWidth - 32` and centres the island in it, so the window has to be exactly
-     * that or the prompt box is drawn off-centre, and anything wider spills past the
-     * screen edge. The REDO brief asks for the same: screen width minus margins.
+     * The window **is** the island, exactly. That is the fix for @Boss's black screen: a
+     * window sized to the screen (or to `MATCH_PARENT`) turns any page that fails to paint
+     * its own background into an opaque slab over the whole display, and it also swallows
+     * the touches meant for the app underneath. Sizing to the pushed rect bounds both.
      *
-     * Height follows the island, scaled by [density]: the island's CSS px are dp on
-     * Android, so dp × density is the physical px the window has to be tall. (Scaling the
-     * fixed 720px desktop stage to the screen instead — what this used to do — put the
-     * island's own 12.5px type at ~6dp on a phone.)
+     * Scaled by [density] because the island's CSS px are dp on Android, so dp × density
+     * is the physical px the window has to be. (Scaling the fixed 720px desktop stage to
+     * the screen instead — what this used to do — put the island's own 12.5px type at
+     * ~6dp on a phone.)
+     *
+     * Each axis is capped at the screen as a last resort: the page is remote content, and a
+     * rect larger than the display is the one input that would put us back to a full-screen
+     * window.
      */
-    fun windowBounds(islandHeightCss: Double, density: Float, screenWidthPx: Int): IntArray {
-        val margin = marginPx(density)
-        val width = (screenWidthPx - 2 * margin).coerceAtLeast(1)
-        val height = ((islandHeightCss * density).toInt() + 2 * margin).coerceAtLeast(1)
-        return intArrayOf(width, height, margin)
-    }
-
-    /** The panel margin in physical pixels; the density guard keeps it non-zero. */
-    private fun marginPx(density: Float): Int {
+    fun windowBounds(
+        islandWidthCss: Double,
+        islandHeightCss: Double,
+        density: Float,
+        screenWidthPx: Int
+    ): IntArray {
         val safe = if (density > 0f) density else 1f
-        return (SCREEN_MARGIN_DP * safe).toInt()
+        val width = (islandWidthCss * safe).toInt().coerceIn(1, screenWidthPx.coerceAtLeast(1))
+        val height = (islandHeightCss * safe).toInt().coerceAtLeast(1)
+        return intArrayOf(width, height)
     }
 
     /**
@@ -313,9 +305,9 @@ internal object IslandBridgeCommands {
      * screen, and answers `x, y`.
      *
      * The collapsed rectangle is positioned by the user, and the expanded panel inherits
-     * wherever that left it — but a 90%-wide panel parked where a 56dp rectangle was is
-     * mostly off screen, so the position is re-clamped on every shape change rather than
-     * only while dragging.
+     * wherever that left it — but the panel is far wider than the rectangle, so an
+     * unclamped origin would leave most of it off screen. Re-clamped on every shape
+     * change, not only while dragging.
      *
      * A non-positive size means "not measured yet" (`WRAP_CONTENT`, or measured on a later
      * layout pass); the window then cannot be wider than the screen by definition, so only

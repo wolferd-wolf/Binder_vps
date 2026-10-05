@@ -169,6 +169,7 @@ async function run() {
 
   let totalIssues = 0;
   const report = [];
+  const promptGateFailures = [];
 
   try {
     const browser = await chromium.launch({
@@ -230,7 +231,139 @@ async function run() {
 
         const filename = `island-${viewName}_${vp.tag}.png`;
         const filepath = join(SCREENSHOT_DIR, filename);
-        await page.screenshot({ path: filepath, fullPage: false });
+        const screenshotBuf = await page.screenshot({
+          path: filepath,
+          fullPage: false,
+          omitBackground: true,
+        });
+
+        // ── Extended Gate Checks for Prompt View ────────────────────────────
+        if (viewName === "prompt") {
+          // 1. Check prompt input is visible and tappable
+          try {
+            const chatInput = page.locator(".chat-input");
+            await chatInput.waitFor({ state: "visible", timeout: 3000 });
+            const isVisible = await chatInput.isVisible();
+            if (!isVisible) {
+              promptGateFailures.push({
+                viewport: vp.tag,
+                reason: "Prompt input (.chat-input) is not visible",
+              });
+            } else {
+              await chatInput.click();
+              const isFocused = await page.evaluate(
+                () => document.activeElement === document.querySelector(".chat-input")
+              );
+              if (!isFocused) {
+                promptGateFailures.push({
+                  viewport: vp.tag,
+                  reason: "Prompt input (.chat-input) did not gain focus after tap/click",
+                });
+              } else {
+                await chatInput.fill("Gate test query");
+                const typed = await chatInput.inputValue();
+                if (typed !== "Gate test query") {
+                  promptGateFailures.push({
+                    viewport: vp.tag,
+                    reason: `Prompt input text entry failed: got '${typed}'`,
+                  });
+                }
+                await chatInput.fill("");
+              }
+            }
+          } catch (e) {
+            promptGateFailures.push({
+              viewport: vp.tag,
+              reason: `Prompt input test error: ${e.message}`,
+            });
+          }
+
+          // 2. Check that pixels outside the island card are fully transparent
+          try {
+            const rect = await page.evaluate(() => {
+              const el = document.querySelector("#island");
+              if (!el) return null;
+              const r = el.getBoundingClientRect();
+              return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+            });
+
+            if (!rect) {
+              promptGateFailures.push({
+                viewport: vp.tag,
+                reason: "Island element (#island) not found in DOM",
+              });
+            } else {
+              const transResult = await page.evaluate(
+                async ({ base64, rect, vw }) => {
+                  const img = new Image();
+                  await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = "data:image/png;base64," + base64;
+                  });
+                  const canvas = document.createElement("canvas");
+                  canvas.width = img.width;
+                  canvas.height = img.height;
+                  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+                  ctx.drawImage(img, 0, 0);
+
+                  const scale = img.width / vw;
+                  const left = Math.floor(rect.left * scale);
+                  const right = Math.ceil(rect.right * scale);
+                  const top = Math.floor(rect.top * scale);
+                  const bottom = Math.ceil(rect.bottom * scale);
+
+                  let nonTransparentOutside = 0;
+                  let totalOutside = 0;
+                  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+                  for (let y = 0; y < canvas.height; y += 4) {
+                    for (let x = 0; x < canvas.width; x += 4) {
+                      if (x < left || x > right || y < top || y > bottom) {
+                        totalOutside++;
+                        const idx = (y * canvas.width + x) * 4;
+                        if (data[idx + 3] > 0) nonTransparentOutside++;
+                      }
+                    }
+                  }
+
+                  let insideNonTransparent = 0;
+                  for (let y = top; y < bottom; y += 4) {
+                    for (let x = left; x < right; x += 4) {
+                      const idx = (y * canvas.width + x) * 4;
+                      if (data[idx + 3] > 0) insideNonTransparent++;
+                    }
+                  }
+
+                  return { nonTransparentOutside, totalOutside, insideNonTransparent };
+                },
+                { base64: screenshotBuf.toString("base64"), rect, vw: vp.width }
+              );
+
+              if (transResult.nonTransparentOutside > 0) {
+                promptGateFailures.push({
+                  viewport: vp.tag,
+                  reason: `${transResult.nonTransparentOutside} non-transparent pixels found outside island card bounds`,
+                });
+              } else if (transResult.insideNonTransparent === 0) {
+                promptGateFailures.push({
+                  viewport: vp.tag,
+                  reason: "Island card itself has 0 non-transparent pixels (blank card)",
+                });
+              } else {
+                console.log(
+                  `     [Transparency] ${transResult.totalOutside} outside px sampled -> 100% transparent (alpha=0)`
+                );
+                console.log("     [Input] Prompt input (.chat-input) verified visible and tappable");
+              }
+            }
+          } catch (e) {
+            promptGateFailures.push({
+              viewport: vp.tag,
+              reason: `Transparency check error: ${e.message}`,
+            });
+          }
+        }
 
         const issues = await checkOverflow(page, vp.width, vp.height);
         if (issues.length > 0) {
@@ -259,7 +392,7 @@ async function run() {
 
         const filename = `settings_${vp.tag}.png`;
         const filepath = join(SCREENSHOT_DIR, filename);
-        await page.screenshot({ path: filepath, fullPage: true });
+        await page.screenshot({ path: filepath, fullPage: true, omitBackground: true });
 
         const issues = await checkOverflow(page, vp.width, vp.height);
         if (issues.length > 0) {
@@ -310,10 +443,13 @@ async function run() {
     }
   }
 
-  if (promptIssues.length > 0) {
-    console.error("\n❌ [AGY GATE FAILED] Prompt view has cropping or overflow issues!");
+  if (promptIssues.length > 0 || promptGateFailures.length > 0) {
+    console.error("\n❌ [AGY GATE FAILED] Prompt view gate requirements failed!");
+    for (const fail of promptGateFailures) {
+      console.error(`   → [Gate Failure @ ${fail.viewport}]: ${fail.reason}`);
+    }
     for (const r of promptIssues) {
-      console.error(`   → Prompt @ ${r.viewport}: ${r.issues.length} issue(s)`);
+      console.error(`   → Prompt overflow @ ${r.viewport}: ${r.issues.length} issue(s)`);
       for (const iss of r.issues) {
         const ident = iss.id ? `#${iss.id}` : iss.cls ? `.${iss.cls.split(" ")[0]}` : iss.tag;
         console.error(`       - [${iss.overflow}] ${ident} (${iss.amount}px)`);
@@ -324,7 +460,7 @@ async function run() {
     process.exit(1);
   }
 
-  console.log("\n✅ [AGY GATE PASSED] Prompt view is uncropped and fully visible at all target viewports!");
+  console.log("\n✅ [AGY GATE PASSED] Prompt view is uncropped, transparent outside card, and input is visible & tappable!");
   console.log("══════════════════════════════════════════════════════\n");
 
   return { totalIssues, report, totalScreenshots, screenshotDir: SCREENSHOT_DIR };

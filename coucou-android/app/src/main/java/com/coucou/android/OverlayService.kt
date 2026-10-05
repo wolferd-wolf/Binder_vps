@@ -75,6 +75,9 @@ class OverlayService : Service() {
     private var island: CoucouIslandWebView? = null
     private var islandBridge: IslandBridgeHost? = null
 
+    /** Kept so the WebView can report a load failure back without going through the bridge. */
+    private var islandListener: IslandListener? = null
+
     /**
      * The one attached window root, holding the rectangle and the prompt box as siblings.
      *
@@ -87,6 +90,12 @@ class OverlayService : Service() {
 
     /** The collapsed rectangle, inflated once and re-used. */
     private var bubbleView: View? = null
+
+    /** Says what went wrong instead of leaving an empty window on screen. */
+    private var errorView: TextView? = null
+
+    /** True once the page has failed to load, so the error view takes the island's place. */
+    private var islandFailed = false
 
     /** Island geometry pushed by the page (CSS px), applied to [layoutParams] on the main thread. */
     private var islandWidthCss = 0.0
@@ -152,6 +161,9 @@ class OverlayService : Service() {
 
         /** How long a transient character state (thinking/finished/error) stays on screen. */
         private const val CHARACTER_RESET_MS = 1600L
+
+        /** The load-failure box has to be readable from across a desk. */
+        private const val ERROR_TEXT_SIZE_SP = 14f
 
         var isRunning: Boolean = false
             private set
@@ -228,7 +240,8 @@ class OverlayService : Service() {
         appLauncher = AppLauncher(this)
         router = DefaultCommandRouter(listOf(LaunchAppCommandRouter(appLauncher!!)))
         soundPlayer = SoundPlayer(this).also { it.preloadAvailable() }
-        islandBridge = IslandBridgeHost(this, IslandListener())
+        islandListener = IslandListener()
+        islandBridge = IslandBridgeHost(this, islandListener!!)
         registerScreenReceiver()
     }
 
@@ -317,6 +330,10 @@ class OverlayService : Service() {
             Log.i(TAG, "Island page: $message")
         }
 
+        override fun onPageFailed(message: String) {
+            mainHandler.post { showOverlayError(message) }
+        }
+
         override fun onQuitRequested() {
             mainHandler.post { stopOverlayService() }
         }
@@ -396,11 +413,13 @@ class OverlayService : Service() {
         if (expanded) {
             applyPanelParams(params)
             bubbleView?.visibility = View.GONE
-            islandView?.visibility = View.VISIBLE
+            islandView?.visibility = if (islandFailed) View.GONE else View.VISIBLE
+            errorView?.visibility = if (islandFailed) View.VISIBLE else View.GONE
         } else {
             applyCollapsedParams(params)
             bubbleView?.visibility = View.VISIBLE
             islandView?.visibility = View.GONE
+            errorView?.visibility = View.GONE
         }
         clampOnScreen(params)
         try {
@@ -454,53 +473,105 @@ class OverlayService : Service() {
             visibility = View.GONE
             root.addView(this)
         }
+        errorView = buildErrorView().also {
+            it.layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+            it.visibility = View.GONE
+            root.addView(it)
+        }
         container = root
         return root
     }
 
-    /** Collapsed: exactly the rectangle, so every touch outside it reaches the app below. */
+    /**
+     * The "the page did not load" box.
+     *
+     * An overlay that fails silently is the worst kind of bug to chase: the user sees a
+     * floating window with nothing in it, and logcat says nothing either. @Boss's screen
+     * recording was exactly that. So the failure is stated, in the same place the prompt
+     * box would have been.
+     */
+    private fun buildErrorView(): TextView = TextView(ContextThemeWrapper(this, R.style.Theme_Coucou)).apply {
+        setTextColor(ContextCompat.getColor(context, R.color.coucou_ink))
+        setBackgroundColor(ContextCompat.getColor(context, R.color.coucou_card))
+        textSize = ERROR_TEXT_SIZE_SP
+        setPadding(dp(12), dp(10), dp(12), dp(10))
+    }
+
+    /** Puts [message] on screen in place of the prompt box. */
+    private fun showOverlayError(message: String) {
+        islandFailed = true
+        Log.e(TAG, "Island page failed: $message")
+        islandDescription = "island: failed ($message)"
+        val text = errorView ?: ensureContainer()?.let { errorView }
+        if (text == null) {
+            // Nowhere to draw it; a toast is the last resort, but it at least says something.
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            return
+        }
+        text.text = getString(R.string.island_load_failed, message)
+        if (!isExpanded) isExpanded = true
+        applyWindowState()
+    }
+
+    /**
+     * Collapsed: exactly the rectangle, so every touch outside it reaches the app below.
+     *
+     * `WRAP_CONTENT` does the work — the prompt box child is `GONE`, so it is not measured
+     * and the container's natural size is the rectangle's and nothing else.
+     */
     private fun applyCollapsedParams(params: WindowManager.LayoutParams) {
         params.width = WindowManager.LayoutParams.WRAP_CONTENT
         params.height = WindowManager.LayoutParams.WRAP_CONTENT
         params.gravity = Gravity.TOP or Gravity.START
         // Not focusable, so the app underneath keeps its own input.
-        params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        params.flags = baseFlags(focusable = false)
         params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
     }
 
     /**
-     * Expanded: the screen less its margins wide, and as tall as the page's own rect.
+     * Expanded: the exact rect the page pushed, in physical pixels, and never more.
      *
-     * Width is read from the display metrics on every pass, never hardcoded — the panel is
-     * the screen, and the screen is whatever this device is.
+     * The screen metrics are read on every pass, never hardcoded; the rect comes from the
+     * page and is capped at the screen width inside [IslandBridgeCommands.windowBounds], so
+     * there is no path here that produces a screen-filling window.
      */
     private fun applyPanelParams(params: WindowManager.LayoutParams) {
         val metrics = resources.displayMetrics
-        val bounds = IslandBridgeCommands.windowBounds(islandHeightCss, metrics.density, metrics.widthPixels)
-        params.width = bounds[0]
-        params.height = bounds[1]
+        if (islandFailed) {
+            // The page never produced a rect, so there is no rect to match: let the error
+            // text size itself rather than guessing a panel size.
+            params.width = WindowManager.LayoutParams.WRAP_CONTENT
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT
+        } else {
+            val bounds = IslandBridgeCommands.windowBounds(
+                islandWidthCss, islandHeightCss, metrics.density, metrics.widthPixels
+            )
+            params.width = bounds[0]
+            params.height = bounds[1]
+        }
         params.gravity = Gravity.TOP or Gravity.START
+        params.flags = baseFlags(focusable = islandFocused)
+        params.softInputMode = if (islandFocused) {
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        } else {
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
+        }
     }
 
     /**
-     * Expands to the prompt box, keeping the panel roughly where the rectangle was.
+     * Expands to the prompt box, keeping the panel where the rectangle was left.
      *
-     * The panel inherits the rectangle's position and is nearly screen-wide, so the
-     * position is re-anchored on the rectangle's centre and then clamped: a panel parked
-     * where a 56dp rectangle sat would otherwise be mostly off screen.
+     * The panel inherits the rectangle's position and is much wider, so the origin is
+     * re-clamped by [applyWindowState] rather than trusted.
      */
     private fun expand() {
-        val params = layoutParams ?: return
         if (island == null) {
             Log.i(TAG, "No island to expand into; staying on the rectangle")
             return
         }
-        val metrics = resources.displayMetrics
-        val centreX = params.x + collapsedWidthPx() / 2
-        val panelWidth = IslandBridgeCommands.windowBounds(
-            islandHeightCss, metrics.density, metrics.widthPixels
-        )[0]
-        params.x = centreX - panelWidth / 2
         isExpanded = true
         applyWindowState()
         revealPrompt()
@@ -509,8 +580,9 @@ class OverlayService : Service() {
     /**
      * Shrinks back to the rectangle.
      *
-     * Focus goes first: the window has to stop being focusable for the app underneath to
-     * get its input back, and that only takes effect on a re-added window.
+     * Focus and the IME go first: the window has to stop being focusable for the app
+     * underneath to get its input back, and it has to stop being focusable *before* the
+     * keyboard is dismissed or the IME keeps the window alive.
      */
     private fun collapse() {
         if (!isExpanded && overlayView == null) return
@@ -520,7 +592,6 @@ class OverlayService : Service() {
             islandFocused = false
             setFocusable(false)
         }
-        hideKeyboard()
         applyWindowState()
     }
 
@@ -541,7 +612,7 @@ class OverlayService : Service() {
         val root = ensureContainer() ?: return
         val params = layoutParams ?: buildLayoutParams().also { layoutParams = it }
         val metrics = resources.displayMetrics
-        val bounds = IslandBridgeCommands.windowBounds(islandHeightCss, metrics.density, metrics.widthPixels)
+        val bounds = IslandBridgeCommands.windowBounds(islandWidthCss, islandHeightCss, metrics.density, metrics.widthPixels)
         params.width = bounds[0]
         params.height = bounds[1]
         params.x = 0
@@ -575,6 +646,7 @@ class OverlayService : Service() {
         }
         created.onReady = { mainHandler.postDelayed({ onIslandReady() }, ISLAND_REVEAL_DELAY_MS) }
         created.onExternalUrl = { url -> mainHandler.post { openExternalUrl(url) } }
+        created.onFailed = { message -> islandListener?.onPageFailed(message) }
         island = created
         islandHosting = true
         islandDescription = "island: on loading"
@@ -651,49 +723,45 @@ class OverlayService : Service() {
         if (islandFocused == focused) return
         islandFocused = focused
         setFocusable(focused)
-        val view = island?.view ?: return
-        if (focused) {
-            view.requestFocus()
-            mainHandler.postDelayed({
-                if (islandFocused) showKeyboard(view)
-            }, KEYBOARD_SHOW_DELAY_MS)
-        } else {
-            hideKeyboard()
-        }
         Log.i(TAG, "Island keyboard focus -> $focused")
     }
 
     /**
-     * Flips [WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE] and re-adds the window.
+     * Makes the window focusable and raises the IME, in the only order that works.
      *
-     * The flag is read when the window is added, so changing it on an attached window does
-     * nothing; the view has to come off and go back on. The children survive it, which is
-     * the whole point of keeping one root.
+     * Each step is a link in one chain and any of them can be skipped silently, which is
+     * why the keyboard "never appeared" when they were:
+     *  1. clear `FLAG_NOT_FOCUSABLE`, or the window never receives key events at all;
+     *  2. clear `FLAG_ALT_FOCUSABLE_IM`, or the IME has to route around this window;
+     *  3. push both down with [WindowManager.updateViewLayout];
+     *  4. `requestFocus()` on the WebView, so the page's `<input>` is the focused view;
+     *  5. `showSoftInput` last — on a view that does not hold focus it is dropped without
+     *     a word, which is exactly the "no keyboard" symptom.
+     *
+     * The wait before step 5 covers the IME's own round trip to the newly focused window.
      */
     private fun setFocusable(focusable: Boolean) {
         val params = layoutParams ?: return
-        val root = container ?: return
-        val wm = windowManager ?: return
-        val flags = params.flags
-        params.flags = if (focusable) {
-            (flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()) or
-                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM.inv()
-        } else {
-            flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-        }
+        val view = island?.view
+        params.flags = baseFlags(focusable = focusable)
         params.softInputMode = if (focusable) {
             // Resize, so the prompt box is pushed up instead of being covered by the keyboard.
             WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         } else {
             WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
         }
-        runCatching {
-            if (overlayView != null) wm.removeView(overlayView!!)
-            wm.addView(root, params)
-            overlayView = root
-        }.onFailure {
-            Log.w(TAG, "Could not switch window focus", it)
+        // 3. Flags are read by the window manager when the layout is applied, so they have
+        // to be pushed before anything can react to them.
+        pushLayout()
+        if (view == null) return
+        if (!focusable) {
+            hideKeyboard(view)
+            return
         }
+        view.requestFocus()
+        mainHandler.postDelayed({
+            if (islandFocused) showKeyboard(view)
+        }, KEYBOARD_SHOW_DELAY_MS)
     }
 
     /** Moves the window by the page's drag delta, which arrives in CSS px (= dp here). */
@@ -823,6 +891,36 @@ class OverlayService : Service() {
         pageDragging = false
     }
 
+    /**
+     * The window flags every shape starts from.
+     *
+     * `FLAG_NOT_TOUCH_MODAL` is the one @Boss's screen recording was missing: without it
+     * an overlay window is touch-modal by default, so it receives *every* touch on the
+     * screen and the app underneath goes dead — which is what "blocks touches" looked like.
+     * With it, touches outside the window carry on to the app below.
+     *
+     * `FLAG_WATCH_OUTSIDE_TOUCH` is what makes those outside touches visible to us as well,
+     * so the same tap can close the prompt box (see [OverlayHostLayout]).
+     *
+     * `FLAG_NOT_FOCUSABLE` keeps the window out of the input chain until the prompt box
+     * asks to be typed into (see [setFocusable]).
+     *
+     * Deliberately **no** `FLAG_DIM_BEHIND`: it dims everything behind an overlay, which is
+     * a system-dialog look the app does not want floating over someone's game.
+     */
+    private fun baseFlags(focusable: Boolean): Int {
+        var flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+        flags = if (focusable) {
+            (flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()) and
+                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM.inv()
+        } else {
+            flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+        }
+        return flags
+    }
+
     private fun buildLayoutParams(): WindowManager.LayoutParams {
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -834,8 +932,9 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            baseFlags(focusable = false),
+            // TRANSLUCENT is what lets the island be a rounded rectangle with nothing
+            // behind it; an opaque window is a solid black slab over whatever is below.
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -1218,11 +1317,20 @@ class OverlayService : Service() {
         soundPlayer?.play(sound)
     }
 
-    private fun hideKeyboard() {
+    /**
+     * Dismisses the IME for [target].
+     *
+     * Takes the view rather than reaching for the WebView itself, so the token is read from
+     * whichever window the view is actually attached to right now.
+     */
+    private fun hideKeyboard(target: View) {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager ?: return
-        // Only the island has a text field now; the native bubble is character-only.
-        val target: View = island?.view ?: return
         imm.hideSoftInputFromWindow(target.windowToken, 0)
+    }
+
+    /** Dismisses the IME if the island is up; a no-op when there is no text field. */
+    private fun hideKeyboard() {
+        island?.view?.let { hideKeyboard(it) }
     }
 
     // endregion

@@ -56,6 +56,14 @@ internal class IslandBridgeHost(
         /** Mirror a page log line into logcat. */
         fun onPageLog(message: String)
 
+        /**
+         * The page itself failed to load, so there is no island to talk to.
+         *
+         * Distinct from [onPageLog]: this one has to reach the screen, because the symptom
+         * otherwise is an empty window and nothing to read anywhere.
+         */
+        fun onPageFailed(message: String)
+
         /** Stop the overlay service. */
         fun onQuitRequested()
     }

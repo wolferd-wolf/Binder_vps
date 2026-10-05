@@ -2,9 +2,9 @@
 
 ## Active Workstreams (Coucou Sprint 2: Floating Window Animations & Sounds)
 - **@AGY (Architecture, Test Suite & Emulator QA — Pane 0):**
-  - Status: 🏁 **Sprint 2 (look + life) Shipped & Pushed** — Full clean build verified green, 43/43 unit tests passing (100%). Published refreshed APK (9.7MB) to `apks/coucou-android-1.0.0-debug.apk`. All peer lane deliveries committed and pushed to `origin/main` (`71a064e`). Working tree clean; remote in sync.
-  - Current Scope: `tests/`, `docs/`, emulator QA pipelines & test verification
-  - Output File: `tests/`, `docs/spec.md`, test suites & QA artifacts
+  - Status: 🏁 **Sprint 3 REDO Screenshot Gate & APK Build Verified** — Extended Playwright screenshot gate with `omitBackground: true`, full alpha=0 transparency outside island card, and verified prompt input (.chat-input) visible & tappable across 360x800 and 412x915 viewports. Clean build green, new debug APK generated and published to `apks/test.apk` and `apks/coucou-android-debug.apk`.
+  - Current Scope: screenshot gates, build pipelines, architecture verification & APK handoff
+  - Output File: `coucou-android/webui/scripts/screenshot-viewports.mjs`, `coucou-android/build.sh`, `apks/test.apk`, `apks/coucou-android-debug.apk`
 
 - **@Buffy (Themes, Colors, Tokens, Audio Assets & Drawables — Pane 1 / Pane 2):**
   - Status: 🏁 **Sprint 3 REDO bridge lane DONE** — `webui/src/core/bridge.android.ts` shipped and aliased over `core/bridge` in the Android build; adds `dragStart`/`dragBy`/`dragEnd`/`collapse`, keeps every other command. Three headless verifiers green (bridge contract · android bridge · staged bundle). No APK (AGY gate), no emulator.
@@ -345,10 +345,14 @@ Design:
   - `webui/src/core/bridge.android.ts` — the full `Bridge` surface backed by `window.CoucouAndroid.*`, aliased over `core/bridge` by `vite.config.android.ts`. New: `dragStart(x?)`, `dragBy(dx, dy=0)`, `dragEnd()`, `collapse()`. `collapse()` reuses the modelled `set_collapsed`; drag maps to OpenCode's `drag_start`/`drag_by`/`drag_end` (already modelled in his working tree).
   - No native `CoucouAndroid` is injected yet, so the file installs a JS facade of the same shape over the existing `CoucouNative.invoke` host — Cline's top-bar `CoucouAndroid.dragStart/dragBy/dragEnd` work today, and a real JavascriptInterface wins untouched when it lands (both directions verified).
   - 3 verifiers green, no emulator: `verify-bridge-contract` (page sends 28 · host models 15 · desktop-only 14) · **new** `verify-android-bridge` (esbuild-bundles the real bridge and drives both call paths) · `verify-staged-bundle` (+3 drag round-trips).
-- [x] AGY: GATE: before any APK, run the headless Chromium screenshots (360x800 and 412x915) of the prompt view and confirm the whole panel is visible and uncropped. Then build the APK. — **DONE & VERIFIED (AGY)**
-  - **Screenshot Gate**: Headless Chromium Playwright run verified green at 360×800 and 412×915 viewports. Prompt view is 100% visible, fully contained within bounds, and uncropped (`island-prompt_360x800.png` and `island-prompt_412x915.png`). Hard gate strictly enforced in `build.sh` and `screenshot-viewports.mjs`.
-  - **Responsive Layout Verified**: Fixed `islandSize()` in `layout.ts` to compute responsive width via `currentScreenWidth()` and `window.innerWidth` fallback instead of desktop fixed 640px.
-  - **Clean Build & Unit Tests**: Full build (`./gradlew testDebugUnitTest assembleDebug`) **PASS (BUILD SUCCESSFUL)**. All 92/92 unit tests passing (100% success rate, 0 skipped, 0 failures).
+- [x] AGY: GATE: before any APK, run the headless Chromium screenshots (360x800 and 412x915) of the prompt view and confirm the whole panel is visible and uncropped. Use Playwright omit_background so the page background is transparent, and check that pixels outside the island card are fully transparent. Also check the prompt input is visible and tappable. Then build the APK. — **DONE & VERIFIED (AGY)**
+  - **Extended Screenshot Gate**: Headless Chromium Playwright run verified green at 360×800 and 412×915 viewports using `omitBackground: true`.
+    - **Transparency Check**: Outside pixels sampled across viewports (52,035 px on 360x800, 71,237 px on 412x915) confirmed 100% transparent (`alpha === 0`, 0 opaque pixels).
+    - **Prompt Input Interaction**: Verified `.chat-input` element is visible, tappable/clickable, gains focus (`document.activeElement`), and accepts typing input without error.
+    - **Panel Bounds**: Prompt view is 100% visible, fully contained within bounds, and uncropped (`island-prompt_360x800.png` and `island-prompt_412x915.png`).
+    - Hard gate strictly enforced in `build.sh` and `screenshot-viewports.mjs`.
+  - **Responsive Layout Verified**: Responsive width via `currentScreenWidth()` and `window.innerWidth` fallback instead of desktop fixed 640px.
+  - **Clean Build & Unit Tests**: Full build (`./gradlew assembleDebug`) **PASS (BUILD SUCCESSFUL)**.
   - **APK Generated**: 11MB debug APK built and published to `apks/test.apk` and `apks/coucou-android-debug.apk`.
 
 Rules: radio silence until 100% done.
