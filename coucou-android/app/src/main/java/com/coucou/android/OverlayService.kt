@@ -797,12 +797,19 @@ class OverlayService : Service() {
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_CONFIGURATION_CHANGED)
         }
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 when (intent?.action) {
                     Intent.ACTION_SCREEN_OFF -> setScreenState(false)
                     Intent.ACTION_SCREEN_ON -> setScreenState(true)
+                    Intent.ACTION_CONFIGURATION_CHANGED -> {
+                        // Screen rotated or configuration changed: notify island to update layout
+                        if (islandActive) {
+                            island?.postScreenChanged()
+                        }
+                    }
                 }
             }
         }
@@ -813,7 +820,7 @@ class OverlayService : Service() {
                     receiver,
                     filter,
                     // System broadcasts only; NOT_EXPORTED keeps other apps out and still
-                    // delivers SCREEN_ON/OFF.
+                    // delivers SCREEN_ON/OFF and CONFIGURATION_CHANGED.
                     Context.RECEIVER_NOT_EXPORTED
                 )
             } else {

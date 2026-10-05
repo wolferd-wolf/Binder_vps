@@ -15,7 +15,13 @@ package com.coucou.android
  */
 internal object IslandBridgeCommands {
 
-    /** The page's fixed stage width, from upstream `layout.ts` `PANEL_W`. */
+    /**
+     * Upstream's desktop stage width, from `layout.ts` `PANEL_W`.
+     *
+     * The page caps its panel at this (`getPanelWidth`), so it is the widest the window
+     * ever wants to be — but on a phone the panel is the screen instead, and the window
+     * follows the screen. Kept because the staged document still names it.
+     */
     const val STAGE_WIDTH_CSS = 720
 
     /** The island is glued to the top of the stage and centred horizontally. */
@@ -27,6 +33,13 @@ internal object IslandBridgeCommands {
      * exactly on the island's rounded corners, so a tap on the corner would miss.
      */
     private const val WINDOW_MARGIN_CSS = 8
+
+    /**
+     * Panel margin on each side, in dp. Matches `layout.ts` `getPanelWidth`, which
+     * measures its panel as `screenWidth - 32`: the window has to be exactly this wide
+     * for the page's own centring to land on the screen centre.
+     */
+    private const val SCREEN_MARGIN_DP = 16
 
     /** Largest island height, from `layout.ts` `PANEL_H`; used as a sanity bound. */
     private const val MAX_HEIGHT_CSS = 320

@@ -151,6 +151,15 @@ internal class CoucouIslandWebView private constructor(
         runCatching { view.onResume() }
     }
 
+    /** Notifies the island that the screen configuration changed (e.g., rotation). */
+    fun postScreenChanged() {
+        runCatching {
+            view.evaluateJavascript(
+                "window.dispatchEvent(new Event('resize'))", null
+            )
+        }
+    }
+
     /** Detaches for good; the WebView cannot be reused afterwards. */
     fun destroy() {
         runCatching { view.stopLoading() }

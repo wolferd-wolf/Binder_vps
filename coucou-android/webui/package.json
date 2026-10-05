@@ -1,0 +1,28 @@
+{
+  "name": "coucou-android-webui",
+  "private": true,
+  "version": "0.1.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.android.ts",
+    "build": "tsc --noEmit && vite build --config vite.config.android.ts",
+    "build:android": "npm run build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "verify:bridge": "node tools/verify-bridge-contract.mjs",
+    "verify:staged": "node tools/verify-staged-bundle.mjs",
+    "verify": "npm run verify:bridge && npm run verify:staged",
+    "icons": "node scripts/gen-icons.mjs",
+    "screenshots": "node scripts/screenshot-viewports.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tauri-apps/cli": "^2",
+    "playwright": "^1.63.0",
+    "typescript": "^5.6.0",
+    "vite": "^6"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2"
+  }
+}
