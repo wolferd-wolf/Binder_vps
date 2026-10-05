@@ -356,3 +356,19 @@ Design:
   - **APK Generated**: 11MB debug APK built and published to `apks/test.apk` and `apks/coucou-android-debug.apk`.
 
 Rules: radio silence until 100% done.
+
+## COUCOU-ANDROID, Sprint 3 POLISH (everything in order)
+Context: the phone UI works (chat view, "+" view, collapsed Mochi). Remaining issues: the HOME view is cut off and the Mochi overlaps the VS Code card; top corners of the black panel are square while the bottom ones are round; the window's left offset differs between views.
+
+STEP 0, AGY ONLY, FIRST:
+1. cd /workspaces/Binder_vps && git pull --rebase --autostash (Boss uploaded 4 Coucou phone screenshots on GitHub: screenshots/Screenshot_20261005_111443.jpg, 111446, 111457, 111510).
+2. Move those 4 files into screenshots/coucou/ (leave the ntfy-screenshot files where they are).
+3. Open the images. 111510 is the collapsed Mochi. The three 11:14 ones are the chat view, the "+" view (drop files card) and the home view. Write screenshots/coucou/README.md saying which file is which, what WORKS (chat view, "+" view, collapsed) and what is BROKEN (home view cut off with Mochi overlapping; square top corners; inconsistent left offset). If you cannot view images, say so and do not guess.
+4. Commit and push if you can. Then tell both: ./tell.sh agy cline "SETUP DONE" and ./tell.sh agy opencode "SETUP DONE".
+
+TASKS (Cline and OpenCode: do NOT start until AGY says SETUP DONE, then open the images in screenshots/coucou/ first):
+- [ ] Cline (web): home view uses the same height and space as the chat view, one column, nothing overlapping (Mochi must not sit on top of text), all content visible. Round ALL four corners of the black panel with the same radius as the bottom. Same width and left margin in every view.
+- [ ] OpenCode (window): home view window height matches the chat view so nothing is cut off. Same x position and width for all views, even margins left and right.
+- [ ] AGY: after BOTH Cline and OpenCode say DONE, run the Chromium screenshot gate, then build the APK.
+
+PROTOCOL: when you finish, tick your box, commit, and run ./tell.sh <you> agy "DONE: <files changed>". AGY reads this file and runs git status before building, and builds only when both boxes are ticked and everything is committed. Never edit a file another agent is working on.
