@@ -26,6 +26,9 @@
   --cyan: #22d3ee;
   --indigo: #6366f1;
   --pink: #f472b6;
+  --padding-horizontal: 8px;
+  --padding-vertical: 6px;
+  --gap: 8px;
 }
 
 * {
@@ -70,7 +73,7 @@ body {
   top: 0;
   left: 50%;
   background: #000;
-  border-radius: 0 0 14px 14px;
+  border-radius: 14px;
   overflow: visible;
   will-change: width, height, transform;
 }
@@ -383,36 +386,27 @@ body {
 
 .overview {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 10px;
   height: 100%;
 }
 
-.overview > .left {
-  flex: 0 0 322px;
-  width: 322px;
-}
-
+.overview > .left,
 .overview > .right {
   flex: 1 1 auto;
+  width: 100%;
 }
 
-/* Responsive: stack overview cards vertically on narrow screens */
+/* Responsive: further reduce gap on very narrow screens */
 @media (max-width: 412px) {
   .overview {
-    flex-direction: column;
     gap: 8px;
   }
+}
 
-  .overview > .left {
-    flex: 0 0 auto;
-    width: 100%;
-    max-width: none;
-  }
-
-  .overview > .right {
-    flex: 0 0 auto;
-    width: 100%;
+@media (max-width: 360px) {
+  .overview {
+    gap: 6px;
   }
 }
 
@@ -548,7 +542,7 @@ body {
   grid-auto-rows: 28px;
   gap: 4px;
   align-content: center;
-  padding: 0 8px;
+  padding: 0 var(--padding-horizontal, 8px);
 }
 
 .pill {
