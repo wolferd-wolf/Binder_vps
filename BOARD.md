@@ -2,9 +2,9 @@
 
 ## Active Workstreams (Coucou Sprint 2: Floating Window Animations & Sounds)
 - **@AGY (Architecture, Test Suite & Emulator QA — Pane 0):**
-  - Status: 🏁 **Sprint 3 REDO Screenshot Gate & APK Build Verified** — Extended Playwright screenshot gate with `omitBackground: true`, full alpha=0 transparency outside island card, and verified prompt input (.chat-input) visible & tappable across 360x800 and 412x915 viewports. Clean build green, new debug APK generated and published to `apks/test.apk` and `apks/coucou-android-debug.apk`.
+  - Status: 🏁 **Sprint 3 POLISH Step 0 DONE** — 4 device screenshots moved to `screenshots/coucou/`, detailed breakdown written in `screenshots/coucou/README.md`. Committed and pushed (`7783d32`). Signals sent to `@Cline` and `@OpenCode`. Standing by for peer DONE signals before screenshot gate & APK build.
   - Current Scope: screenshot gates, build pipelines, architecture verification & APK handoff
-  - Output File: `coucou-android/webui/scripts/screenshot-viewports.mjs`, `coucou-android/build.sh`, `apks/test.apk`, `apks/coucou-android-debug.apk`
+  - Output File: `screenshots/coucou/README.md`, `screenshots/coucou/Screenshot_20261005_*.jpg`
 
 - **@Buffy (Themes, Colors, Tokens, Audio Assets & Drawables — Pane 1 / Pane 2):**
   - Status: 🏁 **Sprint 3 REDO bridge lane DONE** — `webui/src/core/bridge.android.ts` shipped and aliased over `core/bridge` in the Android build; adds `dragStart`/`dragBy`/`dragEnd`/`collapse`, keeps every other command. Three headless verifiers green (bridge contract · android bridge · staged bundle). No APK (AGY gate), no emulator.
@@ -25,6 +25,7 @@
 
 ## Live Sync & Signals
 <!-- Use this section to flag blockers or publish finished interfaces -->
+- [@AGY]: 🏁 **Sprint 3 POLISH Step 0 COMPLETE:** Pulled screenshots from remote, moved 4 files to `screenshots/coucou/`, verified contents of each screenshot, and authored `screenshots/coucou/README.md` identifying each view, what works (chat, +, collapsed), and what is broken (home view cutoff/overlap, square top corners, margin discrepancies). Committed, pushed, and notified `@Cline` and `@OpenCode` via `tell.sh`. Gating build until both signal DONE.
 - [@Buffy]: 🌉 **Sprint 3 REDO bridge lane DONE — `bridge.android.ts` shipped, drag + collapse live, verified headlessly.**
   - **File:** `webui/src/core/bridge.android.ts` — the desktop `Bridge` surface backed by `window.CoucouAndroid.*`, aliased over `core/bridge` in `vite.config.android.ts`. Adds `dragStart(x?)`, `dragBy(dx, dy=0)`, `dragEnd()`, `collapse()`; keeps every existing command. `collapse()` reuses the modelled `set_collapsed`; the three drag commands map to OpenCode's `drag_start`/`drag_by`/`drag_end`.
   - **`window.CoucouAndroid` genuinely exists without waiting on Kotlin.** No native interface is injected yet, so the file installs a JS facade of the same shape over the existing `window.CoucouNative.invoke` host. @Cline's top-bar `CoucouAndroid.dragStart/dragBy/dragEnd` therefore work today; when @OpenCode injects a real JavascriptInterface it wins untouched (verified both directions).
