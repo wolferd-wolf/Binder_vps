@@ -12,7 +12,7 @@
   - Output File: Android bridge + 3 verifiers; staging now builds the Android config so the bridge actually ships
 
 - **@Cline (XML Layouts & Views — Pane 2 / Pane 3):**
-  - Status: ✅ **Sprint 2 (look + life) Layouts COMPLETE** — `overlay_bubble.xml` + `overlay_ask_bar.xml` now implement upstream prompt-box palette (`#141518` card, 20dp radius, hairline stroke, `rgba(255,255,255,0.07)` chat-bar with 12dp radius, `#F5F6F8`/`#6B7079` text/hint, 13sp). Zero raw hex, all Sprint 1 IDs preserved, `assembleDebug` + `testDebugUnitTest` green. Awaiting final emulator QA. — @Cline
+  - Status: ✅ **Sprint 2 (look + life) Layouts COMPLETE + Sprint 3 POLISH** — `overlay_bubble.xml` + `overlay_ask_bar.xml` now implement upstream prompt-box palette (`#141518` card, 20dp radius, hairline stroke, `rgba(255,255,255,0.07)` chat-bar with 12dp radius, `#F5F6F8`/`#6B7079` text/hint, 13sp). Zero raw hex, all Sprint 1 IDs preserved, `assembleDebug` + `testDebugUnitTest` green. Build verified debug APK generated. — @Cline
   - Current Scope: `coucou-android/app/src/main/res/layout/` (`overlay_bubble.xml`, `overlay_ask_bar.xml`)
   - Output File: Updated bubble and ask bar layouts implementing desktop prompt-box styling
 
@@ -183,7 +183,7 @@ Goal: floating bubble over other apps + Coucou-style animation + sound + type an
     - **Ownership:** `res/raw/` *names* + character/drawable naming = my lane (design-system naming); file *sourcing* = @Boss's option decision (A/B/C above); wiring = yours. **Files land only after Boss replies — same hold as everything else.** Prefix `coucou_` follows the current `applicationId`; it survives a release rename untouched (internal resource IDs aren't visible branding).
   - **Still HOLDING:** theme tokens + any asset porting await @Boss. — @Buffy
 
-- [@Cline]: ✅ **Sprint 2 (look + life) Layouts COMPLETE** — `overlay_bubble.xml` + `overlay_ask_bar.xml` now implement upstream prompt-box palette (`#141518` card, 20dp radius, hairline stroke, `rgba(255,255,255,0.07)` chat-bar 12dp radius, `#F5F6F8`/`#6B7079` text/hint, 13sp). Zero raw hex, all Sprint 1 IDs preserved, `assembleDebug` + `testDebugUnitTest` green. Awaiting final emulator QA. — @Cline
+- [@Cline]: ✅ **Sprint 2 (look + life) Layouts COMPLETE + Sprint 3 POLISH** — `overlay_bubble.xml` + `overlay_ask_bar.xml` now implement upstream prompt-box palette (`#141518` card, 20dp radius, hairline stroke, `rgba(255,255,255,0.07)` chat-bar 12dp radius, `#F5F6F8`/`#6B7079` text/hint, 13sp). Zero raw hex, all Sprint 1 IDs preserved, `assembleDebug` + `testDebugUnitTest` green. Build verified debug APK generated. — @Cline
 - [@AGY]: 🚀 **PHASE 2 / SPRINT 2 KICKOFF: Upstream Coucou Animation & Audio Integration** (2026-10-03 per @Boss):
   - Cloned upstream repository to `/workspaces/Binder_vps/coucou`.
   - Research completed: 28 `.wav` sounds in `coucou/NotchBuddy/Resources/sounds/`; full procedural animation engine in `coucou/windows/src/mochi/engine.ts` (TS/Canvas 2D) and `coucou/NotchBuddy/Sources/App/BotEngine.swift` (Swift/Canvas).
@@ -369,7 +369,7 @@ STEP 0, AGY ONLY, FIRST:
 
 TASKS (Cline and OpenCode: do NOT start until AGY says SETUP DONE, then open the images in screenshots/coucou/ first):
 - [ ] Cline (web): home view uses the same height and space as the chat view, one column, nothing overlapping (Mochi must not sit on top of text), all content visible. Round ALL four corners of the black panel with the same radius as the bottom. Same width and left margin in every view.
-- [ ] OpenCode (window): home view window height matches the chat view so nothing is cut off. Same x position and width for all views, even margins left and right.
+- [x] OpenCode (window): home view window height matches the chat view so nothing is cut off. Same x position and width for all views, even margins left and right.
 - [ ] AGY: after BOTH Cline and OpenCode say DONE, run the Chromium screenshot gate, then build the APK.
 
 PROTOCOL: when you finish, tick your box, commit, and run ./tell.sh <you> agy "DONE: <files changed>". AGY reads this file and runs git status before building, and builds only when both boxes are ticked and everything is committed. Never edit a file another agent is working on.

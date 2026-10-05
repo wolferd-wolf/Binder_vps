@@ -572,6 +572,7 @@ class OverlayService : Service() {
             params.height = bounds[1]
         }
         params.gravity = Gravity.TOP or Gravity.START
+        params.x = 0
         params.flags = baseFlags(focusable = islandFocused)
         params.softInputMode = if (islandFocused) {
             WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
