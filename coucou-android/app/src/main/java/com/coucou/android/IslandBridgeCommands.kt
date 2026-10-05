@@ -109,8 +109,31 @@ internal object IslandBridgeCommands {
         }
     }
 
-    /** Screen metrics the host reports back in `boot`. */
-    data class Screen(val widthPx: Int, val heightPx: Int, val density: Float)
+    /**
+     * Screen metrics the host reports back in `boot`.
+     *
+     * @param widthPx physical pixels, what `WindowManager` wants.
+     * @param density px per dp, the scale between what the window wants and what the
+     *   page lays out in.
+     */
+    data class Screen(val widthPx: Int, val heightPx: Int, val density: Float) {
+        /** px per dp, with a usable value even if the host reported a broken density. */
+        val scale: Double get() = if (density > 0f) density.toDouble() else 1.0
+
+        /**
+         * Width in dp — the number the page actually wants.
+         *
+         * `boot` reports dp because that is the unit the island lays out in: on Android
+         * a CSS px *is* a dp (`CoucouIslandWebView` leaves the viewport at
+         * `device-width`), so `screen.width` is directly comparable with the px the page
+         * draws and measures in. Reporting physical px here is what made `boot.screen`
+         * come out ~2.75× too wide on a 1080×420dpi device.
+         */
+        val widthDp: Double get() = round2(widthPx.toDouble() / scale)
+
+        /** Height in dp, for the same reason as [widthDp]. */
+        val heightDp: Double get() = round2(heightPx.toDouble() / scale)
+    }
 
     /**
      * Reads one command off the wire.
@@ -200,9 +223,10 @@ internal object IslandBridgeCommands {
             "{" +
                 "\"x\":0," +
                 "\"y\":0," +
-                "\"width\":${screen.widthPx}," +
-                "\"height\":${screen.heightPx}," +
-                "\"scale\":${screen.density}" +
+                // dp, not px: the page lays out in CSS px, which is dp on Android.
+                "\"width\":${screen.widthDp}," +
+                "\"height\":${screen.heightDp}," +
+                "\"scale\":${screen.scale}" +
                 "}"
         }
         return "{" +
