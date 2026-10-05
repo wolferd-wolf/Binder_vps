@@ -29,6 +29,15 @@ internal class IslandBridgeHost(
         /** Shrink to the wake strip, or come back to full size. */
         fun onIslandCollapsed(collapsed: Boolean)
 
+        /** The page took hold of its top-bar drag handle. */
+        fun onDragStart()
+
+        /** The page moved the drag handle by (dx, dy) CSS px from wherever it started. */
+        fun onDragBy(dx: Double, dy: Double)
+
+        /** The page let go; the host clamps the window back onto the screen. */
+        fun onDragEnd()
+
         /** The chat field asked for keyboard focus, or gave it up. */
         fun onIslandFocus(focused: Boolean)
 
@@ -88,6 +97,18 @@ internal class IslandBridgeHost(
             }
             is BridgeAction.SetCollapsed -> {
                 listener.onIslandCollapsed(action.collapsed)
+                IslandBridgeCommands.nullEnvelope()
+            }
+            BridgeAction.DragStart -> {
+                listener.onDragStart()
+                IslandBridgeCommands.nullEnvelope()
+            }
+            is BridgeAction.DragBy -> {
+                listener.onDragBy(action.dx, action.dy)
+                IslandBridgeCommands.nullEnvelope()
+            }
+            BridgeAction.DragEnd -> {
+                listener.onDragEnd()
                 IslandBridgeCommands.nullEnvelope()
             }
             is BridgeAction.SetFocused -> {

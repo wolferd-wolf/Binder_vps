@@ -23,6 +23,9 @@ export interface ViewActions {
   decide(d: "allow" | "deny"): void;
   toggleSound(): void;
   setVolume(v: number): void;
+  dragStart(x: number): void;
+  dragBy(dx: number): void;
+  dragEnd(): void;
   setAutoClose(seconds: number): void;
   openSettingsWindow(): void;
   blip(): void;
@@ -102,6 +105,7 @@ export function buildHeader(actions: ViewActions): ViewHost {
     sync() {
       const v = State.view;
       tabHome.classList.toggle("on", v === "overview" || v === "empty");
+      tabHome.style.display = v === "prompt" ? "none" : "";
       tabChat.classList.toggle("on", v === "prompt");
       tabDrop.classList.toggle("on", v === "upload");
       gearBtn.classList.toggle("on", v === "settings");

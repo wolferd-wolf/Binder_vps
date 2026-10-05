@@ -168,33 +168,107 @@ class IslandBridgeCommandsTest {
     }
 
     @Test
-    fun `collapsed window is the wake strip, narrow and centred`() {
-        val bounds = IslandBridgeCommands.collapsedWindowBounds(2f, 720)
-        assertEquals((240 + 16) * 2, bounds[0])
-        // Narrow and centred, so the sleeping island never eats a whole screen row.
-        assertTrue("must not span the screen row", bounds[0] < 720)
-        assertEquals((720 - bounds[0]) / 2, bounds[2])
-        assertTrue("a 6dp island still needs room to be tapped", bounds[1] > 0)
-    }
-
-    @Test
-    fun `collapsed window cannot outgrow a narrow screen`() {
-        // A 240dp strip on a 300px screen: capped to the panel, never past it.
-        val bounds = IslandBridgeCommands.collapsedWindowBounds(3f, 300)
-        assertTrue(bounds[0] <= 300)
-        assertEquals((300 - bounds[0]) / 2, bounds[2])
-    }
-
-    @Test
     fun `window bounds survive a degenerate screen width and density`() {
         val bounds = IslandBridgeCommands.windowBounds(160.0, 0f, 0)
         assertTrue(bounds.all { it >= 0 })
         assertTrue(bounds[0] > 0 && bounds[1] > 0)
-
-        val collapsed = IslandBridgeCommands.collapsedWindowBounds(0f, 0)
-        assertTrue(collapsed.all { it >= 0 })
-        assertTrue(collapsed[0] > 0 && collapsed[1] > 0)
     }
+
+    // endregion
+
+    // region window placement
+
+    @Test
+    fun `a window as wide as the screen is pinned to the origin`() {
+        // The REDO brief: expanded is the screen minus margins, so there is nowhere to
+        // drag it horizontally and the origin is the only valid answer.
+        val at = IslandBridgeCommands.clampToScreen(900, 400, 1080, 2000, 1080, 2400)
+        assertEquals(0, at[0])
+        assertEquals(400, at[1])
+    }
+
+    @Test
+    fun `a small window keeps the position it was dragged to`() {
+        // The collapsed rectangle: 56dp at density 2 on a 720px screen.
+        val at = IslandBridgeCommands.clampToScreen(300, 500, 112, 112, 720, 1280)
+        assertEquals(300, at[0])
+        assertEquals(500, at[1])
+    }
+
+    @Test
+    fun `a window dragged past the edge is pulled back onto the screen`() {
+        val right = IslandBridgeCommands.clampToScreen(900, 0, 112, 112, 720, 1280)
+        assertEquals(720 - 112, right[0])
+
+        val bottom = IslandBridgeCommands.clampToScreen(0, 2000, 112, 112, 720, 1280)
+        assertEquals(1280 - 112, bottom[1])
+
+        val negative = IslandBridgeCommands.clampToScreen(-40, -900, 112, 112, 720, 1280)
+        assertEquals(0, negative[0])
+        assertEquals(0, negative[1])
+    }
+
+    @Test
+    fun `an unmeasured window is only clamped at the origin`() {
+        // WRAP_CONTENT arrives as a negative number; it cannot be wider than the screen,
+        // so bounding the origin is all that is safe to do.
+        val at = IslandBridgeCommands.clampToScreen(500, 600, -2, -2, 720, 1280)
+        assertEquals(0, at[0])
+        assertEquals(0, at[1])
+    }
+
+    @Test
+    fun `a window bigger than the screen does not get a negative origin`() {
+        // A panel taller than the screen (a short landscape window, say) must still answer
+        // a real origin rather than something that puts the layout out of bounds.
+        val at = IslandBridgeCommands.clampToScreen(100, 100, 1080, 3000, 1080, 2400)
+        assertEquals(0, at[0])
+        assertEquals(0, at[1])
+    }
+
+    // endregion
+
+    // region drag commands
+
+    @Test
+    fun `the drag handle is three commands, and carries a delta not a position`() {
+        // The page only knows how far its pointer travelled; it has no idea where the
+        // window sits on screen, so an absolute position here could not be honoured.
+        assertEquals(BridgeAction.DragStart, IslandBridgeCommands.plan("drag_start", "{}"))
+        assertEquals(
+            BridgeAction.DragBy(-12.5, 40.0),
+            IslandBridgeCommands.plan("drag_by", """{"dx":-12.5,"dy":40}""")
+        )
+        assertEquals(BridgeAction.DragEnd, IslandBridgeCommands.plan("drag_end", "{}"))
+    }
+
+    @Test
+    fun `a drag delta the host cannot use is dropped rather than applied`() {
+        // A non-finite position is unrecoverable: there is no screen left to clamp
+        // against, and the page recovers from a dropped move far better than from a NaN.
+        for (args in listOf(
+            "{}",
+            """{"dx":40}""",
+            """{"dx":"NaN","dy":0}""",
+            """{"dy":0}"""
+        )) {
+            assertEquals(
+                "must not answer drag_by $args",
+                BridgeAction.ReplyNull,
+                IslandBridgeCommands.plan("drag_by", args)
+            )
+        }
+    }
+
+    @Test
+    fun `a zero drag delta is still a drag, not a rejection`() {
+        assertEquals(
+            BridgeAction.DragBy(0.0, 0.0),
+            IslandBridgeCommands.plan("drag_by", """{"dx":0,"dy":0}""")
+        )
+    }
+
+    // endregion
 
     // endregion
 

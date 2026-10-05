@@ -30,6 +30,7 @@ import android.view.ViewConfiguration
 import android.view.ContextThemeWrapper
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -67,23 +68,41 @@ class OverlayService : Service() {
     private var characterView: CoucouCharacterView? = null
 
     /**
-     * Sprint 3 (Plan A): the upstream desktop island running in a WebView, and the bridge
-     * that stands in for Tauri. Null when the WebView could not be created, in which case
-     * the native bubble below is used instead.
+     * Sprint 3 REDO: the desktop prompt box in a WebView, and the bridge that stands in
+     * for Tauri. Null when the WebView could not be created — a device with no WebView
+     * provider still gets the collapsed rectangle, just nothing to expand into.
      */
     private var island: CoucouIslandWebView? = null
     private var islandBridge: IslandBridgeHost? = null
 
-    /** True while the island is in charge of the window, so expand/collapse comes from the page. */
-    private var islandActive = false
+    /**
+     * The one attached window root, holding the rectangle and the prompt box as siblings.
+     *
+     * Both children outlive an expand/collapse cycle: the WebView must survive (a fresh
+     * one costs a WebView spawn plus a page load, which is the delay the REDO brief's
+     * "expanding is instant" rules out) and the rectangle must survive so its dragged
+     * position and character state do not reset.
+     */
+    private var container: OverlayHostLayout? = null
 
-    /** View the window was last asked to show; applied once the page reports ready. */
-    private var islandTarget = CoucouIslandWebView.VIEW_HOME
+    /** The collapsed rectangle, inflated once and re-used. */
+    private var bubbleView: View? = null
 
     /** Island geometry pushed by the page (CSS px), applied to [layoutParams] on the main thread. */
-    private var islandWidthCss = IslandBridgeCommands.STAGE_WIDTH_CSS.toDouble()
+    private var islandWidthCss = 0.0
     private var islandHeightCss = 0.0
-    private var islandCollapsed = false
+
+    /** True once the page has pushed a rect, i.e. the prompt box has a height to open at. */
+    private var islandSized = false
+
+    /** True once the window has been attached off screen to boot the page. */
+    private var islandWarm = false
+
+    /** An expand arrived before the page had a rect; honoured as soon as it pushes one. */
+    private var revealPending = false
+
+    /** True while the page's own top-bar drag handle is moving the window. */
+    private var pageDragging = false
 
     /** Whether the window may take keyboard focus right now; mirrors the chat field. */
     private var islandFocused = false
@@ -223,19 +242,35 @@ class OverlayService : Service() {
     private inner class IslandListener : IslandBridgeHost.Listener {
 
         override fun onIslandRect(widthCss: Double, heightCss: Double) {
+            // A zero height is the page retracting. The collapsed shape is the native
+            // rectangle now, so there is no wake strip to shrink to and nothing to apply.
+            if (heightCss <= 0) return
             islandWidthCss = widthCss
             islandHeightCss = heightCss
-            // A non-zero height means the island is on screen, so it has left the
-            // collapsed wake strip.
-            if (heightCss > 0 && islandCollapsed) {
-                islandCollapsed = false
-            }
-            mainHandler.post { applyIslandGeometry() }
+            mainHandler.post { onIslandSized() }
         }
 
         override fun onIslandCollapsed(collapsed: Boolean) {
-            islandCollapsed = collapsed
-            mainHandler.post { applyIslandGeometry() }
+            // The page hid itself (its auto-close timer). The collapsed shape is the native
+            // rectangle, so that is what the window has to become.
+            if (collapsed) mainHandler.post { collapse() }
+        }
+
+        override fun onDragStart() {
+            mainHandler.post { pageDragging = true }
+        }
+
+        override fun onDragBy(dx: Double, dy: Double) {
+            mainHandler.post { dragWindowBy(dx, dy) }
+        }
+
+        override fun onDragEnd() {
+            mainHandler.post {
+                pageDragging = false
+                val params = layoutParams ?: return@post
+                clampOnScreen(params)
+                pushLayout()
+            }
         }
 
         override fun onIslandFocus(focused: Boolean) {
@@ -295,11 +330,11 @@ class OverlayService : Service() {
             }
             ACTION_EXPAND -> {
                 startAsForeground()
-                showOverlay(expanded = true)
+                expand()
                 return START_STICKY
             }
             ACTION_COLLAPSE -> {
-                showOverlay(expanded = false)
+                collapse()
                 return START_STICKY
             }
             ACTION_COMMAND -> {
@@ -329,89 +364,218 @@ class OverlayService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
-        // Only add the overlay once we are actually foreground, otherwise the
-        // window is rejected on Android 10+ (background window restrictions).
-        showOverlay(expanded = isExpanded)
+        if (!Settings.canDrawOverlays(this)) {
+            // Only add the overlay once we are actually foreground *and* permitted,
+            // otherwise the window is rejected on Android 10+ (background window
+            // restrictions) and again by the overlay permission check.
+            Toast.makeText(this, R.string.overlay_permission_required, Toast.LENGTH_LONG).show()
+            return
+        }
+        warmIsland()
+        applyWindowState()
     }
 
     // region overlay window
 
-    private fun showOverlay(expanded: Boolean) {
+    /**
+     * Puts the window into the shape the current state calls for and shows it.
+     *
+     * The two shapes share one attached root, so this is the only place that adds, resizes
+     * or re-lays-out the window; everything else changes state and comes back here.
+     */
+    private fun applyWindowState() {
         val wm = windowManager ?: return
-        if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, R.string.overlay_permission_required, Toast.LENGTH_LONG).show()
-            return
-        }
-        val current = overlayView
-        if (current != null) {
-            if (islandActive) {
-                // The page owns its own collapsed/expanded cycle; a repeated request with
-                // the same intent is still handled, because ACTION_EXPAND from the
-                // notification means "show the chat", not "re-add the window".
-                if (isExpanded == expanded) {
-                    islandTarget = viewFor(expanded)
-                    island?.reveal(islandTarget)
-                    return
-                }
-            } else if (isExpanded == expanded) {
-                return
-            }
-            wm.removeView(current)
-            overlayView = null
-        }
-        val view = inflateIsland() ?: inflateBubble()
+        val root = ensureContainer() ?: return
         val params = layoutParams ?: buildLayoutParams().also { layoutParams = it }
-        if (islandActive) {
-            islandTarget = viewFor(expanded)
-            applyIslandParams(params)
+        val islandView = island?.view
+        // A device with no WebView has nothing to expand into, so it stays a rectangle.
+        val expanded = isExpanded && islandView != null
+        isExpanded = expanded
+        isExpandedState = expanded
+
+        if (expanded) {
+            applyPanelParams(params)
+            bubbleView?.visibility = View.GONE
+            islandView?.visibility = View.VISIBLE
         } else {
-            applyBubbleParams(params)
+            applyCollapsedParams(params)
+            bubbleView?.visibility = View.VISIBLE
+            islandView?.visibility = View.GONE
         }
+        clampOnScreen(params)
         try {
-            wm.addView(view, params)
-            overlayView = view
-            isExpanded = expanded
-            isExpandedState = expanded
-            // Window is up: the character may run again even if the screen had been off.
-            characterView?.setHostVisible(true)
-            characterView?.let { characterDescription = CoucouCharacterView.describeState(it) }
-            if (islandActive) {
-                island?.resume()
-                island?.load()
+            if (overlayView == null) {
+                wm.addView(root, params)
+                overlayView = root
             } else {
-                val firstShow = characterStateName == CoucouState.IDLE.wireName && !hasGreeted
-                // No-op while the sound assets are still on hold.
-                playSound(SoundPlayer.Sound.POP)
-                if (firstShow) {
-                    hasGreeted = true
-                    // The "coucou" wave: greet on first appearance.
-                    characterView?.greet()
-                }
-                setCharacterState(CoucouState.IDLE)
+                wm.updateViewLayout(overlayView!!, params)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to add overlay view", e)
+            Log.e(TAG, "Failed to place the overlay window", e)
             overlayView = null
+        }
+        characterView?.setHostVisible(true)
+        characterView?.let { characterDescription = CoucouCharacterView.describeState(it) }
+        islandHosting = island != null
+        islandDescription = describeWindow(params)
+        if (expanded && !hasGreeted) {
+            hasGreeted = true
+            characterView?.greet()
         }
     }
 
     /**
-     * The island in a WebView, or null to let the caller fall back to the native bubble.
+     * The one attached root, with the rectangle and the prompt box as siblings.
+     *
+     * The prompt box child is `GONE` while collapsed, not `INVISIBLE`: a `GONE` child is
+     * not measured, so the container's natural size is exactly the rectangle's and
+     * `WRAP_CONTENT` gives a window that size — which is what lets touches beside the
+     * rectangle reach the app underneath.
+     */
+    private fun ensureContainer(): OverlayHostLayout? {
+        container?.let { return it }
+        val bubble = bubbleView ?: inflateBubble().also { bubbleView = it }
+        val root = OverlayHostLayout(
+            this,
+            onOutsideTouch = { collapse() },
+            onBackPressed = { collapse() }
+        )
+        val fill = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
+        bubble.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        )
+        root.addView(bubble)
+        island?.view?.apply {
+            layoutParams = fill
+            visibility = View.GONE
+            root.addView(this)
+        }
+        container = root
+        return root
+    }
+
+    /** Collapsed: exactly the rectangle, so every touch outside it reaches the app below. */
+    private fun applyCollapsedParams(params: WindowManager.LayoutParams) {
+        params.width = WindowManager.LayoutParams.WRAP_CONTENT
+        params.height = WindowManager.LayoutParams.WRAP_CONTENT
+        params.gravity = Gravity.TOP or Gravity.START
+        // Not focusable, so the app underneath keeps its own input.
+        params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
+    }
+
+    /**
+     * Expanded: the screen less its margins wide, and as tall as the page's own rect.
+     *
+     * Width is read from the display metrics on every pass, never hardcoded — the panel is
+     * the screen, and the screen is whatever this device is.
+     */
+    private fun applyPanelParams(params: WindowManager.LayoutParams) {
+        val metrics = resources.displayMetrics
+        val bounds = IslandBridgeCommands.windowBounds(islandHeightCss, metrics.density, metrics.widthPixels)
+        params.width = bounds[0]
+        params.height = bounds[1]
+        params.gravity = Gravity.TOP or Gravity.START
+    }
+
+    /**
+     * Expands to the prompt box, keeping the panel roughly where the rectangle was.
+     *
+     * The panel inherits the rectangle's position and is nearly screen-wide, so the
+     * position is re-anchored on the rectangle's centre and then clamped: a panel parked
+     * where a 56dp rectangle sat would otherwise be mostly off screen.
+     */
+    private fun expand() {
+        val params = layoutParams ?: return
+        if (island == null) {
+            Log.i(TAG, "No island to expand into; staying on the rectangle")
+            return
+        }
+        val metrics = resources.displayMetrics
+        val centreX = params.x + collapsedWidthPx() / 2
+        val panelWidth = IslandBridgeCommands.windowBounds(
+            islandHeightCss, metrics.density, metrics.widthPixels
+        )[0]
+        params.x = centreX - panelWidth / 2
+        isExpanded = true
+        applyWindowState()
+        revealPrompt()
+    }
+
+    /**
+     * Shrinks back to the rectangle.
+     *
+     * Focus goes first: the window has to stop being focusable for the app underneath to
+     * get its input back, and that only takes effect on a re-added window.
+     */
+    private fun collapse() {
+        if (!isExpanded && overlayView == null) return
+        revealPending = false
+        isExpanded = false
+        if (islandFocused) {
+            islandFocused = false
+            setFocusable(false)
+        }
+        hideKeyboard()
+        applyWindowState()
+    }
+
+    /**
+     * Creates the island and boots its page with the window parked off screen.
+     *
+     * A WebView that has never been attached to a window never lays out, so the page would
+     * boot with a zero-width viewport and would never measure itself — and the panel would
+     * then have no height to open at. So the window goes up once at the panel size, entirely
+     * below the bottom edge, and stays there until the page pushes a rect. Nothing renders
+     * (the page is transparent) and nothing is on screen, but the page is warm by the time
+     * the user taps the rectangle.
+     */
+    private fun warmIsland() {
+        if (island == null) inflateIsland()
+        val page = island ?: return
+        if (islandWarm) return
+        val root = ensureContainer() ?: return
+        val params = layoutParams ?: buildLayoutParams().also { layoutParams = it }
+        val metrics = resources.displayMetrics
+        val bounds = IslandBridgeCommands.windowBounds(islandHeightCss, metrics.density, metrics.widthPixels)
+        params.width = bounds[0]
+        params.height = bounds[1]
+        params.x = 0
+        params.y = metrics.heightPixels
+        page.view.visibility = View.VISIBLE
+        try {
+            windowManager?.addView(root, params)
+            overlayView = root
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not warm the island window", e)
+            return
+        }
+        islandWarm = true
+        page.resume()
+        page.load()
+    }
+
+    /**
+     * The island in a WebView, or null when it cannot be built.
      *
      * A device with no WebView provider, or a WebView that cannot be constructed, must
-     * still show the overlay — so this is a soft failure, not a fatal one.
+     * still show the overlay — so this is a soft failure, not a fatal one, and the
+     * rectangle carries on alone.
      */
     private fun inflateIsland(): View? {
         val host = islandBridge ?: return null
         if (island != null) return island!!.view
         val created = CoucouIslandWebView.create(this, host) ?: run {
-            Log.w(TAG, "Island WebView unavailable; falling back to the native bubble")
+            Log.w(TAG, "Island WebView unavailable; the rectangle is all the overlay has")
             return null
         }
-        created.onReady = { mainHandler.postDelayed({ revealIsland() }, ISLAND_REVEAL_DELAY_MS) }
+        created.onReady = { mainHandler.postDelayed({ onIslandReady() }, ISLAND_REVEAL_DELAY_MS) }
         created.onExternalUrl = { url -> mainHandler.post { openExternalUrl(url) } }
         island = created
-        islandActive = true
         islandHosting = true
         islandDescription = "island: on loading"
         Log.i(TAG, "Island WebView created; loading ${CoucouIslandWebView.PAGE_URL}")
@@ -419,56 +583,59 @@ class OverlayService : Service() {
     }
 
     /**
-     * Opens the island on [islandTarget] once the page has booted.
+     * The page has finished booting.
      *
-     * The desktop build is woken by a `tray` event; with no host events arriving the
-     * island would play its greeting and then retract, so the same event is emitted here.
+     * Not enough on its own: the panel's height comes from the first rect the page pushes,
+     * and showing the window at the boot default would be one visible frame of the wrong
+     * shape. So this only moves the window once there is a rect, or if the panel is already
+     * up, where a re-clamp is all that is needed.
      */
-    private fun revealIsland() {
-        val page = island ?: return
-        if (overlayView == null) return
-        page.reveal(islandTarget)
-        setCharacterState(CoucouState.IDLE)
+    private fun onIslandReady() {
+        Log.i(TAG, "Island page ready; screen=${resources.displayMetrics.widthPixels}px")
+        islandDescription = "island: booted sized=$islandSized"
+        if (!islandSized) return
+        applyWindowState()
     }
 
-    /** The island view "expanded" means now that the native ask bar is gone: the chat. */
-    private fun viewFor(expanded: Boolean): String =
-        if (expanded) CoucouIslandWebView.VIEW_CHAT else CoucouIslandWebView.VIEW_HOME
-
-    /** Sizes and positions the window around the rect the page pushed. */
-    private fun applyIslandGeometry() {
-        val params = layoutParams ?: return
-        val view = overlayView ?: return
-        if (!islandActive) return
-        val metrics = resources.displayMetrics
-        val bounds = if (islandCollapsed) {
-            IslandBridgeCommands.collapsedWindowBounds(metrics.density, metrics.widthPixels)
+    /**
+     * The page pushed a rect, so the prompt box now has a height.
+     *
+     * The first one also settles the window: it is parked off screen until this arrives, and
+     * an expand that was asked for in the meantime is honoured here rather than dropped.
+     */
+    private fun onIslandSized() {
+        val firstTime = !islandSized
+        islandSized = true
+        if (isExpanded) {
+            applyPanelParams(layoutParams ?: return)
+            clampOnScreen(layoutParams ?: return)
+        }
+        if (firstTime) {
+            applyWindowState()
+            if (revealPending) {
+                revealPending = false
+                revealPrompt()
+            }
         } else {
-            IslandBridgeCommands.windowBounds(islandHeightCss, metrics.density, metrics.widthPixels)
+            pushLayout()
         }
-        params.width = bounds[0]
-        params.height = bounds[1]
-        params.x = bounds[2]
-        islandHosting = true
-        islandDescription = "island: on rect=${islandWidthCss}x${islandHeightCss}css " +
-            "window=${bounds[0]}x${bounds[1]}px x=${bounds[2]} " +
-            "collapsed=$islandCollapsed focus=$islandFocused"
-        runCatching { windowManager?.updateViewLayout(view, params) }
-            .onFailure { Log.w(TAG, "Could not resize the island window", it) }
     }
 
-    private fun applyIslandParams(params: WindowManager.LayoutParams) {
-        params.width = WindowManager.LayoutParams.WRAP_CONTENT
-        params.height = WindowManager.LayoutParams.WRAP_CONTENT
-        params.gravity = Gravity.TOP or Gravity.START
-        if (params.y == 0 && params.x == 0) {
-            params.y = dp(120)
+    /**
+     * Opens the island on the prompt view and raises the keyboard.
+     *
+     * The prompt view, not home: the REDO brief hides the home/overview views, so the first
+     * thing shown after a tap is the field the user tapped to type into.
+     */
+    private fun revealPrompt() {
+        val page = island ?: return
+        if (!islandSized) {
+            // Still booting: there is no height to open at yet.
+            revealPending = true
+            return
         }
-        // The WebView measures itself, so the window starts on its natural size and the
-        // page's first rect settles it.
-        params.flags = WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
-        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
-        islandFocused = false
+        page.showPrompt()
+        setIslandFocus(true)
     }
 
     /**
@@ -481,46 +648,113 @@ class OverlayService : Service() {
      * requested after that, or the request is dropped for having no focus.
      */
     private fun setIslandFocus(focused: Boolean) {
-        val params = layoutParams ?: return
-        val view = overlayView ?: return
-        if (!islandActive) return
         if (islandFocused == focused) return
         islandFocused = focused
+        setFocusable(focused)
+        val view = island?.view ?: return
+        if (focused) {
+            view.requestFocus()
+            mainHandler.postDelayed({
+                if (islandFocused) showKeyboard(view)
+            }, KEYBOARD_SHOW_DELAY_MS)
+        } else {
+            hideKeyboard()
+        }
+        Log.i(TAG, "Island keyboard focus -> $focused")
+    }
+
+    /**
+     * Flips [WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE] and re-adds the window.
+     *
+     * The flag is read when the window is added, so changing it on an attached window does
+     * nothing; the view has to come off and go back on. The children survive it, which is
+     * the whole point of keeping one root.
+     */
+    private fun setFocusable(focusable: Boolean) {
+        val params = layoutParams ?: return
+        val root = container ?: return
+        val wm = windowManager ?: return
         val flags = params.flags
-        params.flags = if (focused) {
+        params.flags = if (focusable) {
             (flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()) or
                 WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM.inv()
         } else {
             flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         }
-        params.softInputMode = if (focused) {
-            // Resize, so the island is pushed up instead of being covered by the keyboard.
+        params.softInputMode = if (focusable) {
+            // Resize, so the prompt box is pushed up instead of being covered by the keyboard.
             WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         } else {
             WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
         }
-        val windowManager = windowManager
-        val webView = island?.view
-        if (windowManager != null && webView != null) {
-            runCatching {
-                windowManager.removeView(view)
-                windowManager.addView(view, params)
-            }.onFailure {
-                Log.w(TAG, "Could not switch window focus for the island", it)
-                return
-            }
-            if (focused) {
-                webView.requestFocus()
-                mainHandler.postDelayed({
-                    if (islandFocused && overlayView === view) {
-                        showKeyboard(webView)
-                    }
-                }, KEYBOARD_SHOW_DELAY_MS)
-            } else {
-                hideKeyboard()
-            }
+        runCatching {
+            if (overlayView != null) wm.removeView(overlayView!!)
+            wm.addView(root, params)
+            overlayView = root
+        }.onFailure {
+            Log.w(TAG, "Could not switch window focus", it)
         }
-        Log.i(TAG, "Island keyboard focus -> $focused")
+    }
+
+    /** Moves the window by the page's drag delta, which arrives in CSS px (= dp here). */
+    private fun dragWindowBy(dx: Double, dy: Double) {
+        val params = layoutParams ?: return
+        val density = resources.displayMetrics.density
+        params.x = (params.x + dx * density).toInt()
+        params.y = (params.y + dy * density).toInt()
+        clampOnScreen(params)
+        pushLayout()
+    }
+
+    /**
+     * Re-clamps the position against the screen.
+     *
+     * On every shape change, not only while dragging: the panel is nearly screen-wide and
+     * inherits the rectangle's position, so an unclamped origin would leave most of it off
+     * screen.
+     */
+    private fun clampOnScreen(params: WindowManager.LayoutParams) {
+        val metrics = resources.displayMetrics
+        // WRAP_CONTENT reads as a negative number, so anything that is not an explicit size
+        // is measured as the rectangle instead.
+        val width = if (params.width > 0) params.width else collapsedWidthPx()
+        val height = if (params.height > 0) params.height else collapsedHeightPx()
+        val at = IslandBridgeCommands.clampToScreen(
+            params.x, params.y, width, height, metrics.widthPixels, metrics.heightPixels
+        )
+        params.x = at[0]
+        params.y = at[1]
+    }
+
+    /** Applies [layoutParams] to the attached window, tolerating a detached view. */
+    private fun pushLayout() {
+        val view = overlayView ?: return
+        val params = layoutParams ?: return
+        runCatching { windowManager?.updateViewLayout(view, params) }
+            .onFailure { Log.w(TAG, "Could not move the overlay window", it) }
+    }
+
+    /**
+     * The rectangle's size in px: what it actually measured, or @Cline's token until the
+     * first layout pass has run.
+     */
+    private fun collapsedWidthPx(): Int =
+        bubbleView?.width?.takeIf { it > 0 } ?: bubbleCardPx()
+
+    private fun collapsedHeightPx(): Int =
+        bubbleView?.height?.takeIf { it > 0 } ?: bubbleCardPx()
+
+    private fun bubbleCardPx(): Int =
+        resources.getDimensionPixelSize(R.dimen.coucou_bubble_card_size)
+
+    /** One line of window state for @AGY's device pass, under `CoucouOverlayService`. */
+    private fun describeWindow(params: WindowManager.LayoutParams): String {
+        val m = resources.displayMetrics
+        return "window ${params.width}x${params.height}px at ${params.x},${params.y} " +
+            "screen ${m.widthPixels}x${m.heightPixels}px " +
+            "(${(m.widthPixels / m.density).toInt()}x${(m.heightPixels / m.density).toInt()}dp " +
+            "@${m.density}) rect ${islandWidthCss}x${islandHeightCss}css " +
+            "expanded=$isExpanded focus=$islandFocused drag=$pageDragging"
     }
 
     /** Opens a URL outside the overlay; `coucou://settings` comes back to this app. */
@@ -541,38 +775,52 @@ class OverlayService : Service() {
             .onFailure { Log.w(TAG, "Could not open $url", it) }
     }
 
+    /**
+     * Takes the window off screen but keeps everything warm.
+     *
+     * The rectangle and the WebView stay built, so coming back is a re-add rather than a
+     * WebView spawn plus a page load.
+     */
     private fun removeOverlay() {
-        val view = overlayView ?: return
         // Window hidden is the other pause trigger; stop the loop before the view detaches.
         characterView?.setHostVisible(false)
         island?.pause()
-        try {
-            windowManager?.removeView(view)
-        } catch (_: Exception) {
-            // View may already be detached; nothing to do.
+        overlayView?.let { view ->
+            runCatching { windowManager?.removeView(view) }
+                .onFailure { Log.w(TAG, "Overlay view was already detached", it) }
         }
         overlayView = null
         characterView = null
         characterDescription = ""
         isExpanded = false
         isExpandedState = false
+        islandSized = false
+        revealPending = false
+        pageDragging = false
+    }
+
+    /** Drops the warm WebView and the rectangle; the next start builds both again. */
+    private fun releaseOverlayParts() {
+        releaseIsland()
+        bubbleView = null
+        container = null
     }
 
     /**
-     * Tears the island down for good. The WebView cannot be reused once destroyed, so
-     * the next start builds a fresh one.
+     * Tears the island down for good. The WebView cannot be reused once destroyed, so the
+     * next start builds a fresh one.
      */
     private fun releaseIsland() {
         island?.destroy()
         island = null
-        islandActive = false
         islandFocused = false
-        islandCollapsed = false
+        islandSized = false
+        islandWarm = false
         islandHosting = false
         islandDescription = "island: off"
-        islandWidthCss = IslandBridgeCommands.STAGE_WIDTH_CSS.toDouble()
+        islandWidthCss = 0.0
         islandHeightCss = 0.0
-        islandTarget = CoucouIslandWebView.VIEW_HOME
+        pageDragging = false
     }
 
     private fun buildLayoutParams(): WindowManager.LayoutParams {
@@ -597,29 +845,12 @@ class OverlayService : Service() {
     }
 
     /**
-     * Window geometry and flags for the native bubble.
-     *
-     * Sprint 3 replaced the native ask bar with the desktop island in a WebView, so
-     * there is no longer a second native state to size: the bubble is always
-     * WRAP_CONTENT (so it does not swallow touches across the whole screen row, @AGY's
-     * Sprint 1 finding) and always NOT_FOCUSABLE (so it never steals input from the app
-     * underneath). Anything that wants a text field now goes through the island's chat
-     * view and [setIslandFocus].
-     */
-    private fun applyBubbleParams(params: WindowManager.LayoutParams) {
-        params.width = WindowManager.LayoutParams.WRAP_CONTENT
-        params.height = WindowManager.LayoutParams.WRAP_CONTENT
-        params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
-    }
-
-    /**
      * Inflates the collapsed bubble.
      *
-     * This is only the fallback for a device that cannot host the island WebView at
-     * all; the ask bar that used to inflate here is gone with the rest of the native
-     * expanded state. A missing layout falls back to a minimal programmatic bubble so
-     * the overlay still shows something.
+     * This is the *only* native shape now: the REDO brief replaces the ask bar with the
+     * prompt box in the WebView, so the rectangle is both the resting state and the
+     * fallback for a device that cannot host the island. A missing layout falls back to a
+     * minimal programmatic bubble so the overlay still shows something.
      */
     @SuppressLint("InflateParams")
     private fun inflateBubble(): View {
@@ -745,10 +976,11 @@ class OverlayService : Service() {
                     Intent.ACTION_SCREEN_OFF -> setScreenState(false)
                     Intent.ACTION_SCREEN_ON -> setScreenState(true)
                     Intent.ACTION_CONFIGURATION_CHANGED -> {
-                        // Screen rotated or configuration changed: notify island to update layout
-                        if (islandActive) {
-                            island?.postScreenChanged()
-                        }
+                        // Screen rotated or configuration changed: the page has to re-measure
+                        // and the window has to be re-clamped against the new screen.
+                        island?.postScreenChanged()
+                        layoutParams?.let { clampOnScreen(it) }
+                        pushLayout()
                     }
                 }
             }
@@ -790,9 +1022,7 @@ class OverlayService : Service() {
         characterView?.setScreenOn(on)
         characterView?.let { characterDescription = CoucouCharacterView.describeState(it) }
         // Same rule for the island: no rAF and no timers behind a locked screen.
-        if (islandActive) {
-            if (on) island?.resume() else island?.pause()
-        }
+        island?.let { if (on) it.resume() else it.pause() }
         Log.i(TAG, "Screen ${if (on) "on" else "off"}; animation paused=${!on}")
     }
 
@@ -869,9 +1099,20 @@ class OverlayService : Service() {
 
     // region drag + tap
 
+    /**
+     * Drag and tap on the collapsed rectangle.
+     *
+     * A movement past the platform's [touchSlop] is a drag and anything shorter is a tap,
+     * which expands. The threshold is the system's rather than one tuned here, so the
+     * gesture matches every other app on the device.
+     *
+     * Clamping uses the rectangle's own size, so it can be dragged anywhere the whole
+     * rectangle fits — including the very edges of the screen.
+     */
     private fun onRootTouch(event: MotionEvent): Boolean {
         val params = layoutParams ?: return false
-        when (event.action) {
+        val metrics = resources.displayMetrics
+        when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 isDragging = false
                 downRawX = event.rawX
@@ -881,8 +1122,6 @@ class OverlayService : Service() {
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                val dx = event.rawX - downRawX
-                val dy = event.rawY - downRawY
                 if (!isDragging &&
                     (kotlin.math.abs(event.x - downTouchX) > touchSlop ||
                         kotlin.math.abs(event.y - downTouchY) > touchSlop)
@@ -890,33 +1129,27 @@ class OverlayService : Service() {
                     isDragging = true
                 }
                 if (isDragging) {
-                    params.x = (params.x + dx).toInt()
-                    params.y = (params.y + dy).toInt()
-                    // Keep the window on-screen. The island's panel spans the screen less
-                    // its margins, so it is pinned to that margin and only y is free;
-                    // clamping x against a narrow bubble would be wrong there.
-                    val maxX = if (isExpanded) {
-                        dp(16)
-                    } else {
-                        resources.displayMetrics.widthPixels - dp(48)
-                    }
-                    val maxY = resources.displayMetrics.heightPixels - dp(48)
-                    params.x = params.x.coerceIn(0, maxOf(0, maxX))
-                    params.y = params.y.coerceIn(0, maxOf(0, maxY))
-                    overlayView?.let { view ->
-                        runCatching { windowManager?.updateViewLayout(view, params) }
-                    }
+                    params.x = (params.x + (event.rawX - downRawX)).toInt()
+                    params.y = (params.y + (event.rawY - downRawY)).toInt()
+                    val at = IslandBridgeCommands.clampToScreen(
+                        params.x, params.y,
+                        collapsedWidthPx(), collapsedHeightPx(),
+                        metrics.widthPixels, metrics.heightPixels
+                    )
+                    params.x = at[0]
+                    params.y = at[1]
+                    pushLayout()
                     downRawX = event.rawX
                     downRawY = event.rawY
+                    islandDescription = describeWindow(params)
                 }
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (!isDragging) {
-                    // A tap (not a drag) wakes the island up onto its chat view.
                     characterView?.onTap()
                     playSound(SoundPlayer.Sound.BLIP)
-                    showOverlay(expanded = !isExpanded)
+                    expand()
                 }
                 isDragging = false
                 return true
@@ -942,8 +1175,8 @@ class OverlayService : Service() {
         val result = router?.route(command)
         val message = when (result) {
             is CommandResult.Success -> {
-                // Collapse back to the bubble after a successful launch.
-                mainHandler.postDelayed({ showOverlay(expanded = false) }, COLLAPSE_DELAY_MS)
+                // Collapse back to the rectangle after a successful launch.
+                mainHandler.postDelayed({ collapse() }, COLLAPSE_DELAY_MS)
                 setCharacterState(CoucouState.FINISHED, SoundPlayer.Sound.SEND)
                 getString(R.string.command_opened, result.message ?: trimmed)
             }
@@ -997,7 +1230,7 @@ class OverlayService : Service() {
     private fun stopOverlayService() {
         hideKeyboard()
         removeOverlay()
-        releaseIsland()
+        releaseOverlayParts()
         releaseSounds()
         unregisterScreenReceiver()
         hasGreeted = false
@@ -1048,7 +1281,7 @@ class OverlayService : Service() {
         // stuck on screen with no way to interact with it.
         hideKeyboard()
         removeOverlay()
-        releaseIsland()
+        releaseOverlayParts()
         releaseSounds()
         unregisterScreenReceiver()
         isRunning = false

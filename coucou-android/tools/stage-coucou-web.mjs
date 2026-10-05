@@ -31,8 +31,8 @@ const repoRoot = resolve(here, "..");
 const upstream = resolve(process.argv[2] ?? "/workspaces/Binder_vps/coucou/windows");
 const outDir = join(repoRoot, "app/src/main/assets/coucou");
 
-if (!existsSync(join(upstream, "vite.config.ts"))) {
-  console.error(`Not a coucou/windows checkout: ${upstream}`);
+if (!existsSync(join(upstream, "vite.config.ts")) || !existsSync(join(upstream, "vite.config.android.ts"))) {
+  console.error(`Not a coucou/windows checkout with the Android build config: ${upstream}`);
   process.exit(1);
 }
 
@@ -41,8 +41,15 @@ if (!existsSync(join(upstream, "node_modules"))) {
   console.log("· npm ci");
   execFileSync("npm", ["ci"], { cwd: upstream, stdio: "inherit" });
 }
-console.log("· vite build");
-execFileSync("npx", ["vite", "build"], { cwd: upstream, stdio: "inherit" });
+// Build the Android bundle, not the desktop one: `vite.config.android.ts` aliases
+// `core/bridge` to `bridge.android.ts`, which talks to `window.CoucouAndroid` instead of
+// Tauri. Building with the default config here would silently overwrite the dist with the
+// desktop Tauri bundle and lose the drag/collapse commands at staging time.
+console.log("· vite build --config vite.config.android.ts");
+execFileSync("npx", ["vite", "build", "--config", "vite.config.android.ts"], {
+  cwd: upstream,
+  stdio: "inherit",
+});
 
 const index = readFileSync(join(dist, "index.html"), "utf8");
 const patched = index.replace("<head>", '<head>\n    <script src="/tauri-shim.js"></script>');

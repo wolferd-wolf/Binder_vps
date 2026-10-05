@@ -101,19 +101,23 @@ check("invoke is callable", typeof internals?.invoke === "function");
 check("transformCallback is callable", typeof internals?.transformCallback === "function");
 
 /**
- * Every command the *shipped* bundle can send: the call sites in `core/bridge.ts`,
- * filtered to the ones whose literals survived into `dist/assets/*.js`.
+ * Every command the *shipped* bundle can send: the call sites in either bridge (the
+ * Android build aliases `core/bridge` to bridge.android.ts, so both are the page's own
+ * code), filtered to the ones whose literals survived into `dist/assets/*.js`.
  */
 function shippedCommands() {
-  const source = readFileSync(join(webuiRoot, "src/core/bridge.ts"), "utf8");
-  const callSites = [...source.matchAll(/\bcall(?:OrThrow)?<[^>]*>?\(\s*"([a-z_]+)"/g)].map(
-    (m) => m[1]
-  );
+  const callSites = new Set();
+  for (const file of ["src/core/bridge.ts", "src/core/bridge.android.ts"]) {
+    const source = readFileSync(join(webuiRoot, file), "utf8");
+    for (const m of source.matchAll(/\bcall(?:OrThrow)?<[^>]*>?\(\s*"([a-z_]+)"/g)) {
+      callSites.add(m[1]);
+    }
+  }
   const code = readdirSync(join(staged, "assets"))
     .filter((f) => f.endsWith(".js"))
     .map((f) => readFileSync(join(staged, "assets", f), "utf8"))
     .join("\n");
-  return callSites.filter((c) => code.includes(`"${c}"`));
+  return [...callSites].filter((c) => code.includes(`"${c}"`));
 }
 
 // 3. Every command the shipped bundle contains, driven through the real shim.
@@ -165,6 +169,19 @@ check("open_url forwards the url",
 const collapsed = since.find((c) => c.command === "set_collapsed");
 check("set_collapsed forwards the flag",
   collapsed?.args.collapsed === true, JSON.stringify(collapsed?.args));
+
+// Sprint 3 REDO window drag: the three commands the top bar's drag handle sends, with the
+// arguments the page actually produces.
+const dragBefore = calls.length;
+await internals.invoke("drag_start", {});
+await internals.invoke("drag_by", { dx: 12, dy: 0 });
+await internals.invoke("drag_end", {});
+check("the 3 drag commands all reached the host",
+  calls.length === dragBefore + 3,
+  `saw ${calls.length - dragBefore}`);
+const dragBy = calls.slice(dragBefore).find((c) => c.command === "drag_by");
+check("drag_by forwards dx and dy",
+  dragBy?.args.dx === 12 && dragBy?.args.dy === 0, JSON.stringify(dragBy?.args));
 
 // 5. The reveal path: no host event means the island stays hidden, so the host
 // synthesises a tray event. This is the one non-obvious trap in the whole bridge.

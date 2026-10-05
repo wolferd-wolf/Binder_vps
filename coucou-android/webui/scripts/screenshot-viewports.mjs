@@ -80,6 +80,8 @@ async function checkOverflow(page, viewportWidth, viewportHeight) {
           styles.display === "none" ||
           styles.visibility === "hidden" ||
           styles.opacity === "0" ||
+          el.closest(".view:not(.on)") ||
+          (typeof el.checkVisibility === "function" && !el.checkVisibility({ checkOpacity: true })) ||
           (r.width === 0 && r.height === 0)
         ) {
           continue;
@@ -292,21 +294,38 @@ async function run() {
   console.log(`  Total screenshots: ${totalScreenshots}`);
   console.log(`  Viewports tested: ${VIEWPORTS.map((v) => v.tag).join(", ")}`);
 
+  // Prompt view gate verification per Sprint 3 REDO
+  const promptIssues = report.filter(
+    (r) => r.view === "prompt" && r.issues && r.issues.length > 0
+  );
+
   if (totalIssues > 0) {
-    console.log(`\n  ⚠  ${totalIssues} overflow/crop issue(s) detected.`);
-    console.log("  Review the screenshots and check layout details:\n");
+    console.log(`\n  ⚠  ${totalIssues} total overflow/crop issue(s) detected across views.`);
     for (const r of report) {
       console.log(`    • ${r.page}/${r.view} @ ${r.viewport} — ${r.issues.length} issue(s)`);
-      for (const iss of r.issues) {
+      for (const iss of r.issues.slice(0, 4)) {
         const ident = iss.id ? `#${iss.id}` : iss.cls ? `.${iss.cls.split(" ")[0]}` : iss.tag;
         console.log(`        - [${iss.overflow}] ${ident} (${iss.amount}px)`);
       }
     }
-    console.log("══════════════════════════════════════════════════════\n");
-  } else {
-    console.log(`\n  ✅ No overflow or crop issues detected!`);
-    console.log("══════════════════════════════════════════════════════\n");
   }
+
+  if (promptIssues.length > 0) {
+    console.error("\n❌ [AGY GATE FAILED] Prompt view has cropping or overflow issues!");
+    for (const r of promptIssues) {
+      console.error(`   → Prompt @ ${r.viewport}: ${r.issues.length} issue(s)`);
+      for (const iss of r.issues) {
+        const ident = iss.id ? `#${iss.id}` : iss.cls ? `.${iss.cls.split(" ")[0]}` : iss.tag;
+        console.error(`       - [${iss.overflow}] ${ident} (${iss.amount}px)`);
+      }
+    }
+    console.error("\n[AGY GATE] No APK will be built until the prompt view screenshot gate passes.\n");
+    console.log("══════════════════════════════════════════════════════\n");
+    process.exit(1);
+  }
+
+  console.log("\n✅ [AGY GATE PASSED] Prompt view is uncropped and fully visible at all target viewports!");
+  console.log("══════════════════════════════════════════════════════\n");
 
   return { totalIssues, report, totalScreenshots, screenshotDir: SCREENSHOT_DIR };
 }

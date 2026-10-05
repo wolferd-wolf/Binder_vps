@@ -10,8 +10,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "verify:bridge": "node tools/verify-bridge-contract.mjs",
+    "verify:android": "node tools/verify-android-bridge.mjs",
     "verify:staged": "node tools/verify-staged-bundle.mjs",
-    "verify": "npm run verify:bridge && npm run verify:staged",
+    "verify": "npm run verify:bridge && npm run verify:android && npm run verify:staged",
     "icons": "node scripts/gen-icons.mjs",
     "screenshots": "node scripts/screenshot-viewports.mjs"
   },

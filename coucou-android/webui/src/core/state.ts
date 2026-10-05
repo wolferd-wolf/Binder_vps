@@ -264,7 +264,7 @@ class AppState {
   }
 
   defaultView(): IslandViewName {
-    return this.tasks.length === 0 ? "empty" : "overview";
+    return this.tasks.length === 0 ? "empty" : "prompt";
   }
 }
 

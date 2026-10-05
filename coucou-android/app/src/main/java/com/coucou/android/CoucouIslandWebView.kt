@@ -27,8 +27,9 @@ import java.io.InputStream
  * answered from `assets/coucou/` or from `res/raw/`.
  *
  * Three things make it behave like the desktop window rather than a browser tab:
- *  - the viewport is pinned to upstream's 720px stage (`IslandBridgeCommands.STAGE_WIDTH_CSS`),
- *    because the island geometry and its centring both assume that width;
+ *  - the viewport stays at upstream's `width=device-width`, so one CSS px is one dp and
+ *    the page's own measurements are in the same unit as the window's (the REDO brief:
+ *    screen width read in dp at runtime, never hardcoded);
  *  - the window is transparent, since `html, body { background: transparent }`;
  *  - sounds are served from `res/raw/`, so the 28 WAVs exist once in the APK.
  */
@@ -122,6 +123,25 @@ internal class CoucouIslandWebView private constructor(
             view.evaluateJavascript(
                 "window.CoucouIsland && window.CoucouIsland.emit('settings-changed'," +
                     "${Json.quote(settingsJson)})",
+                null
+            )
+        }
+    }
+
+    /**
+     * Opens the island straight on the prompt view, which is where a tap on the collapsed
+     * rectangle is meant to land.
+     *
+     * Both spellings are tried: the shim's chat entry point, and a prompt-specific one if
+     * @Cline's lane adds it. On this page the chat tab *is* the prompt view, so the chat
+     * entry point is a correct answer, not a fallback that shows the wrong thing.
+     */
+    fun showPrompt() {
+        runCatching {
+            view.evaluateJavascript(
+                "window.CoucouIsland && (window.CoucouIsland.showPrompt" +
+                    " ? window.CoucouIsland.showPrompt()" +
+                    " : window.CoucouIsland.showChat())",
                 null
             )
         }

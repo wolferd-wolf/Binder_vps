@@ -16,28 +16,13 @@ package com.coucou.android
 internal object IslandBridgeCommands {
 
     /**
-     * Upstream's desktop stage width, from `layout.ts` `PANEL_W`.
-     *
-     * The page caps its panel at this (`getPanelWidth`), so it is the widest the window
-     * ever wants to be — but on a phone the panel is the screen instead, and the window
-     * follows the screen. Kept because the staged document still names it.
-     */
-    const val STAGE_WIDTH_CSS = 720
-
-    /** The island is glued to the top of the stage and centred horizontally. */
-    private const val WAKE_STRIP_WIDTH_CSS = 240
-    private const val WAKE_STRIP_HEIGHT_CSS = 6
-
-    /**
-     * Breathing room around the island, in CSS px. Without it the window would end
-     * exactly on the island's rounded corners, so a tap on the corner would miss.
-     */
-    private const val WINDOW_MARGIN_CSS = 8
-
-    /**
      * Panel margin on each side, in dp. Matches `layout.ts` `getPanelWidth`, which
      * measures its panel as `screenWidth - 32`: the window has to be exactly this wide
      * for the page's own centring to land on the screen centre.
+     *
+     * There is no wake-strip geometry here any more. The collapsed shape is the native
+     * rectangle, which the window wraps rather than measures, so nothing has to be sized
+     * for a hidden page state.
      */
     private const val SCREEN_MARGIN_DP = 16
 
@@ -66,6 +51,25 @@ internal object IslandBridgeCommands {
 
         /** Page asked for the window to shrink to the wake strip, or come back. */
         data class SetCollapsed(val collapsed: Boolean) : BridgeAction()
+
+        /**
+         * The page took hold of the drag handle on its top bar.
+         *
+         * Parameterless on purpose: the host already owns the window position, so a base
+         * it has to be told about is a second source of truth.
+         */
+        object DragStart : BridgeAction()
+
+        /**
+         * The page moved the drag handle by ([dx], [dy]) CSS px.
+         *
+         * A delta, not an absolute position, because the page only ever knows how far its
+         * own pointer has travelled; it has no idea where the window sits on screen.
+         */
+        data class DragBy(val dx: Double, val dy: Double) : BridgeAction()
+
+        /** The page let go of the drag handle; the host clamps and settles. */
+        object DragEnd : BridgeAction()
 
         /** Page asked for (or gave up) keyboard focus on the chat field. */
         data class SetFocused(val focused: Boolean) : BridgeAction()
@@ -149,6 +153,9 @@ internal object IslandBridgeCommands {
             "chat_send" -> chatSend(args)
             "set_island_rect" -> islandRect(args)
             "set_collapsed" -> BridgeAction.SetCollapsed(args.boolOrNull("collapsed") ?: false)
+            "drag_start" -> BridgeAction.DragStart
+            "drag_by" -> dragBy(args)
+            "drag_end" -> BridgeAction.DragEnd
             "focus_window" -> BridgeAction.SetFocused(args.boolOrNull("focused") ?: false)
             "open_url" -> openUrl(args)
             "save_settings" -> saveSettings(args)
@@ -172,6 +179,17 @@ internal object IslandBridgeCommands {
         }
     }
 
+    private fun dragBy(args: Map<String, Any?>): BridgeAction {
+        val dx = args.doubleOrNull("dx")
+        val dy = args.doubleOrNull("dy")
+        // A non-finite delta would put the window somewhere unrecoverable, and the page
+        // recovers from a dropped move better than from a NaN position.
+        if (dx == null || dy == null || !dx.isFinite() || !dy.isFinite()) {
+            return BridgeAction.ReplyNull
+        }
+        return BridgeAction.DragBy(dx, dy)
+    }
+
     private fun islandRect(args: Map<String, Any?>): BridgeAction {
         val width = args.doubleOrNull("width")
         val height = args.doubleOrNull("height")
@@ -181,8 +199,7 @@ internal object IslandBridgeCommands {
         return BridgeAction.SetIslandRect(width, height)
     }
 
-    private fun openUrl(args: Map<String, Any?>): BridgeAction {
-        val url = args.stringOrNull("url")?.trim().orEmpty()
+    private fun openUrl(args: Map<String, Any?>): BridgeAction {        val url = args.stringOrNull("url")?.trim().orEmpty()
         // Only http(s): the island can be driven by page content, and a `javascript:`
         // or `intent:` URL from an overlay would be a real hole.
         val scheme = url.substringBefore(':', missingDelimiterValue = "").lowercase()
@@ -264,19 +281,19 @@ internal object IslandBridgeCommands {
     fun chatReply(text: String): String = "{\"text\":${Json.quote(text)}}"
 
     /**
-     * Window bounds, in physical pixels, for an island of [islandHeightCss] on a
+     * Window bounds, in physical pixels, for a panel [islandHeightCss] tall on a
      * [screenWidthPx]-wide screen at [density].
      *
-     * The window *is* the page's panel: the screen less [SCREEN_MARGIN_DP] on each
-     * side. That width is not a guess — `layout.ts` `getPanelWidth` measures the panel
-     * as `screenWidth - 32` and centres the island in it, so the window has to be
-     * exactly that or the island is drawn off-centre. Anything wider spills past the
-     * screen edge, which is the bar @Boss reported across the bottom of the overlay.
+     * The window *is* the page's panel: the screen less [SCREEN_MARGIN_DP] on each side.
+     * That width is not a guess — `layout.ts` `getPanelWidth` measures the panel as
+     * `screenWidth - 32` and centres the island in it, so the window has to be exactly
+     * that or the prompt box is drawn off-centre, and anything wider spills past the
+     * screen edge. The REDO brief asks for the same: screen width minus margins.
      *
      * Height follows the island, scaled by [density]: the island's CSS px are dp on
-     * Android, so dp × density is the physical px the window has to be tall. (Scaling
-     * the fixed 720px desktop stage to the screen instead — what this used to do — put
-     * the island's own 12.5px type at ~6dp on a phone.)
+     * Android, so dp × density is the physical px the window has to be tall. (Scaling the
+     * fixed 720px desktop stage to the screen instead — what this used to do — put the
+     * island's own 12.5px type at ~6dp on a phone.)
      */
     fun windowBounds(islandHeightCss: Double, density: Float, screenWidthPx: Int): IntArray {
         val margin = marginPx(density)
@@ -285,30 +302,39 @@ internal object IslandBridgeCommands {
         return intArrayOf(width, height, margin)
     }
 
-    /**
-     * The same, for the collapsed wake strip the island retracts into.
-     *
-     * Unlike the panel this one stays narrow and is centred on the screen: it is only
-     * [WAKE_STRIP_HEIGHT_CSS] tall and lives at the screen's top edge, so a full-width
-     * window there would swallow taps along the whole edge for as long as the island
-     * sleeps.
-     */
-    fun collapsedWindowBounds(density: Float, screenWidthPx: Int): IntArray {
-        val density = if (density > 0f) density else 1f
-        val pad = (WINDOW_MARGIN_CSS * density).toInt()
-        val maxWidth = (screenWidthPx - 2 * marginPx(density)).coerceAtLeast(1)
-        val width = ((WAKE_STRIP_WIDTH_CSS * density).toInt() + 2 * pad)
-            .coerceAtMost(maxWidth)
-            .coerceAtLeast(1)
-        val height = ((WAKE_STRIP_HEIGHT_CSS * density).toInt() + 2 * pad).coerceAtLeast(1)
-        val x = ((screenWidthPx - width) / 2).coerceAtLeast(0)
-        return intArrayOf(width, height, x)
-    }
-
     /** The panel margin in physical pixels; the density guard keeps it non-zero. */
     private fun marginPx(density: Float): Int {
         val safe = if (density > 0f) density else 1f
         return (SCREEN_MARGIN_DP * safe).toInt()
+    }
+
+    /**
+     * Keeps a [widthPx] x [heightPx] window wholly on a [screenWidthPx] x [screenHeightPx]
+     * screen, and answers `x, y`.
+     *
+     * The collapsed rectangle is positioned by the user, and the expanded panel inherits
+     * wherever that left it — but a 90%-wide panel parked where a 56dp rectangle was is
+     * mostly off screen, so the position is re-clamped on every shape change rather than
+     * only while dragging.
+     *
+     * A non-positive size means "not measured yet" (`WRAP_CONTENT`, or measured on a later
+     * layout pass); the window then cannot be wider than the screen by definition, so only
+     * the origin is bounded.
+     */
+    fun clampToScreen(
+        x: Int,
+        y: Int,
+        widthPx: Int,
+        heightPx: Int,
+        screenWidthPx: Int,
+        screenHeightPx: Int
+    ): IntArray {
+        val maxX = if (widthPx in 1..screenWidthPx) screenWidthPx - widthPx else 0
+        val maxY = if (heightPx in 1..screenHeightPx) screenHeightPx - heightPx else 0
+        return intArrayOf(
+            x.coerceIn(0, maxOf(0, maxX)),
+            y.coerceIn(0, maxOf(0, maxY))
+        )
     }
 
     /** Two decimals is well under a pixel on any real screen and keeps `boot` readable. */

@@ -132,44 +132,46 @@ export function onScreenWidthChange(cb: (w: number) => void) {
 }
 
 /** Get the panel width — the screen less its margins, capped at the desktop stage. */
-export function getPanelWidth(): number {
-  if (screenWidth > 0) {
-    return Math.min(screenWidth - 2 * PANEL_MARGIN, DESKTOP_PANEL_W);
-  }
-  return DESKTOP_PANEL_W;
-}
 
-/** Get the compact width — uses screen width minus margins on phone, desktop default otherwise. */
-export function getCompactWidth(): number {
-  if (screenWidth > 0) {
-    // Compact is roughly 40% of screen width, capped at desktop default
-    return Math.min(Math.max(screenWidth * 0.4, NOTCH_W + 24), DESKTOP_COMPACT_W);
-  }
-  return DESKTOP_COMPACT_W;
-}
-
-/** Get the expanded width — uses screen width minus margins on phone, desktop default otherwise. */
-export function getExpandedWidth(): number {
-  if (screenWidth > 0) {
-    // Expanded is roughly 90% of screen width, capped at desktop default
-    return Math.min(Math.max(screenWidth * 0.9, 280), DESKTOP_EXPANDED_W);
-  }
-  return DESKTOP_EXPANDED_W;
-}
-
-/** Get the wake strip width — uses screen width on phone, desktop default otherwise. */
-export function getWakeStripWidth(): number {
-  if (screenWidth > 0) {
-    return Math.min(screenWidth * 0.5, DESKTOP_WAKE_STRIP_W);
-  }
-  return DESKTOP_WAKE_STRIP_W;
-}
-
-// Backward compatibility exports
+// Backward compatibility exports (deprecated — use responsive getters above)
+// These stay as desktop defaults for code that references them directly.
+// For responsive widths that update on screen size change, use:
+//   getPanelWidth(), getCompactWidth(), getExpandedWidth(), getWakeStripWidth()
+// And subscribe with: onScreenWidthChange(cb => { ... })
 export const PANEL_W = DESKTOP_PANEL_W;
 export const COMPACT_W = DESKTOP_COMPACT_W;
 export const EXPANDED_W = DESKTOP_EXPANDED_W;
 export const WAKE_STRIP_W = DESKTOP_WAKE_STRIP_W;
+
+function currentScreenWidth(): number {
+  if (screenWidth > 0) return screenWidth;
+  if (typeof window !== "undefined" && window.innerWidth > 0) {
+    return window.innerWidth;
+  }
+  return DESKTOP_PANEL_W;
+}
+
+// Responsive getters (update when screen width changes via setScreenWidth or window.innerWidth)
+// Use these in new code for phone-responsive layout
+export function getPanelWidth(): number {
+  const sw = currentScreenWidth();
+  return Math.min(sw - 2 * PANEL_MARGIN, DESKTOP_PANEL_W);
+}
+
+export function getCompactWidth(): number {
+  const sw = currentScreenWidth();
+  return Math.min(Math.max(sw * 0.4, NOTCH_W + 24), DESKTOP_COMPACT_W);
+}
+
+export function getExpandedWidth(): number {
+  const sw = currentScreenWidth();
+  return Math.min(Math.max(sw - 2 * PANEL_MARGIN, 280), DESKTOP_EXPANDED_W);
+}
+
+export function getWakeStripWidth(): number {
+  const sw = currentScreenWidth();
+  return Math.min(sw * 0.5, DESKTOP_WAKE_STRIP_W);
+}
 
 // Re-export for convenience (used by island.ts panelSize getter)
 export { getPanelWidth as panelWidth, getCompactWidth as compactWidth, getExpandedWidth as expandedWidth, getWakeStripWidth as wakeStripWidth };
@@ -216,10 +218,10 @@ export function islandSize(
       // slides into the top edge of the screen instead of sitting there as a bar.
       return { w: NOTCH_W, h: 0 };
     case "compact":
-      return { w: COMPACT_W, h: NOTCH_H };
+      return { w: getCompactWidth(), h: NOTCH_H };
     case "expanded": {
       const h = view === "prompt" ? chatPromptHeight(chatCount) : VIEW_LAYOUTS[view].height;
-      return { w: EXPANDED_W, h };
+      return { w: getExpandedWidth(), h };
     }
   }
 }

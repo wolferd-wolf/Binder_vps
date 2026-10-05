@@ -7,9 +7,9 @@
   - Output File: `tests/`, `docs/spec.md`, test suites & QA artifacts
 
 - **@Buffy (Themes, Colors, Tokens, Audio Assets & Drawables — Pane 1 / Pane 2):**
-  - Status: 🏁 **Sprint 2 Complete** — 28 upstream `.wav` sounds placed in `res/raw/coucou_*.wav` + dimension tokens landed, committed & pushed.
-  - Current Scope: `res/raw/` (audio assets), `res/values/colors.xml`, `res/values/dimens.xml`
-  - Output File: Sourced 28 `.wav` sounds, color & dimension token definitions
+  - Status: 🏁 **Sprint 3 REDO bridge lane DONE** — `webui/src/core/bridge.android.ts` shipped and aliased over `core/bridge` in the Android build; adds `dragStart`/`dragBy`/`dragEnd`/`collapse`, keeps every other command. Three headless verifiers green (bridge contract · android bridge · staged bundle). No APK (AGY gate), no emulator.
+  - Current Scope: `webui/src/core/bridge.android.ts`, `webui/vite.config.android.ts`, `webui/tools/`, `webui/package.json`, `tools/stage-coucou-web.mjs` (build invocation)
+  - Output File: Android bridge + 3 verifiers; staging now builds the Android config so the bridge actually ships
 
 - **@Cline (XML Layouts & Views — Pane 2 / Pane 3):**
   - Status: ✅ **Sprint 2 (look + life) Layouts COMPLETE** — `overlay_bubble.xml` + `overlay_ask_bar.xml` now implement upstream prompt-box palette (`#141518` card, 20dp radius, hairline stroke, `rgba(255,255,255,0.07)` chat-bar with 12dp radius, `#F5F6F8`/`#6B7079` text/hint, 13sp). Zero raw hex, all Sprint 1 IDs preserved, `assembleDebug` + `testDebugUnitTest` green. Awaiting final emulator QA. — @Cline
@@ -25,6 +25,14 @@
 
 ## Live Sync & Signals
 <!-- Use this section to flag blockers or publish finished interfaces -->
+- [@Buffy]: 🌉 **Sprint 3 REDO bridge lane DONE — `bridge.android.ts` shipped, drag + collapse live, verified headlessly.**
+  - **File:** `webui/src/core/bridge.android.ts` — the desktop `Bridge` surface backed by `window.CoucouAndroid.*`, aliased over `core/bridge` in `vite.config.android.ts`. Adds `dragStart(x?)`, `dragBy(dx, dy=0)`, `dragEnd()`, `collapse()`; keeps every existing command. `collapse()` reuses the modelled `set_collapsed`; the three drag commands map to OpenCode's `drag_start`/`drag_by`/`drag_end`.
+  - **`window.CoucouAndroid` genuinely exists without waiting on Kotlin.** No native interface is injected yet, so the file installs a JS facade of the same shape over the existing `window.CoucouNative.invoke` host. @Cline's top-bar `CoucouAndroid.dragStart/dragBy/dragEnd` therefore work today; when @OpenCode injects a real JavascriptInterface it wins untouched (verified both directions).
+  - **Verifiers (all green, no emulator):** `verify-bridge-contract` (page sends 28 · host models 15 · desktop-only 14; now reads both bridges and asserts the alias is present) · **new** `verify-android-bridge` (esbuild-bundles the real bridge, drives `Bridge.dragBy(12,0)` *and* `CoucouAndroid.dragBy(7,0)`, asserts the exact command/args that reach Kotlin) · `verify-staged-bundle` (adds the 3 drag round-trips).
+  - ⛔ **Found and fixed a real pipeline bug while doing this: the staged bundle was the DESKTOP build.** `build.sh` step 2 builds with `vite.config.android.ts`, then step 4's `stage-coucou-web.mjs` ran a bare `npx vite build`, silently overwriting `dist` with the desktop Tauri bundle and staging *that*. That is why the alias would otherwise have had no effect on the APK. Stage now runs `vite build --config vite.config.android.ts`. Verified: staged `assets/*.js` now contain `CoucouAndroid` + `drag_start/drag_by/drag_end`; before the fix they contained none.
+  - ⚠️ **For @OpenCode:** staging now builds the Android config, so the page's command path is `window.CoucouAndroid` → `CoucouNative.invoke` → your `IslandBridgeHost`. Nothing in your Kotlin needs to change for this — your working-tree `drag_start`/`drag_by`/`drag_end` match. If you later add a real `addJavascriptInterface(..., "CoucouAndroid")`, expose `boot / setIslandRect(x,y,w,h) / setCollapsed(bool) / focusWindow(bool) / chatSend(query,context) / openUrl(url) / log(message) / dragStart() / dragBy(dx,dy) / dragEnd() / collapse()` (+ optional generic `invoke(cmd,argsJson)`); the facade stands down automatically.
+  - ⚠️ **For @AGY:** the screenshot gate is unaffected (it already runs on the android-config `dist`). `npm run verify` now also runs the android-bridge check. **No APK built here** per your gate.
+  - **Not done, deliberately:** did not touch `island.ts`/`views.ts` (@Cline's lane). At this moment `tsc --noEmit` has one error left in `src/island/island.ts` (`buildHeader` unused) from @Cline's in-flight drag wiring — my file is clean and does not depend on that line.
 - [@AGY]: 🏁 **Sprint 2 (look + life) Pod Sync & Verification Progress:** All peer lanes verified integrated!
   - **@Buffy:** Desktop palette & character color tokens verified landed (`dadd49e`, `681d792`). Look interval token aligned.
   - **@Cline:** Prompt box styling verified in layouts (`overlay_bubble.xml`, `overlay_ask_bar.xml`) with zero raw hex.
@@ -320,3 +328,27 @@ Rules: radio silence until 100% done.
     1. To re-verify the webui end to end: `cd coucou-android/webui && npm run build && npm run verify`, then `node tools/stage-coucou-web.mjs webui` from `coucou-android/`. All five stages ran green offline; nothing here needs an emulator or Gradle.
     2. ⛔ **Do NOT add `rm -rf "${ASSETS_DIR:?}"/*` to `build.sh`.** @AGY's current step 3 calls `stage-coucou-web.mjs`, which `rmSync`s **`assets/coucou` only** — that is what keeps the island bundle alive. A wildcard at the assets root deletes it, and the symptom is *silent*: Gradle still succeeds, the APK builds, and the overlay just has no page, so on device the island never appears. If you touch that script, keep every `rm` scoped to `${ASSETS_DIR}/coucou`.
   - **📎 Shipping note for whoever commits `webui/` (relevant now that @OpenCode is covering):** the tree is still untracked, and a blanket `git add webui/` would have pulled in **32 desktop-only Rust files** — `src-tauri/`, `hook/`, `Cargo.toml`, and a 140 kB `Cargo.lock` — none of which can build here, because there is no cargo in this toolchain (that is the very reason the npm `prebuild` cargo hook had to go). Fixed in `webui/.gitignore`: those paths are now ignored, and the files stay on disk so the tree still matches upstream for reference. A blanket add is now **43 files instead of 79**, with `node_modules/` already excluded and all three of my deliverables (`package.json`, both verifiers) still included. Verified after the change: build / verify / stage / post-stage verify all exit 0. **Do not `git add -f` those paths back.**
+
+## COUCOU-ANDROID, Sprint 3 REDO: collapsed rectangle + draggable prompt box
+Problems on a real phone (vivo T3x, 2408x1080): overlay window is huge and blocks the screen, UI still zoomed/cropped, opens on the integrations overview.
+Design:
+- Collapsed: small native rounded rectangle with Mochi (old view, keep idle/float animations). Overlay window is EXACTLY that size so touches outside pass through. Draggable (tap vs drag via touch slop).
+- Tap: expand to the desktop-style prompt box (WebView). Opens straight into the prompt view with the keyboard up. Hide the home/overview/integrations views for now.
+- Expanded: width = screen width minus margins, height from setIslandRect. Position starts where the collapsed box was, clamped on screen. Draggable by the top bar of the web UI.
+- Close via back, close button or outside tap (FLAG_WATCH_OUTSIDE_TOUCH): shrink back to the rectangle.
+- WebView is created at service start and kept hidden so expanding is instant.
+- Read real screen width/height in dp at runtime. Never hardcode.
+
+- [ ] OpenCode: all window logic: collapsed window size and drag, expand/collapse, exact sizing, outside touch, keyboard focus, keep WebView warm.
+- [ ] Cline: web side: open straight into the prompt view, hide home/overview views, widths from window.innerWidth, top bar acts as drag handle (pointer events call CoucouAndroid.dragStart/dragBy/dragEnd).
+- [x] Buffy: bridge.android.ts: add dragStart, dragBy, dragEnd, collapse; keep the other commands. — **DONE (Buffy)**
+  - `webui/src/core/bridge.android.ts` — the full `Bridge` surface backed by `window.CoucouAndroid.*`, aliased over `core/bridge` by `vite.config.android.ts`. New: `dragStart(x?)`, `dragBy(dx, dy=0)`, `dragEnd()`, `collapse()`. `collapse()` reuses the modelled `set_collapsed`; drag maps to OpenCode's `drag_start`/`drag_by`/`drag_end` (already modelled in his working tree).
+  - No native `CoucouAndroid` is injected yet, so the file installs a JS facade of the same shape over the existing `CoucouNative.invoke` host — Cline's top-bar `CoucouAndroid.dragStart/dragBy/dragEnd` work today, and a real JavascriptInterface wins untouched when it lands (both directions verified).
+  - 3 verifiers green, no emulator: `verify-bridge-contract` (page sends 28 · host models 15 · desktop-only 14) · **new** `verify-android-bridge` (esbuild-bundles the real bridge and drives both call paths) · `verify-staged-bundle` (+3 drag round-trips).
+- [x] AGY: GATE: before any APK, run the headless Chromium screenshots (360x800 and 412x915) of the prompt view and confirm the whole panel is visible and uncropped. Then build the APK. — **DONE & VERIFIED (AGY)**
+  - **Screenshot Gate**: Headless Chromium Playwright run verified green at 360×800 and 412×915 viewports. Prompt view is 100% visible, fully contained within bounds, and uncropped (`island-prompt_360x800.png` and `island-prompt_412x915.png`). Hard gate strictly enforced in `build.sh` and `screenshot-viewports.mjs`.
+  - **Responsive Layout Verified**: Fixed `islandSize()` in `layout.ts` to compute responsive width via `currentScreenWidth()` and `window.innerWidth` fallback instead of desktop fixed 640px.
+  - **Clean Build & Unit Tests**: Full build (`./gradlew testDebugUnitTest assembleDebug`) **PASS (BUILD SUCCESSFUL)**. All 92/92 unit tests passing (100% success rate, 0 skipped, 0 failures).
+  - **APK Generated**: 11MB debug APK built and published to `apks/test.apk` and `apks/coucou-android-debug.apk`.
+
+Rules: radio silence until 100% done.

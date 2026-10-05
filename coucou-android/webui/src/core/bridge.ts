@@ -99,6 +99,11 @@ export const Bridge = {
 
   /** Tray → Pause. Stops the integration pollers, not just the island. */
   setPaused: (paused: boolean) => call<void>("set_paused", { paused }),
+
+  // ── Drag (Sprint 3 REDO) ──────────────────────────────────────────────────
+  dragStart: (x?: number) => call<void>("drag_start", { x }),
+  dragBy: (dx: number, dy = 0) => call<void>("drag_by", { dx, dy }),
+  dragEnd: () => call<void>("drag_end"),
 };
 
 export interface IntegrationUpdate {

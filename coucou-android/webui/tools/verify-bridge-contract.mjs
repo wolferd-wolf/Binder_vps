@@ -71,15 +71,26 @@ const DESKTOP_ONLY = new Set([
 ]);
 
 /**
- * The commands the page can send, from the call sites in `core/bridge.ts`.
+ * The two bridges. `vite.config.android.ts` aliases `core/bridge` to the Android twin, so
+ * the shipped Android bundle's call sites live in bridge.android.ts; the desktop build
+ * keeps bridge.ts. Both must be checked, or the alias could silently drop a command.
+ */
+const BRIDGE_SOURCES = ["src/core/bridge.ts", "src/core/bridge.android.ts"];
+
+/**
+ * The commands the page can send, from the call sites in either bridge.
  * Every arm is `call("name")` or `callOrThrow("name")`, optionally with a generic
  * parameter between the callee and the paren: `call<BootInfo>("boot")`.
  */
 function pageCommands() {
-  const source = readFileSync(join(webuiRoot, "src/core/bridge.ts"), "utf8");
-  return new Set(
-    [...source.matchAll(/\bcall(?:OrThrow)?<[^>]*>?\(\s*"([a-z_]+)"/g)].map((m) => m[1])
-  );
+  const commands = new Set();
+  for (const file of BRIDGE_SOURCES) {
+    const source = readFileSync(join(webuiRoot, file), "utf8");
+    for (const m of source.matchAll(/\bcall(?:OrThrow)?<[^>]*>?\(\s*"([a-z_]+)"/g)) {
+      commands.add(m[1]);
+    }
+  }
+  return commands;
 }
 
 /** The same commands, as they survive into the bundle that ships in the APK. */
@@ -128,6 +139,26 @@ const dropped = [...page].filter((c) => !shipped.has(c)).sort();
 check("no command is dropped between the source and the built bundle",
   dropped.length === 0,
   dropped.length ? `dropped by the build: ${dropped.join(", ")}` : "");
+
+// The Sprint 3 REDO window drag: the page must send these and the host must model them,
+// or the top bar's drag handle is a control that does nothing.
+const DRAG_COMMANDS = ["drag_start", "drag_by", "drag_end"];
+const dragMissingHost = DRAG_COMMANDS.filter((c) => !host.modelled.has(c));
+check("the Kotlin host models the drag commands",
+  dragMissingHost.length === 0,
+  dragMissingHost.length ? `not modelled: ${dragMissingHost.join(", ")}` : "");
+const dragMissingPage = DRAG_COMMANDS.filter((c) => !page.has(c));
+check("the page sends the drag commands",
+  dragMissingPage.length === 0,
+  dragMissingPage.length ? `never sent: ${dragMissingPage.join(", ")}` : "");
+
+// The Android bundle only talks to `window.CoucouAndroid` if the alias is in place; if
+// someone drops it, the desktop Tauri bridge gets bundled and every call is a silent
+// no-op on device with no build error.
+const viteConfig = readFileSync(join(webuiRoot, "vite.config.android.ts"), "utf8");
+check("the Android build aliases core/bridge to bridge.android.ts",
+  /core\/bridge\.android\.ts/.test(viteConfig),
+  "the alias is missing, so the desktop Tauri bridge would ship instead");
 
 check("the host has a fallback arm for commands it does not model",
   host.hasFallback,

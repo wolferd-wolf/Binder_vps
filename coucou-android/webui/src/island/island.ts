@@ -146,6 +146,9 @@ export class Island {
   private build() {
     const actions: ViewActions = {
       setView: (v) => this.setView(v),
+      dragStart: (x: number) => { void Bridge.dragStart(x); },
+      dragBy: (dx: number) => { void Bridge.dragBy(dx); },
+      dragEnd: () => { void Bridge.dragEnd(); },
       collapse: () => this.collapse(),
       setFocus: (id) => {
         State.setFocus(id);
@@ -219,6 +222,27 @@ export class Island {
     this.countdown = h("div", { id: "countdown" });
 
     this.header = buildHeader(actions);
+    let isDragging = false;
+    let dragStartX = 0;
+    this.header.el.addEventListener("pointerdown", (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest(".tab") || target?.closest(".action-btn")) return;
+      isDragging = true;
+      dragStartX = e.clientX;
+      actions.dragStart(e.clientX);
+    });
+    window.addEventListener("pointermove", (e: PointerEvent) => {
+      if (!isDragging) return;
+      const dx = e.clientX - dragStartX;
+      dragStartX = e.clientX;
+      actions.dragBy(dx);
+    });
+    window.addEventListener("pointerup", () => {
+      if (!isDragging) return;
+      isDragging = false;
+      actions.dragEnd();
+    });
+
     this.views = buildViews(actions, () => this.animateGeometry(false));
     this.viewsEl = h("div", { id: "views" });
     for (const v of this.views.values()) this.viewsEl.append(v.el);

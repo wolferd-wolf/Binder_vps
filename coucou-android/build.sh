@@ -46,10 +46,10 @@ if [ ! -d "dist" ]; then
   exit 1
 fi
 
-# 3. PLAYWRIGHT VIEWPORT SCREENSHOTS CHECK
-echo "--> [3/5] Running Headless Chromium Playwright viewport screenshots (360x800 & 412x915)..."
+# 3. PLAYWRIGHT VIEWPORT SCREENSHOTS GATE
+echo "--> [3/5] Running Headless Chromium Playwright prompt view gate (360x800 & 412x915)..."
 cd "${WEBUI_DIR}"
-npm run screenshots || echo "Warning: Viewport check reported overflow issues (see above)"
+npm run screenshots
 
 # 4. STAGE WEB ASSETS (assets/coucou)
 echo "--> [4/5] Staging WebUI into Android assets (${ASSETS_DIR}/coucou)..."
