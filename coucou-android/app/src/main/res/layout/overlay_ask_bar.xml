@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- COUCOU Sprint 2: expanded ask bar (inflated by OverlayService as
+     "overlay_ask_bar"; IDs resolved reflectively: ask_root + ask_input + ask_close + ask_avatar.
+     Couchu theme tokens only, zero raw hex.
+     Sprint 2 change: flat WRAP_CONTENT replaced by MATCH_PARENT to match desktop chat-input width,
+     and drag clamping updated so the expanded full-width window isn't clamped to the left edge. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/ask_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="bottom">
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/ask_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="@dimen/coucou_input_bar_radius"
+        app:cardElevation="0dp"
+        app:strokeWidth="@dimen/coucou_prompt_card_stroke"
+        app:strokeColor="@color/coucou_hairline">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="@dimen/coucou_input_bar_padding_h">
+
+            <ImageView
+                android:id="@+id/ask_avatar"
+                android:layout_width="@dimen/coucou_ask_character_size"
+                android:layout_height="@dimen/coucou_ask_character_size"
+                android:layout_marginEnd="@dimen/coucou_ask_character_margin_end"
+                android:src="@drawable/ic_launcher_monochrome"
+                android:contentDescription="@string/ask_bar_hint"
+                android:scaleType="centerCrop" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:paddingTop="@dimen/coucou_input_bar_padding_v">
+
+                <EditText
+                    android:id="@+id/ask_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/ask_bar_hint"
+                    android:textColorHint="@color/coucou_dim_3"
+                    android:textSize="@dimen/coucou_input_text_size"
+                    android:background="@android:color/transparent" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/ask_send"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/grant_permission"
+                    android:textColor="@color/coucou_send_icon"
+                    android:layout_gravity="end" />
+            </LinearLayout>
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+</FrameLayout>
