@@ -165,6 +165,25 @@ class OverlayService : Service() {
         /** The load-failure box has to be readable from across a desk. */
         private const val ERROR_TEXT_SIZE_SP = 14f
 
+        /**
+         * Height, in dp, of the off-screen window the page boots in.
+         *
+         * Generous on purpose: the page lays out its prompt view in whatever viewport it is
+         * given, and too small a one would make it push a rect for the wrong shape.
+         */
+        private const val WARMUP_HEIGHT_DP = 400
+
+        /**
+         * How long to wait for the page's first rect before assuming one.
+         *
+         * The page is the only source of the window's height, so an unbounded wait means a
+         * tap can do nothing at all.
+         */
+        private const val ISLAND_BOOT_TIMEOUT_MS = 1500L
+
+        /** Prompt-box height assumed if the page never measures itself, in dp. */
+        private const val FALLBACK_PROMPT_HEIGHT_DP = 320.0
+
         var isRunning: Boolean = false
             private set
 
@@ -599,11 +618,15 @@ class OverlayService : Service() {
      * Creates the island and boots its page with the window parked off screen.
      *
      * A WebView that has never been attached to a window never lays out, so the page would
-     * boot with a zero-width viewport and would never measure itself — and the panel would
-     * then have no height to open at. So the window goes up once at the panel size, entirely
-     * below the bottom edge, and stays there until the page pushes a rect. Nothing renders
-     * (the page is transparent) and nothing is on screen, but the page is warm by the time
-     * the user taps the rectangle.
+     * boot with a zero-width viewport, could never measure itself, and would never push the
+     * rect the window is sized from. So the window goes up once — off screen, below the
+     * bottom edge — and stays there until the page has measured itself. Nothing renders on
+     * screen (the page is transparent and the window is out of bounds) but the page is warm
+     * by the time the user taps the rectangle.
+     *
+     * The warm window is deliberately *screen* sized rather than panel sized: the panel size
+     * is derived from the rect the page has not pushed yet, so using it here would make the
+     * viewport 1 CSS px wide and deadlock the boot.
      */
     private fun warmIsland() {
         if (island == null) inflateIsland()
@@ -612,10 +635,17 @@ class OverlayService : Service() {
         val root = ensureContainer() ?: return
         val params = layoutParams ?: buildLayoutParams().also { layoutParams = it }
         val metrics = resources.displayMetrics
-        val bounds = IslandBridgeCommands.windowBounds(islandWidthCss, islandHeightCss, metrics.density, metrics.widthPixels)
+        val bounds = IslandBridgeCommands.windowBounds(
+            metrics.widthPixels.toDouble(),
+            WARMUP_HEIGHT_DP.toDouble(),
+            metrics.density,
+            metrics.widthPixels
+        )
         params.width = bounds[0]
         params.height = bounds[1]
         params.x = 0
+        // Below the bottom edge: the page renders and runs, nothing is on screen and no
+        // touch can land on it.
         params.y = metrics.heightPixels
         page.view.visibility = View.VISIBLE
         try {
@@ -628,6 +658,29 @@ class OverlayService : Service() {
         islandWarm = true
         page.resume()
         page.load()
+        // Belt and braces: if the page never measures itself the window would wait for a
+        // height that never arrives, and a tap would open nothing at all.
+        mainHandler.postDelayed({ assumePromptSize() }, ISLAND_BOOT_TIMEOUT_MS)
+    }
+
+    /**
+     * Boot produced no rect in time, so one is assumed.
+     *
+     * A wrong height is recoverable — the page pushes a real rect on its next frame and
+     * [applyPanelParams] takes over. An un-openable window is not.
+     */
+    private fun assumePromptSize() {
+        if (islandSized || islandFailed) return
+        val metrics = resources.displayMetrics
+        islandWidthCss = (metrics.widthPixels / metrics.density).toDouble()
+        islandHeightCss = FALLBACK_PROMPT_HEIGHT_DP.toDouble()
+        islandSized = true
+        Log.w(TAG, "Island pushed no rect; assuming a ${FALLBACK_PROMPT_HEIGHT_DP}dp prompt box")
+        applyWindowState()
+        if (revealPending) {
+            revealPending = false
+            revealPrompt()
+        }
     }
 
     /**
@@ -657,16 +710,17 @@ class OverlayService : Service() {
     /**
      * The page has finished booting.
      *
-     * Not enough on its own: the panel's height comes from the first rect the page pushes,
-     * and showing the window at the boot default would be one visible frame of the wrong
-     * shape. So this only moves the window once there is a rect, or if the panel is already
-     * up, where a re-clamp is all that is needed.
+     * Shown straight onto the prompt view rather than waiting for a tap: the page only
+     * measures itself once it is on screen, and the window's height comes from that. Doing
+     * it here — while the window is still parked off screen — is what lets the boot finish
+     * before the user's first tap.
      */
     private fun onIslandReady() {
         Log.i(TAG, "Island page ready; screen=${resources.displayMetrics.widthPixels}px")
+        islandFailed = false
         islandDescription = "island: booted sized=$islandSized"
-        if (!islandSized) return
-        applyWindowState()
+        island?.showPrompt()
+        if (islandSized) applyWindowState()
     }
 
     /**
@@ -701,6 +755,11 @@ class OverlayService : Service() {
      */
     private fun revealPrompt() {
         val page = island ?: return
+        if (islandFailed) {
+            // There is no page to show and no field to type into; the error box is the
+            // window's content now.
+            return
+        }
         if (!islandSized) {
             // Still booting: there is no height to open at yet.
             revealPending = true
