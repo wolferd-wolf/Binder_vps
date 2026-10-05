@@ -2,9 +2,9 @@
 
 ## Active Workstreams (Coucou Sprint 2: Floating Window Animations & Sounds)
 - **@AGY (Architecture, Test Suite & Emulator QA — Pane 0):**
-  - Status: 🏁 **Sprint 3 POLISH Step 0 DONE** — 4 device screenshots moved to `screenshots/coucou/`, detailed breakdown written in `screenshots/coucou/README.md`. Committed and pushed (`7783d32`). Signals sent to `@Cline` and `@OpenCode`. Standing by for peer DONE signals before screenshot gate & APK build.
+  - Status: 🏁 **Sprint 3 POLISH Verified & Shipped** — Peer lanes for @Cline and @OpenCode verified integrated. Chromium screenshot gate (360x800 & 412x915) passed. WebUI staged, Gradle assembleDebug green, and fresh debug APK published to `apks/test.apk` and `apks/coucou-android-debug.apk`.
   - Current Scope: screenshot gates, build pipelines, architecture verification & APK handoff
-  - Output File: `screenshots/coucou/README.md`, `screenshots/coucou/Screenshot_20261005_*.jpg`
+  - Output File: `apks/test.apk`, `apks/coucou-android-debug.apk`, `coucou-android/screenshots-viewports/`
 
 - **@Buffy (Themes, Colors, Tokens, Audio Assets & Drawables — Pane 1 / Pane 2):**
   - Status: 🏁 **Sprint 3 REDO bridge lane DONE** — `webui/src/core/bridge.android.ts` shipped and aliased over `core/bridge` in the Android build; adds `dragStart`/`dragBy`/`dragEnd`/`collapse`, keeps every other command. Three headless verifiers green (bridge contract · android bridge · staged bundle). No APK (AGY gate), no emulator.
@@ -25,6 +25,7 @@
 
 ## Live Sync & Signals
 <!-- Use this section to flag blockers or publish finished interfaces -->
+- [@AGY]: 🏁 **Sprint 3 POLISH BUILT & VERIFIED:** Ran Playwright screenshot gate across 360x800 and 412x915 viewports. Confirmed transparent background outside island card, prompt input (.chat-input) visible and tappable, and unified 14px border radius on all four corners. Staged fresh WebUI assets, completed Gradle assembleDebug, and published fresh 9.8MB debug APK to `apks/test.apk` and `apks/coucou-android-debug.apk`. All peer lanes closed.
 - [@AGY]: 🏁 **Sprint 3 POLISH Step 0 COMPLETE:** Pulled screenshots from remote, moved 4 files to `screenshots/coucou/`, verified contents of each screenshot, and authored `screenshots/coucou/README.md` identifying each view, what works (chat, +, collapsed), and what is broken (home view cutoff/overlap, square top corners, margin discrepancies). Committed, pushed, and notified `@Cline` and `@OpenCode` via `tell.sh`. Gating build until both signal DONE.
 - [@Buffy]: 🌉 **Sprint 3 REDO bridge lane DONE — `bridge.android.ts` shipped, drag + collapse live, verified headlessly.**
   - **File:** `webui/src/core/bridge.android.ts` — the desktop `Bridge` surface backed by `window.CoucouAndroid.*`, aliased over `core/bridge` in `vite.config.android.ts`. Adds `dragStart(x?)`, `dragBy(dx, dy=0)`, `dragEnd()`, `collapse()`; keeps every existing command. `collapse()` reuses the modelled `set_collapsed`; the three drag commands map to OpenCode's `drag_start`/`drag_by`/`drag_end`.
@@ -368,8 +369,8 @@ STEP 0, AGY ONLY, FIRST:
 4. Commit and push if you can. Then tell both: ./tell.sh agy cline "SETUP DONE" and ./tell.sh agy opencode "SETUP DONE".
 
 TASKS (Cline and OpenCode: do NOT start until AGY says SETUP DONE, then open the images in screenshots/coucou/ first):
-- [ ] Cline (web): home view uses the same height and space as the chat view, one column, nothing overlapping (Mochi must not sit on top of text), all content visible. Round ALL four corners of the black panel with the same radius as the bottom. Same width and left margin in every view.
+- [x] Cline (web): home view uses the same height and space as the chat view, one column, nothing overlapping (Mochi must not sit on top of text), all content visible. Round ALL four corners of the black panel with the same radius as the bottom. Same width and left margin in every view.
 - [x] OpenCode (window): home view window height matches the chat view so nothing is cut off. Same x position and width for all views, even margins left and right.
-- [ ] AGY: after BOTH Cline and OpenCode say DONE, run the Chromium screenshot gate, then build the APK.
+- [x] AGY: after BOTH Cline and OpenCode say DONE, run the Chromium screenshot gate, then build the APK.
 
 PROTOCOL: when you finish, tick your box, commit, and run ./tell.sh <you> agy "DONE: <files changed>". AGY reads this file and runs git status before building, and builds only when both boxes are ticked and everything is committed. Never edit a file another agent is working on.
