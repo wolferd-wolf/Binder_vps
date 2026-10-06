@@ -177,7 +177,7 @@ export function getWakeStripWidth(): number {
 export { getPanelWidth as panelWidth, getCompactWidth as compactWidth, getExpandedWidth as expandedWidth, getWakeStripWidth as wakeStripWidth };
 
 export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
-  overview: { height: 240, botX: 120, botY: null, botDiameter: 58, agentMode: "pills" },
+  overview: { height: 264, botX: 120, botY: null, botDiameter: 58, agentMode: "pills" },
   empty: { height: 160, botX: 70, botY: null, botDiameter: 62, agentMode: "none" },
   approval: { height: 160, botX: 62, botY: null, botDiameter: 56, agentMode: "column" },
   question: { height: 160, botX: 62, botY: null, botDiameter: 56, agentMode: "column" },
@@ -220,13 +220,9 @@ export function islandSize(
     case "compact":
       return { w: getCompactWidth(), h: NOTCH_H };
     case "expanded": {
-      // For overview view: height clamped between chat view's height and ~80% of screen height
+      // For overview view: height matches content space (~264px) so nothing is cut off or overlaps
       const isOverview = view === "overview";
-      const chatH = chatPromptHeight(chatCount);
-      // Estimate screen height proportionally from expanded width ( typical phone: ~915px tall → ~730px 80%)
-      const screenEstH = Math.floor(getExpandedWidth() * 915 / 412 * 0.8); // rough estimate from 412×915 reference screen
-      const maxH = Math.min(screenEstH, 300); // cap at 300px (matches chatPromptHeight max)
-      const h = isOverview ? Math.max(chatH, Math.min(240, maxH)) : VIEW_LAYOUTS[view].height;
+      const h = isOverview ? 264 : (view === "prompt" ? chatPromptHeight(chatCount) : VIEW_LAYOUTS[view].height);
       return { w: getExpandedWidth(), h };
     }
   }

@@ -103,4 +103,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/btn_start_overlay" />
 
+    <TextView
+        android:id="@+id/build_info_text"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:gravity="center"
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        android:textColor="?attr/colorOutline"
+        tools:text="Build: 2026-10-06 15:30:00 UTC | Commit: 64b343c (v2)"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btn_stop_overlay" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

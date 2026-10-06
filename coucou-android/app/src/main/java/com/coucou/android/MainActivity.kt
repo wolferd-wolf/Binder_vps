@@ -27,6 +27,13 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        binding.buildInfoText.text = getString(
+            R.string.build_info_format,
+            BuildConfig.BUILD_TIME,
+            BuildConfig.GIT_COMMIT,
+            BuildConfig.VERSION_CODE
+        )
+
         setupListeners()
     }
 

@@ -2,7 +2,7 @@
 
 ## Active Workstreams (Coucou Sprint 2: Floating Window Animations & Sounds)
 - **@AGY (Architecture, Test Suite & Emulator QA — Pane 0):**
-  - Status: 🏁 **Sprint 3 POLISH Verified & Shipped** — Peer lanes for @Cline and @OpenCode verified integrated. Chromium screenshot gate (360x800 & 412x915) passed. WebUI staged, Gradle assembleDebug green, and fresh debug APK published to `apks/test.apk` and `apks/coucou-android-debug.apk`.
+  - Status: 🏁 **Sprint 3 POLISH Height Gate & Build Metadata Complete** — Added height gate to Playwright screenshot suite (`scrollHeight <= island height` across all views on 360x800 & 412x915). Verified overview height (264px) and Mochi offset fit uncropped without overlapping. MainActivity updated with build timestamp and git commit hash. versionCode bumped to 2. Debug APK built and published to `apks/test.apk` and `apks/coucou-android-debug.apk`.
   - Current Scope: screenshot gates, build pipelines, architecture verification & APK handoff
   - Output File: `apks/test.apk`, `apks/coucou-android-debug.apk`, `coucou-android/screenshots-viewports/`
 
@@ -25,7 +25,7 @@
 
 ## Live Sync & Signals
 <!-- Use this section to flag blockers or publish finished interfaces -->
-- [@AGY]: 🏁 **Sprint 3 POLISH BUILT & VERIFIED:** Ran Playwright screenshot gate across 360x800 and 412x915 viewports. Confirmed transparent background outside island card, prompt input (.chat-input) visible and tappable, and unified 14px border radius on all four corners. Staged fresh WebUI assets, completed Gradle assembleDebug, and published fresh 9.8MB debug APK to `apks/test.apk` and `apks/coucou-android-debug.apk`. All peer lanes closed.
+- [@AGY]: 🏁 **Sprint 3 POLISH Height Gate & APK Build Verified:** Screenshot gate enhanced: asserts `content scrollHeight <= island height` across all 13 views at 360x800 and 412x915. All 26 view height tests PASSED. Build metadata (build time + git commit hash) now rendered in `MainActivity` (`build_info_text`). versionCode bumped to 2. Clean build PASS, debug APK published to `apks/test.apk` and `apks/coucou-android-debug.apk`.
 - [@AGY]: 🏁 **Sprint 3 POLISH Step 0 COMPLETE:** Pulled screenshots from remote, moved 4 files to `screenshots/coucou/`, verified contents of each screenshot, and authored `screenshots/coucou/README.md` identifying each view, what works (chat, +, collapsed), and what is broken (home view cutoff/overlap, square top corners, margin discrepancies). Committed, pushed, and notified `@Cline` and `@OpenCode` via `tell.sh`. Gating build until both signal DONE.
 - [@Buffy]: 🌉 **Sprint 3 REDO bridge lane DONE — `bridge.android.ts` shipped, drag + collapse live, verified headlessly.**
   - **File:** `webui/src/core/bridge.android.ts` — the desktop `Bridge` surface backed by `window.CoucouAndroid.*`, aliased over `core/bridge` in `vite.config.android.ts`. Adds `dragStart(x?)`, `dragBy(dx, dy=0)`, `dragEnd()`, `collapse()`; keeps every existing command. `collapse()` reuses the modelled `set_collapsed`; the three drag commands map to OpenCode's `drag_start`/`drag_by`/`drag_end`.

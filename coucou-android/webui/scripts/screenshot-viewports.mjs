@@ -365,6 +365,59 @@ async function run() {
           }
         }
 
+        // ── Height Gate: content scrollHeight must be <= island height ───────
+        try {
+          const heightCheck = await page.evaluate(() => {
+            const island = document.querySelector("#island");
+            if (!island) return null;
+            const islandRect = island.getBoundingClientRect();
+            const islandH = Math.round(islandRect.height);
+
+            // Active view element
+            const activeView = document.querySelector(".view.on");
+            const viewScrollH = activeView ? activeView.scrollHeight : 0;
+            const viewH = activeView ? Math.round(activeView.getBoundingClientRect().height) : 0;
+
+            // Content container
+            const content = document.querySelector("#content");
+            const contentScrollH = content ? content.scrollHeight : 0;
+            const contentH = content ? Math.round(content.getBoundingClientRect().height) : 0;
+
+            // Check if active view content overflows
+            const effectiveContentScrollH = Math.max(viewScrollH, contentScrollH);
+            const exceeds = effectiveContentScrollH > islandH + 2;
+
+            return {
+              islandH,
+              viewH,
+              viewScrollH,
+              contentH,
+              contentScrollH,
+              exceeds,
+              diff: effectiveContentScrollH - islandH
+            };
+          });
+
+          if (heightCheck && heightCheck.exceeds) {
+            promptGateFailures.push({
+              viewport: vp.tag,
+              reason: `View '${viewName}' content scrollHeight (${Math.max(heightCheck.viewScrollH, heightCheck.contentScrollH)}px) exceeds island height (${heightCheck.islandH}px) by ${heightCheck.diff}px (content cut off or overlapping)`,
+            });
+            console.log(
+              `     ❌ [Height Check FAILED] ${viewName} @ ${vp.tag}: scrollHeight ${Math.max(heightCheck.viewScrollH, heightCheck.contentScrollH)}px > island height ${heightCheck.islandH}px (+${heightCheck.diff}px)`
+            );
+          } else if (heightCheck) {
+            console.log(
+              `     ✓ [Height Check PASSED] ${viewName} @ ${vp.tag}: scrollHeight ${Math.max(heightCheck.viewScrollH, heightCheck.contentScrollH)}px <= island height ${heightCheck.islandH}px`
+            );
+          }
+        } catch (e) {
+          promptGateFailures.push({
+            viewport: vp.tag,
+            reason: `Height check error in view '${viewName}': ${e.message}`,
+          });
+        }
+
         const issues = await checkOverflow(page, vp.width, vp.height);
         if (issues.length > 0) {
           totalIssues += issues.length;

@@ -82,10 +82,14 @@ chmod +x "${GRADLEW}"
 
 APK_PATH="${ROOT_DIR}/app/build/outputs/apk/debug/app-debug.apk"
 if [ -f "${APK_PATH}" ]; then
+  mkdir -p "${ROOT_DIR}/../apks"
+  cp "${APK_PATH}" "${ROOT_DIR}/../apks/coucou-android-debug.apk"
+  cp "${APK_PATH}" "${ROOT_DIR}/../apks/test.apk"
   echo "=================================================="
   echo " [SUCCESS] Build completed successfully!"
   echo " APK location: ${APK_PATH}"
   ls -lh "${APK_PATH}"
+  echo " Published to apks/coucou-android-debug.apk and apks/test.apk"
   echo "=================================================="
 else
   echo "Error: APK not found at ${APK_PATH}" >&2
