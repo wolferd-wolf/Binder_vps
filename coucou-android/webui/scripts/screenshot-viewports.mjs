@@ -418,6 +418,120 @@ async function run() {
           });
         }
 
+        // ── Extended Checks: (a) card right edge, (b) corner radius, (c) Mochi overlap ──
+        try {
+          const layoutChecks = await page.evaluate(() => {
+            const failures = [];
+            const island = document.querySelector("#island");
+            if (!island) return failures;
+
+            // (b) Island top-left and top-right computed corner radius is 0
+            const cs = window.getComputedStyle(island);
+            const tl = parseFloat(cs.borderTopLeftRadius) || 0;
+            const tr = parseFloat(cs.borderTopRightRadius) || 0;
+            if (tl === 0 || tr === 0) {
+              failures.push({
+                type: "corner_radius",
+                detail: `Island top corner radius is 0 (top-left: ${cs.borderTopLeftRadius}, top-right: ${cs.borderTopRightRadius})`,
+              });
+            }
+
+            const activeView = document.querySelector(".view.on");
+            if (activeView) {
+              // (a) Any text or chip element extends past its card's right edge
+              const textAndChips = activeView.querySelectorAll(
+                "p, span, .title, .sub, .who, .lbl, .tag, .chip, .pill, button, h1, h2, h3, h4, .badge, .status"
+              );
+              for (const el of textAndChips) {
+                const styles = window.getComputedStyle(el);
+                if (
+                  styles.display === "none" ||
+                  styles.visibility === "hidden" ||
+                  styles.opacity === "0"
+                ) {
+                  continue;
+                }
+                const elRect = el.getBoundingClientRect();
+                if (elRect.width === 0 && elRect.height === 0) continue;
+
+                // Find containing card, or fallback to active view / island
+                const card = el.closest(".card") || el.closest(".card-flat") || el.closest(".overview > div") || activeView;
+                const cardRect = card.getBoundingClientRect();
+                if (elRect.right > cardRect.right + 2) {
+                  const ident = el.className ? `.${el.className.toString().split(" ")[0]}` : el.tagName.toLowerCase();
+                  failures.push({
+                    type: "text_past_card_edge",
+                    detail: `Element '${ident}' right edge (${Math.round(elRect.right)}px) extends past containing card right edge (${Math.round(cardRect.right)}px) by ${Math.round(elRect.right - cardRect.right)}px`,
+                  });
+                  break; // Report first violation per view
+                }
+              }
+
+              // (c) Mochi circle overlaps text elements
+              const botCanvas = document.querySelector("#bot-canvas");
+              if (botCanvas) {
+                const botStyles = window.getComputedStyle(botCanvas);
+                const botOpacity = parseFloat(botStyles.opacity);
+                if (botStyles.display !== "none" && botStyles.visibility !== "hidden" && botOpacity > 0.1) {
+                  const botRect = botCanvas.getBoundingClientRect();
+                  if (botRect.width > 0 && botRect.height > 0) {
+                    const textElements = activeView.querySelectorAll(
+                      ".title, .sub, .who, .lbl, p, span, .desc, .text, .msg, h1, h2, h3, h4"
+                    );
+                    for (const textEl of textElements) {
+                      // Skip non-text or container-only elements
+                      if (textEl.classList.contains("mini") || textEl.querySelector(".mini")) continue;
+                      if (!textEl.textContent || textEl.textContent.trim().length === 0) continue;
+
+                      const tStyles = window.getComputedStyle(textEl);
+                      if (
+                        tStyles.display === "none" ||
+                        tStyles.visibility === "hidden" ||
+                        tStyles.opacity === "0" ||
+                        (textEl.closest && textEl.closest("#bot-canvas"))
+                      ) {
+                        continue;
+                      }
+                      const tRect = textEl.getBoundingClientRect();
+                      if (tRect.width === 0 && tRect.height === 0) continue;
+
+                      // Check bounding box intersection with 2px buffer
+                      const overlapX = Math.min(botRect.right, tRect.right) - Math.max(botRect.left, tRect.left);
+                      const overlapY = Math.min(botRect.bottom, tRect.bottom) - Math.max(botRect.top, tRect.top);
+                      if (overlapX > 2 && overlapY > 2) {
+                        const ident = textEl.className ? `.${textEl.className.toString().split(" ")[0]}` : textEl.tagName.toLowerCase();
+                        failures.push({
+                          type: "mochi_text_overlap",
+                          detail: `Mochi circle overlaps text element '${ident}' (overlap: ${Math.round(overlapX)}x${Math.round(overlapY)}px)`,
+                        });
+                        break; // Report first overlap per view
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            return failures;
+          });
+
+          for (const f of layoutChecks) {
+            promptGateFailures.push({
+              viewport: vp.tag,
+              reason: `View '${viewName}': [${f.type}] ${f.detail}`,
+            });
+            console.log(`     ❌ [Layout Check FAILED] ${viewName} @ ${vp.tag}: ${f.detail}`);
+          }
+          if (layoutChecks.length === 0) {
+            console.log(`     ✓ [Layout Checks PASSED] ${viewName} @ ${vp.tag}: edge, corner-radius, Mochi non-overlap ok`);
+          }
+        } catch (e) {
+          promptGateFailures.push({
+            viewport: vp.tag,
+            reason: `Layout check error in view '${viewName}': ${e.message}`,
+          });
+        }
+
         const issues = await checkOverflow(page, vp.width, vp.height);
         if (issues.length > 0) {
           totalIssues += issues.length;
