@@ -177,14 +177,14 @@ export function getWakeStripWidth(): number {
 export { getPanelWidth as panelWidth, getCompactWidth as compactWidth, getExpandedWidth as expandedWidth, getWakeStripWidth as wakeStripWidth };
 
 export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
-  overview: { height: 264, botX: 120, botY: null, botDiameter: 58, agentMode: "pills" },
+  overview: { height: 264, botX: 65, botY: 84, botDiameter: 58, agentMode: "pills" },
   empty: { height: 160, botX: 70, botY: null, botDiameter: 62, agentMode: "none" },
   approval: { height: 160, botX: 62, botY: null, botDiameter: 56, agentMode: "column" },
   question: { height: 160, botX: 62, botY: null, botDiameter: 56, agentMode: "column" },
   error: { height: 160, botX: 62, botY: null, botDiameter: 58, agentMode: "column" },
   finished: { height: 160, botX: 62, botY: null, botDiameter: 58, agentMode: "column" },
   confused: { height: 160, botX: 76, botY: null, botDiameter: 66, agentMode: "column" },
-  upload: { height: 176, botX: 140, botY: 104, botDiameter: 62, agentMode: "column" },
+  upload: { height: 176, botX: 85, botY: 104, botDiameter: 62, agentMode: "column" },
   // botY 103 = bar top (42 + 58) + 3, so the dot really rides the bar. The Swift
   // layout says 118 while its own comment says 103; the comment matches the spec.
   uploading: { height: 176, botX: 46, botY: 103, botDiameter: 20, agentMode: "none" },
