@@ -79,4 +79,12 @@ class AssistantRouterTest {
         assertEquals("Searching for 'rust tutorial'", (result as CommandResult.Success).message)
         assertEquals("rust tutorial", searchedQuery)
     }
+
+    @Test
+    fun `conversational fallback returns unknown for general query`() {
+        val router = AssistantRouter()
+        val result = router.route(Command(raw = "hello there"))
+        assertTrue(result is CommandResult.Unknown)
+        assertEquals("hello there", (result as CommandResult.Unknown).query)
+    }
 }

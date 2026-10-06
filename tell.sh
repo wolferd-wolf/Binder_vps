@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
-# Usage: ./tell.sh <sender> <target> <message>
+# Usage:
+#   Normal:  ./tell.sh <sender> <target> "<message>"
+#   Steer:   ./tell.sh --steer <sender> <target> "<message>"
+
+STEER_MODE=false
+if [[ "$1" == "--steer" || "$1" == "-s" ]]; then
+  STEER_MODE=true
+  shift
+fi
+
 SENDER="${1:-human}"
 TARGET="$2"
 shift 2
 MSG="$*"
 
-mkdir -p /workspaces/Binder_vps/.agents/locks
+LOG_FILE="/workspaces/Binder_vps/.agents/chat.log"
+mkdir -p /workspaces/Binder_vps/.agents/inbox /workspaces/Binder_vps/.agents/locks
 
 # Map agent names to tmux panes
 case "$(echo "$TARGET" | tr '[:upper:]' '[:lower:]')" in
@@ -19,39 +29,47 @@ case "$(echo "$TARGET" | tr '[:upper:]' '[:lower:]')" in
     ;;
 esac
 
-# 1. Anti-Loop / Cooldown Lock (30-second guard)
 LOCK_FILE="/workspaces/Binder_vps/.agents/locks/${TARGET_NAME}.lock"
-if [ -f "$LOCK_FILE" ]; then
-  LAST_PING=$(stat -c %Y "$LOCK_FILE" 2>/dev/null || echo 0)
-  CURRENT_TIME=$(date +%s)
-  if [ $(( CURRENT_TIME - LAST_PING )) -lt 30 ]; then
-    echo "DROPPED: @$TARGET_NAME was messaged less than 30s ago. Anti-spam engaged."
-    echo "$(date -u +"%Y-%m-%d %H:%M:%S") | BLOCKED LOOP @$SENDER -> @$TARGET_NAME | $MSG" >> /workspaces/Binder_vps/.agents/chat.log
-    exit 0
-  fi
-fi
 
-# 2. Busy Check (Inspect last 5 lines of target pane)
-PANE_CONTENT=$(tmux capture-pane -t "$PANE" -p 2>/dev/null | tail -n 5)
-if echo "$PANE_CONTENT" | grep -qiE "thinking|executing|running|waiting|progress"; then
-  echo "BUSY: @$TARGET_NAME is executing. Message dropped to prevent corrupting inputs."
+# --- STEERING PATH (Immediate Interrupt & Redirect) ---
+if [ "$STEER_MODE" = true ]; then
+  echo ">>> STEERING @$TARGET_NAME (Interrupting active execution)..."
+  # Send Ctrl+C to abort current execution/thinking turn
+  tmux send-keys -t "$PANE" C-c
+  sleep 0.3
+  tmux send-keys -t "$PANE" C-c
+  sleep 0.3
+
+  FORMATTED_MSG="[STEERING DIRECTIVE from @$SENDER]: $MSG"
+  tmux send-keys -t "$PANE" -l "$FORMATTED_MSG"
+  sleep 0.2
+  tmux send-keys -t "$PANE" C-m
+
+  touch "$LOCK_FILE"
+  echo "$(date -u +"%Y-%m-%d %H:%M:%S") | [STEER] @$SENDER -> @$TARGET_NAME | $MSG" >> "$LOG_FILE"
+  echo "Steering directive delivered to @$TARGET_NAME."
   exit 0
 fi
 
-# Update Lockfile
+# --- NORMAL HANDOFF PATH ---
+if [ -f "$LOCK_FILE" ] && [ $(( $(date +%s) - $(stat -c %Y "$LOCK_FILE") )) -lt 30 ]; then
+  echo "BLOCKED: @$TARGET_NAME was pinged recently. Queued in inbox."
+  echo "[$(date -u +"%T")] From @$SENDER: $MSG" >> "/workspaces/Binder_vps/.agents/inbox/${TARGET_NAME}.txt"
+  exit 0
+fi
+
+PANE_CONTENT=$(tmux capture-pane -t "$PANE" -p 2>/dev/null | tail -n 5)
+if echo "$PANE_CONTENT" | grep -qiE "thinking|executing|running|waiting|progress"; then
+  echo "BUSY: @$TARGET_NAME running. Queued in inbox."
+  echo "[$(date -u +"%T")] From @$SENDER: $MSG" >> "/workspaces/Binder_vps/.agents/inbox/${TARGET_NAME}.txt"
+  exit 0
+fi
+
 touch "$LOCK_FILE"
-
-# 3. Read Active Project Context
-CURRENT_PROJ=$(cat /workspaces/Binder_vps/.agents/ACTIVE_PROJECT 2>/dev/null || echo "General")
-
-# 4. Format Message with Project & Anti-Chitchat Warning
-FORMATTED_MSG="[Message from @$SENDER | Project: $CURRENT_PROJ]: $MSG (DO NOT acknowledge or reply. Execute quietly.)"
-
-# 5. Safe Keystroke Injection
+FORMATTED_MSG="[Message from @$SENDER]: $MSG"
 tmux send-keys -t "$PANE" -l "$FORMATTED_MSG"
 sleep 0.2
 tmux send-keys -t "$PANE" C-m
 
-# 6. Audit Log
-echo "$(date -u +"%Y-%m-%d %H:%M:%S") | @$SENDER -> @$TARGET_NAME | $MSG" >> /workspaces/Binder_vps/.agents/chat.log
+echo "$(date -u +"%Y-%m-%d %H:%M:%S") | @$SENDER -> @$TARGET_NAME | $MSG" >> "$LOG_FILE"
 echo "Delivered to @$TARGET_NAME."
