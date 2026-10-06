@@ -72,12 +72,11 @@ open class AppLauncher(private val context: Context) {
     /**
      * Best-effort match of free text to an installed app.
      *
-     * Strategy, in order:
-     *  1. exact label match (case-insensitive)
-     *  2. package name exact match
-     *  3. label starts with the query
-     *  4. label contains the query
-     *  5. any word in the label starts with the query (so "chr" still finds Chrome)
+     * Matching rule (Sprint 4 BHIM false-match fix):
+     *  1. Exact label match (case-insensitive)
+     *  2. Package name exact match
+     *  3. `startsWith` ONLY if query length >= 3 chars (prevents "Hi" -> "BHIM")
+     *  4. Never substring-match arbitrary short queries
      *
      * Ties are broken by shortest label, so "Maps" wins over "Google Maps".
      */
@@ -91,21 +90,16 @@ open class AppLauncher(private val context: Context) {
         exactLabel(apps, q)?.let { return it }
         apps.firstOrNull { it.packageName.lowercase() == q }?.let { return it }
 
-        val prefixMatches = apps.filter { it.label.lowercase().startsWith(q) }
-        if (prefixMatches.isNotEmpty()) {
-            return prefixMatches.minByOrNull { it.label.length }
+        // startsWith ONLY if query length >= 3 (prevents "Hi" matching "BHIM")
+        if (q.length >= 3) {
+            val prefixMatches = apps.filter { it.label.lowercase().startsWith(q) }
+            if (prefixMatches.isNotEmpty()) {
+                return prefixMatches.minByOrNull { it.label.length }
+            }
         }
 
-        val containsMatches = apps.filter { it.label.lowercase().contains(q) }
-        if (containsMatches.isNotEmpty()) {
-            return containsMatches.minByOrNull { it.label.length }
-        }
-
-        val wordMatches = apps.filter { app ->
-            app.label.lowercase().split(' ', '-', '_', '.')
-                .any { word -> word.startsWith(q) }
-        }
-        return wordMatches.minByOrNull { it.label.length }
+        // NO contains() or word-contains matching — prevents substring false-positives
+        return null
     }
 
     /**

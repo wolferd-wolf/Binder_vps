@@ -6,7 +6,12 @@
      Sprint 2 change: static launcher ImageView replaced by the procedural
      com.coucou.android.CoucouCharacterView canvas (@OpenCode owner, lands
      separately). Until that class lands, inflateLayoutByName catches the
-     inflation error and falls back to the programmatic bubble. -->
+     inflation error and falls back to the programmatic bubble.
+     Sprint 4 adjustment: character match_parent+4dp inside token card per @Buffy final tokens.
+     Ratio: 53dp/66dp=80.3% target; our 58dp/66dp=88% keeps one number for all consumers.
+     WRAP_CONTENT guard: ensureContainer()/applyCollapsedParams() keep window WRAP_CONTENT,
+     so card stays @dimen/coucou_bubble_card_size (66dp) and character uses match_parent+4dp
+     inside it to prevent collapsed window from measuring to screen size. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/bubble_root"
@@ -25,9 +30,10 @@
 
         <com.coucou.android.CoucouCharacterView
             android:id="@+id/coucou_character"
-            android:layout_width="@dimen/coucou_bubble_character_size"
-            android:layout_height="@dimen/coucou_bubble_character_size"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
             android:layout_gravity="center"
+            android:layout_margin="4dp"
             android:contentDescription="@string/app_name" />
 
     </com.google.android.material.card.MaterialCardView>

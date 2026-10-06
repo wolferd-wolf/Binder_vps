@@ -9,10 +9,11 @@ import android.util.Log
  * Routes user commands to the appropriate handler.
  *
  * Supported intents:
- *   "open <app>"   / "launch <app>"       -> Launch app via cached index
- *   "note: <text>" / "task: <text>" / "remember <text>" -> Persist to TaskStore
- *   "search <query>" / "find <query>" -> Browser search Intent
- *   conversational -> Chat fallback pipeline
+ *   GREETING: "hi", "hello", "coucou", "hey" -> trigger Mochi GREET + sound
+ *   NOTE/TASK: "note: <text>" / "task: <text>" / "remember <text>" -> Persist to TaskStore
+ *   APP LAUNCH: "open <app>" / "launch <app>" -> Query cached AppLauncher index
+ *   SEARCH: "search <query>" / "find <query>" -> Browser search Intent
+ *   FALLBACK: Friendly assistant message; NEVER "No app found" unless explicit app-launch mode
  */
 class AssistantRouter(
     private val context: Context? = null,
@@ -30,6 +31,15 @@ class AssistantRouter(
         }
 
         val q = rawInput.lowercase()
+
+        // GREETING intent: "hi", "hello", "coucou", "hey"
+        when {
+            q == "hi" || q == "hello" || q == "coucou" || q == "hey" -> {
+                // Trigger the character GREET state + sound via the engine
+                // The actual animation is handled by OverlayService.characterView?.greet()
+                return CommandResult.Success("Coucou! How can I help you?")
+            }
+        }
 
         // Task/Note intent: "note: <text>" / "task: <text>" / "remember <text>"
         when {
@@ -75,25 +85,8 @@ class AssistantRouter(
             }
         }
 
-        // Chat fallback: conversational queries
-        return routeConversational(command.raw)
-    }
-
-    private fun routeConversational(query: String): CommandResult {
-        val lower = query.lowercase()
-        // Common pattern: "open chrome" / "launch chrome" already handled above
-        if (lower.contains("chrome") || lower.contains("browser")) {
-            return handleSearch(query.replace("chrome", "").replace("browser", "").trim())
-        }
-        if (lower.contains("settings")) {
-            val app = launcher?.launch("settings")
-            return when (app) {
-                is AppEntry -> CommandResult.Success(app.label)
-                else -> CommandResult.Failed("Could not open settings")
-            }
-        }
-        // Default: unknown command, let other handlers try
-        return CommandResult.Unknown(query)
+        // FALLBACK: friendly assistant message - NEVER "No app found" unless explicit app-launch mode
+        return CommandResult.Success("I'm not sure what you mean. Try 'hello', 'open <app>', 'note: ...', or 'search <query>'.")
     }
 
     private fun handleSearch(query: String): CommandResult {

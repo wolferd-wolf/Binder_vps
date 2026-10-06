@@ -81,10 +81,22 @@ class AssistantRouterTest {
     }
 
     @Test
-    fun `conversational fallback returns unknown for general query`() {
+    fun `greeting intent triggers coucou greeting`() {
         val router = AssistantRouter()
-        val result = router.route(Command(raw = "hello there"))
-        assertTrue(result is CommandResult.Unknown)
-        assertEquals("hello there", (result as CommandResult.Unknown).query)
+        val result = router.route(Command(raw = "hi"))
+        assertTrue(result is CommandResult.Success)
+        assertEquals("Coucou! How can I help you?", (result as CommandResult.Success).message)
+
+        val helloResult = router.route(Command(raw = "hello"))
+        assertTrue(helloResult is CommandResult.Success)
+        assertEquals("Coucou! How can I help you?", (helloResult as CommandResult.Success).message)
+    }
+
+    @Test
+    fun `conversational fallback returns friendly message`() {
+        val router = AssistantRouter()
+        val result = router.route(Command(raw = "what is the meaning of life"))
+        assertTrue(result is CommandResult.Success)
+        assertTrue((result as CommandResult.Success).message!!.contains("I'm not sure what you mean"))
     }
 }
