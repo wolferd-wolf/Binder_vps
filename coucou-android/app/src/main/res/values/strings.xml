@@ -17,7 +17,7 @@
     <string name="overlay_permission_required">Overlay permission is required to show the bubble</string>
     <string name="mic_not_available">Voice input not available yet</string>
     <string name="ask_bar_hint">Ask Coucou or type an app name</string>
-    <string name="command_opened">Opened %1$s</string>
+    <string name="command_opened">%1$s</string>
     <string name="command_failed">Failed: %1$s</string>
     <string name="command_not_found">No app found for \'%1$s\'</string>
     <string name="island_load_failed">Coucou could not load its window: %1$s</string>

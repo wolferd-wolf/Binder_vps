@@ -13,6 +13,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -1070,7 +1071,7 @@ class OverlayService : Service() {
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = dp(16)
-            y = dp(120)
+            y = 0
         }
     }
 
@@ -1291,15 +1292,7 @@ class OverlayService : Service() {
             setPadding(dp(16), dp(12), dp(16), dp(12))
             background = GradientDrawable().apply {
                 cornerRadius = dp(20).toFloat()
-                // Resolve the themed surface rather than a fixed light color, so the
-                // fallback bubble honours dark mode and dynamic color.
-                setColor(
-                    MaterialColors.getColor(
-                        context,
-                        com.google.android.material.R.attr.colorSurface,
-                        ContextCompat.getColor(context, android.R.color.background_light)
-                    )
-                )
+                setColor(Color.parseColor("#141518"))
             }
         }
         container.addView(TextView(context).apply {
