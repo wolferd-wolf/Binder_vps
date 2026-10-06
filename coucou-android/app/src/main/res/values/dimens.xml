@@ -30,19 +30,26 @@
     <dimen name="coucou_input_gap">8dp</dimen>
     <dimen name="coucou_input_text_size">13sp</dimen>
 
-    <!-- Prompt box: character placement (report §1.2, Sprint 4 size bump).
-     Collapsed bubble: 48dp character centred in a 66dp card.
-     Sprint 4: a true ~20% bump — 56dp → 66dp card, 44dp → 48dp character — so
-     Mochi reads better on high-DPI screens. @Boss chose the +20% bump over the
-     directive's literal 52-54dp reading (the directive's "~44dp" named the
-     canvas; the card was already 56dp, so 53dp would have shrunk it). An
-     interim 54dp/42dp literal pass in this file was superseded accordingly.
+    <!-- Prompt box: character placement — SPRINT 4 board task 1 "Bubble Size Ratio".
+     Collapsed bubble: 53dp character canvas centred in the 66dp card = 80.3%
+     canvas/card, the board's "~80% fill" target. It was 48dp (72.7%), which is
+     the "massive empty squircle" the board describes; 66dp card kept as-is
+     because @Boss approved it (+20%) and it is the size the sprint shipped.
+     Board math: its example (54dp card / 46dp canvas) is exactly a 4dp margin
+     inside the card — 54 - 8 = 46 — i.e. the same ~85% ratio, scaled to our
+     66dp card. If @Cline's match_parent + 4dp-margin variant lands, the canvas
+     becomes card - 8dp = 58dp (88%) and this token simply stops being read;
+     with an explicit canvas it yields the 80% here.
+     Caveat for @AGY's "Mochi fills ~80%" check: the ink is only ~68% of the
+     canvas (RADIUS_RATIO 0.3f in CoucouCharacterView), so Mochi reads ~55% of
+     the card until @OpenCode's task 1 (body filling its bounds) lands — no
+     token can close that gap, the canvas cannot exceed the card.
      The card token doubles as @OverlayService.bubbleCardPx(): the collapsed
-     window rectangle measured before the first layout pass, so the window
-     grows with the token.
+     window rectangle before the first layout pass, and the basis of the drag
+     clamp + edge snap — it must stay equal to the card the layout draws.
      Expanded ask bar: 40dp avatar leading the row, 8dp gap to the input. -->
     <dimen name="coucou_bubble_card_size">66dp</dimen>
-    <dimen name="coucou_bubble_character_size">48dp</dimen>
+    <dimen name="coucou_bubble_character_size">53dp</dimen>
     <dimen name="coucou_ask_character_size">40dp</dimen>
     <dimen name="coucou_ask_character_margin_end">8dp</dimen>
 
