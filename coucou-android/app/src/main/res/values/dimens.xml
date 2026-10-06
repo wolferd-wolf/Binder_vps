@@ -18,10 +18,10 @@
     <dimen name="coucou_character_corner_radius">12dp</dimen>
     <dimen name="coucou_character_padding">4dp</dimen>
 
-    <!-- COUCOU desktop prompt box: shape & spacing.
-         Source: docs/coucou_desktop_prompt_box_and_animation_report.md §1.2
-         (upstream .card / .chat-bar / .chat-input in style.css).
-         Consumers: @Cline's overlay_bubble / overlay_ask_bar. -->
+<!-- COUCOU desktop prompt box: shape & spacing.
+     Source: docs/coucou_desktop_prompt_box_and_animation_report.md §1.2
+     (upstream .card / .chat-bar / .chat-input in style.css).
+     Consumers: @Cline's overlay_bubble / overlay_ask_bar. -->
     <dimen name="coucou_prompt_card_radius">20dp</dimen>
     <dimen name="coucou_prompt_card_stroke">1dp</dimen>
     <dimen name="coucou_input_bar_radius">12dp</dimen>
@@ -30,11 +30,19 @@
     <dimen name="coucou_input_gap">8dp</dimen>
     <dimen name="coucou_input_text_size">13sp</dimen>
 
-    <!-- Prompt box: character placement (report §1.2).
-         Collapsed bubble: 44dp character centred in a 56dp card.
-         Expanded ask bar: 40dp avatar leading the row, 8dp gap to the input. -->
-    <dimen name="coucou_bubble_card_size">56dp</dimen>
-    <dimen name="coucou_bubble_character_size">44dp</dimen>
+    <!-- Prompt box: character placement (report §1.2, Sprint 4 size bump).
+     Collapsed bubble: 48dp character centred in a 66dp card.
+     Sprint 4: a true ~20% bump — 56dp → 66dp card, 44dp → 48dp character — so
+     Mochi reads better on high-DPI screens. @Boss chose the +20% bump over the
+     directive's literal 52-54dp reading (the directive's "~44dp" named the
+     canvas; the card was already 56dp, so 53dp would have shrunk it). An
+     interim 54dp/42dp literal pass in this file was superseded accordingly.
+     The card token doubles as @OverlayService.bubbleCardPx(): the collapsed
+     window rectangle measured before the first layout pass, so the window
+     grows with the token.
+     Expanded ask bar: 40dp avatar leading the row, 8dp gap to the input. -->
+    <dimen name="coucou_bubble_card_size">66dp</dimen>
+    <dimen name="coucou_bubble_character_size">48dp</dimen>
     <dimen name="coucou_ask_character_size">40dp</dimen>
     <dimen name="coucou_ask_character_margin_end">8dp</dimen>
 

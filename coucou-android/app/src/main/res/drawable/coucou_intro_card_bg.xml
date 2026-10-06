@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sprint 4 desktop intro card container.
+     Ported 1:1 from upstream coucou/windows/src/style.css ".card":
+       border radius 20px                 -> @dimen/coucou_prompt_card_radius (20dp)
+       background  #141518                -> @color/coucou_intro_card_bg
+       hairline 1px rgba(255,255,255,0.035)
+                                   -> @color/coucou_intro_card_stroke (#09FFFFFF)
+     Token references only, zero raw hex. Consumed by @Cline's
+     res/layout/overlay_intro_card.xml as android:background (or mirrored into a
+     MaterialCardView via app:cardBackgroundColor + app:strokeColor). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/coucou_intro_card_bg" />
+    <stroke
+        android:width="@dimen/coucou_prompt_card_stroke"
+        android:color="@color/coucou_intro_card_stroke" />
+    <corners android:radius="@dimen/coucou_prompt_card_radius" />
+</shape>

@@ -30,6 +30,18 @@
     <!-- Bubble/ask-bar card fill, aligned with the desktop "card" (#141518). -->
     <color name="coucou_bubble_bg">#141518</color>
 
+    <!-- Sprint 4 desktop intro card.
+         Source: upstream coucou/windows/src/style.css ".card" rule — the island box
+         the intro experience sits in:
+           background    #141518                          (subtle dark card, NOT raw #000)
+           hairline      rgba(255, 255, 255, 0.035)       = #09FFFFFF (1dp outline)
+           border radius 20px                             = 20dp
+             (dimens: coucou_prompt_card_radius / coucou_prompt_card_stroke)
+         Shape lives in res/drawable/coucou_intro_card_bg.xml.
+         Consumers: @Cline's overlay_intro_card. -->
+    <color name="coucou_intro_card_bg">#141518</color>
+    <color name="coucou_intro_card_stroke">#09FFFFFF</color>
+
     <!-- Character palette. CoucouCharacterView.resolvePalette() resolves these BY
          NAME, so the names must stay exactly as listed in its TOKEN_NAMES table.
          Body/eye/props are the upstream engine.ts palette defaults; note the
