@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPRINT 4.2 canonical floating-bubble background.
+     The ONE native background drawable (per @Boss: stop inventing native XML
+     cards — the display surface for the intro/chat is the WebView; this shape
+     exists only for the native resting/fallback rectangle).
+     Upstream coucou/windows/src/style.css ".card" / ":root":
+       background   #141518  -> @color/coucou_bubble_bg (dark card, NEVER white)
+       hairline     rgba(255, 255, 255, 0.035) -> @color/coucou_hairline (#09FFFFFF)
+       radius       20px     -> @dimen/coucou_prompt_card_radius (20dp)
+     Token references only, zero raw hex, so a light-mode device cannot resolve
+     this to a system surface colour.
+     Consumers: @OpenCode's OverlayService.buildFallbackView() (replace the
+     attr/colorSurface GradientDrawable fill) and any native bubble root that
+     needs the guaranteed dark fill. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/coucou_bubble_bg" />
+    <stroke
+        android:width="@dimen/coucou_prompt_card_stroke"
+        android:color="@color/coucou_hairline" />
+    <corners android:radius="@dimen/coucou_prompt_card_radius" />
+</shape>

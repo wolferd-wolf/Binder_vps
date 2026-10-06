@@ -72,7 +72,10 @@ body {
   position: absolute;
   top: 0;
   left: 50%;
-  background: #000;
+  /* SPRINT 4.2 @Boss: every island container uses upstream's dark card token
+     (#141518 via --card) instead of raw #000, so the floating bubble renders
+     the same dark card on every device — never a light/white surface. */
+  background: var(--card);
   border-radius: 14px;
   overflow: visible;
   will-change: width, height, transform;
