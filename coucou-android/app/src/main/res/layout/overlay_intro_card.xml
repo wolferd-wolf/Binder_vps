@@ -1,25 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- COUCOU Sprint 2: collapsed floating bubble (inflated by OverlayService as
-     "overlay_bubble"; IDs resolved reflectively: bubble_root + bubble_mic + ask_result
-     + coucou_character). Owns res/layout in coucou-android.
-     Coucou theme tokens only, zero raw hex.
-     Sprint 2 change: static launcher ImageView replaced by the procedural
-     com.coucou.android.CoucouCharacterView canvas (@OpenCode owner, lands
-     separately). Until that class lands, inflateLayoutByName catches the
-     inflation error and falls back to the programmatic bubble. -->
+<!-- COUCOU Sprint 4: desktop intro card matching upstream Coucou windows styling.
+     Dark card container with Buffy's tokens (#141518, 20dp radius).
+     Centered CoucouCharacterView ready to run the greeting animation.
+     Consumers: @Cline's OverlayService intro display. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/bubble_root"
+    android:id="@+id/intro_root"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content">
 
     <com.google.android.material.card.MaterialCardView
-        android:id="@+id/bubble_card"
+        android:id="@+id/intro_card"
         android:layout_width="@dimen/coucou_bubble_card_size"
         android:layout_height="@dimen/coucou_bubble_card_size"
+        android:layout_gravity="center"
+        android:background="@drawable/coucou_intro_card_bg"
         app:cardCornerRadius="@dimen/coucou_prompt_card_radius"
-        app:cardElevation="6dp"
-        app:cardBackgroundColor="@color/coucou_card"
+        app:cardElevation="0dp"
         app:strokeWidth="1dp"
         app:strokeColor="@color/coucou_hairline">
 

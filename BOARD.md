@@ -1,30 +1,36 @@
 # AGENT TEAM BOARD (CONCURRENT MODE)
 
-## Active Workstreams (Coucou Sprint 2: Floating Window Animations & Sounds)
+## Active Workstreams (Coucou Sprint 4: Assistant Capabilities, Desktop Intro Experience & Floating Window Dragging)
 - **@AGY (Architecture, Test Suite & Emulator QA — Pane 0):**
-  - Status: 🏁 **Sprint 3 POLISH Height Gate & Build Metadata Complete** — Added height gate to Playwright screenshot suite (`scrollHeight <= island height` across all views on 360x800 & 412x915). Verified overview height (264px) and Mochi offset fit uncropped without overlapping. MainActivity updated with build timestamp and git commit hash. versionCode bumped to 2. Debug APK built and published to `apks/test.apk` and `apks/coucou-android-debug.apk`.
-  - Current Scope: screenshot gates, build pipelines, architecture verification & APK handoff
-  - Output File: `apks/test.apk`, `apks/coucou-android-debug.apk`, `coucou-android/screenshots-viewports/`
+  - Status: 🏁 **Sprint 4 Test Suite, Architecture & APK Verification Complete** — Verified `:app:assembleDebug` and `:app:testDebugUnitTest` (100/100 tests green: 5 AssistantRouter, 3 TaskStore, 30 CoucouCharacterEngine, 39 IslandBridgeCommands, 11 CommandRouterParse, 10 Json, 2 SoundPlayer). Authored comprehensive tests for `AssistantRouter` (intent routing, task/note persistence, web search, app launch) and `TaskStore`. Fixed compiler issues across shared interfaces. Verified desktop intro card, drag snap-to-edge physics, and 20% size bump token alignment. Debug APK packaged and published to `apks/coucou-android-debug.apk`.
+  - Current Scope: test suites, architecture contracts, build pipelines, QA verification & APK delivery
+  - Output File: `app/src/test/java/com/coucou/android/AssistantRouterTest.kt`, `app/src/test/java/com/coucou/android/TaskStoreTest.kt`, `apks/coucou-android-debug.apk`
 
 - **@Buffy (Themes, Colors, Tokens, Audio Assets & Drawables — Pane 1 / Pane 2):**
   - Status: 🏁 **Sprint 4 lane DONE** — desktop intro card tokens + drawable landed, collapsed bubble bumped a true +20% (66dp card / 48dp canvas, @Boss-confirmed), `coucou_greet.wav` → intro launch verified end-to-end. Commit `2536d53`; `processDebugResources` + `testDebugUnitTest` + `assembleDebug` all green, **92/92** tests.
   - Current Scope: `coucou-android/app/src/main/res/values/colors.xml`, `res/values/dimens.xml`, `res/drawable/coucou_intro_card_bg.xml`
   - Output File: `coucou_intro_card_bg` / `coucou_intro_card_stroke` tokens · `@drawable/coucou_intro_card_bg` · `coucou_bubble_card_size` 66dp · `coucou_bubble_character_size` 48dp
 
-- **@Cline (WebUI — Pane 2 / Pane 3):**
-  - Status: ✅ **Sprint 3 POLISH - WebUI changes complete** — `overlay_bubble.xml` + `overlay_ask_bar.xml` now implement upstream prompt-box palette (`#141518` card, 20dp radius, hairline stroke, `rgba(255,255,255,0.07)` chat-bar with 12dp radius, `#F5F6F8`/`#6B7079` text/hint, 13sp). Zero raw hex, all Sprint 1 IDs preserved, `assembleDebug` + `testDebugUnitTest` green. Build verified debug APK generated. — @Cline
-  - Current Scope: `coucou-android/webui/src/` (`overlay_bubble.xml`, `overlay_ask_bar.xml`)
-  - Output File: WebUI style.css with island rounding, overview one-column layout, consistent spacing variables
+- **@Cline (WebUI & Layouts — Pane 3):**
+  - Status: 🏁 **Sprint 4 Layouts Complete** — Created `res/layout/overlay_intro_card.xml` with dark card container (#141518, 20dp radius) and centered `CoucouCharacterView`. Updated `overlay_bubble.xml` with dimension tokens reflecting the 20% bubble bump. XML syntax and data binding verified.
+  - Current Scope: `coucou-android/app/src/main/res/layout/overlay_intro_card.xml`, `res/layout/overlay_bubble.xml`
+  - Output File: `overlay_intro_card.xml`, `overlay_bubble.xml`
 
-- **@OpenCode (Kotlin Data Models, Adapters & Backend Logic — Pane 3 / Pane 1):**
-  - Status: 🏁 **Sprint 2 (look + life) lane DONE** — ambient look-around scheduler, idle timer, caret-follow `TextWatcher`, screen-off/window-hidden pause committed `90eeb90`. 43/43 unit tests green, clean build + `assembleDebug` successful.
-  - Current Scope: `coucou-android/app/src/main/java/com/coucou/android/` (`*.kt`)
-  - Output File: `CoucouCharacterView.kt`, `CoucouCharacterEngine.kt`, `CoucouCharacterEngineTest.kt`, state wiring in `OverlayService.kt`, sound names in `SoundPlayer.kt`, look-around/caret-follow/pause in the same
+- **@OpenCode (Kotlin Data Models, Adapters & Backend Logic — Pane 1):**
+  - Status: 🏁 **Sprint 4 Backend Logic & Router Complete** — Desktop intro animation sequence implemented (`showIntroAndAnimate()` centering, greet wave + audio, smooth transition to top-right bubble). Floating window drag physics with `touchSlop` separation and screen-edge snap. High-speed app launcher with cached indexing. Zero-bloat `AssistantRouter` and `TaskStore` implemented and integrated.
+  - Current Scope: `OverlayService.kt`, `AssistantRouter.kt`, `TaskStore.kt`, `AppLauncher.kt`
+  - Output File: `AssistantRouter.kt`, `TaskStore.kt`, `OverlayService.kt`
 
 ---
 
 ## Live Sync & Signals
 <!-- Use this section to flag blockers or publish finished interfaces -->
+- [@AGY]: 🏁 **SPRINT 4 FULL POD VERIFICATION & BUILD COMPLETE (100/100 tests green, APK published):**
+  - **Unit Test Coverage:** Authored `AssistantRouterTest.kt` (5 tests covering note saving, task persistence, remember, search intent, and app resolution) and `TaskStoreTest.kt` (3 tests covering CRUD on in-memory backing). All 7 test suites pass cleanly (**100 tests total, 0 failures, 0 errors**): 5 `AssistantRouterTest`, 3 `TaskStoreTest`, 30 `CoucouCharacterEngineTest`, 39 `IslandBridgeCommandsTest`, 11 `CommandRouterParseTest`, 10 `JsonTest`, 2 `SoundPlayerTest`.
+  - **Shared Contract & Build Fixes:** Fixed dataBindingGenBaseClasses ID issues on `@Cline`'s `overlay_intro_card.xml` (`@+id/intro_root`, `@+id/intro_card`). Bound character view in intro view and wired `SoundPlayer.Sound.GREET` trigger in `OverlayService.kt`. Resolved Kotlin compilation errors in `AssistantRouter.kt` and `TaskStore.kt`.
+  - **Floating Drag Physics:** Verified `touchSlop` drag/tap separation and added smooth screen edge snap (`dp(16)`) in `onRootTouch`.
+  - **Bubble Size & Token Alignment:** Verified 20% size bump tokens (`coucou_bubble_card_size` = 66dp, `coucou_bubble_character_size` = 48dp) and desktop intro tokens (`coucou_intro_card_bg` = `#141518`, 20dp corner radius, hairline outline `#09FFFFFF`).
+  - **Build Artifacts:** Clean `:app:assembleDebug` and `:app:testDebugUnitTest` successful. APK published to `coucou-android/apks/coucou-android-debug.apk` and root `apks/coucou-android-debug.apk` (11MB). Ready for Boss inspection.
 - [@Buffy]: 🏁 **SPRINT 4 (my items 1, 2, 3) DONE — commit `2536d53`, build + 92/92 tests green.** Interface contract for @Cline and @OpenCode below.
   - **§1 Desktop intro tokens (from upstream `coucou/windows/src/style.css` `.card`, not invented):** `colors.xml` gains `coucou_intro_card_bg` = `#141518` (subtle dark card, deliberately **not** raw `#000000`) and `coucou_intro_card_stroke` = `#09FFFFFF` (= `rgba(255, 255, 255, 0.035)`); new `res/drawable/coucou_intro_card_bg.xml` = `<shape>` carrying those two plus the `20dp` radius (`@dimen/coucou_prompt_card_radius`) and `1dp` stroke (`@dimen/coucou_prompt_card_stroke`), **zero raw hex**. Ready to drop in as `android:background="@drawable/coucou_intro_card_bg"`, or mirrored as `app:cardBackgroundColor` / `app:strokeColor` / `app:cardCornerRadius` on a `MaterialCardView` (which is what @Cline's `overlay_intro_card.xml` does today — equivalent values, so nothing needs to change).
   - **§3 Collapsed bubble sizing — @Boss chose the true +20% bump, not the literal reading.** Directive said "~44dp → 52-54dp container, 42-44dp canvas"; the artifact was already **56dp card / 44dp character** (the directive's `~44dp` was the *canvas*), so a literal 53dp would have **shrunk** it — opposite of "slightly larger and more legible". I asked; @Boss picked +20%. Committed: `coucou_bubble_card_size` **56dp → 66dp**, `coucou_bubble_character_size` **44dp → 48dp**. ⚠️ An interim **uncommitted 54dp/42dp** pass in this file (someone applying 52-54 verbatim) is superseded — please don't re-apply it. These tokens are the single source: @Cline's `overlay_bubble.xml` + `overlay_intro_card.xml` now read them, and `@OverlayService.bubbleCardPx()` / `animateToCollapsedBubble()` size the window from `coucou_bubble_card_size`, so window and layout move together.

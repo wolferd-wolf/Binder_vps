@@ -24,9 +24,9 @@ data class AppEntry(
  * Matching is done on the app label (what the user actually types, e.g. "chrome"),
  * case-insensitively, with a package-name fallback so "com.android.chrome" also works.
  */
-class AppLauncher(private val context: Context) {
+open class AppLauncher(private val context: Context) {
 
-    private val packageManager: PackageManager = context.packageManager
+    private val packageManager: PackageManager by lazy { context.packageManager }
 
     /**
      * All launchable activities on the device, sorted by label.
@@ -81,7 +81,7 @@ class AppLauncher(private val context: Context) {
      *
      * Ties are broken by shortest label, so "Maps" wins over "Google Maps".
      */
-    fun match(query: String): AppEntry? {
+    open fun match(query: String): AppEntry? {
         val q = query.trim().lowercase()
         if (q.isEmpty()) {
             return null
@@ -114,7 +114,7 @@ class AppLauncher(private val context: Context) {
      * @return the launched [AppEntry] on success, or null if nothing matched or the
      *   launch intent could not be resolved.
      */
-    fun launch(query: String): AppEntry? {
+    open fun launch(query: String): AppEntry? {
         val app = match(query) ?: return null
         val intent = packageManager.getLaunchIntentForPackage(app.packageName) ?: return null
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)

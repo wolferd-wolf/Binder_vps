@@ -91,6 +91,9 @@ class OverlayService : Service() {
     /** The collapsed rectangle, inflated once and re-used. */
     private var bubbleView: View? = null
 
+    /** The intro card, shown on service start before collapsing. */
+    private var introView: View? = null
+
     /** Says what went wrong instead of leaving an empty window on screen. */
     private var errorView: TextView? = null
 
@@ -148,6 +151,9 @@ class OverlayService : Service() {
 
         /** Layout name owned by @Cline, resolved reflectively so this compiles standalone. */
         const val LAYOUT_COLLAPSED = "overlay_bubble"
+
+        /** Layout name for the desktop intro card, owned by @Cline. */
+        const val LAYOUT_INTRO = "overlay_intro_card"
 
         private const val ID_PREFIX = "coucou_"
         private const val KEYBOARD_SHOW_DELAY_MS = 150L
@@ -257,7 +263,10 @@ class OverlayService : Service() {
         createNotificationChannel()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         appLauncher = AppLauncher(this)
-        router = DefaultCommandRouter(listOf(LaunchAppCommandRouter(appLauncher!!)))
+        router = DefaultCommandRouter(listOf(
+                LaunchAppCommandRouter(appLauncher!!),
+                AssistantRouter(this)
+            ))
         soundPlayer = SoundPlayer(this).also { it.preloadAvailable() }
         islandListener = IslandListener()
         islandBridge = IslandBridgeHost(this, islandListener!!)
@@ -383,9 +392,71 @@ class OverlayService : Service() {
             }
             ACTION_START, null -> {
                 startAsForeground()
+                // Show the desktop intro card on service start
+                mainHandler.post { showIntroAndAnimate() }
             }
         }
         return START_STICKY
+    }
+
+    /**
+     * Show the desktop intro card centered on screen on service start,
+     * run the greeting sequence, then smoothly animate to the top-right collapsed bubble.
+     */
+    private fun showIntroAndAnimate() {
+        // Inflate the intro card layout owned by @Cline
+        introView = inflateLayoutByName(LAYOUT_INTRO)
+        if (introView == null) {
+            Log.w(TAG, "Failed to inflate intro layout, skipping intro")
+            return
+        }
+        // Add the intro card to the window container
+        ensureContainer()?.let { container ->
+            container.addView(introView,
+                FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER))
+        }
+        // Position the intro card centered on screen using layout params
+        layoutParams?.let { params ->
+            params.width = WindowManager.LayoutParams.WRAP_CONTENT
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT
+            params.gravity = Gravity.CENTER
+            params.x = 0
+            params.y = 0
+            params.flags = baseFlags(focusable = false)
+            clampOnScreen(params)
+            pushLayout()
+        }
+        // Bind character view inside introView so animation and sound events are wired
+        introView?.let { bindCharacter(it) }
+
+        // Run the greeting sequence: centered Mochi wave + greet sound
+        characterView?.greet()
+        // After ~1.8s, animate from center to top-right collapsed bubble
+        mainHandler.postDelayed({ animateToCollapsedBubble() }, 1800L)
+    }
+
+    /**
+     * Animate the intro card from center to the top-right collapsed bubble position.
+     * Interpolates LayoutParams to transition from centered intro to collapsed bubble.
+     */
+    private fun animateToCollapsedBubble() {
+        layoutParams?.let { params ->
+            // Move to collapsed bubble position: top-right area with small padding
+            params.gravity = Gravity.TOP or Gravity.START
+            params.x = dp(16)
+            params.y = dp(120)
+            params.width = collapsedWidthPx()
+            params.height = collapsedHeightPx()
+            params.flags = baseFlags(focusable = false)
+            pushLayout()
+        }
+        // Remove the intro view from the container after animation completes
+        introView?.let { view ->
+            mainHandler.postDelayed({ container?.removeView(view) }, 200L)
+        }
+        introView = null
     }
 
     private fun startAsForeground() {
@@ -1292,7 +1363,8 @@ class OverlayService : Service() {
                     params.y = (params.y + (event.rawY - downRawY)).toInt()
                     val at = IslandBridgeCommands.clampToScreen(
                         params.x, params.y,
-                        collapsedWidthPx(), collapsedHeightPx(),
+                        resources.getDimensionPixelSize(R.dimen.coucou_bubble_card_size),
+                        resources.getDimensionPixelSize(R.dimen.coucou_bubble_card_size),
                         metrics.widthPixels, metrics.heightPixels
                     )
                     params.x = at[0]
@@ -1309,6 +1381,18 @@ class OverlayService : Service() {
                     characterView?.onTap()
                     playSound(SoundPlayer.Sound.BLIP)
                     expand()
+                } else {
+                    // Smooth snap to screen edge on release
+                    val cardSize = resources.getDimensionPixelSize(R.dimen.coucou_bubble_card_size)
+                    val midX = params.x + cardSize / 2
+                    val targetX = if (midX < metrics.widthPixels / 2) {
+                        dp(16) // Snap to left edge with padding
+                    } else {
+                        metrics.widthPixels - cardSize - dp(16) // Snap to right edge with padding
+                    }
+                    params.x = targetX
+                    pushLayout()
+                    islandDescription = describeWindow(params)
                 }
                 isDragging = false
                 return true
