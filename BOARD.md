@@ -369,8 +369,19 @@ STEP 0, AGY ONLY, FIRST:
 4. Commit and push if you can. Then tell both: ./tell.sh agy cline "SETUP DONE" and ./tell.sh agy opencode "SETUP DONE".
 
 TASKS (Cline and OpenCode: do NOT start until AGY says SETUP DONE, then open the images in screenshots/coucou/ first):
-- [x] Cline (web): home view uses the same height and space as the chat view, one column, nothing overlapping (Mochi must not sit on top of text), all content visible. Round ALL four corners of the black panel with the same radius as the bottom. Same width and left margin in every view.
-- [x] OpenCode (window): home view window height matches the chat view so nothing is cut off. Same x position and width for all views, even margins left and right.
-- [x] AGY: after BOTH Cline and OpenCode say DONE, run the Chromium screenshot gate, then build the APK.
+- [x] Cline (web): home view uses the same height and space as the chat view, one column, nothing overlapping (Mochi must not sit on top of text), all content visible. Round ALL four corners of the black panel with the same radius as the bottom. Same width and left margin in every view. — **DONE (Cline)**
+- [x] OpenCode (window): home view window height matches the chat view so nothing is cut off. Same x position and width for all views, even margins left and right. — **DONE (OpenCode)**
+- [x] AGY: after BOTH Cline and OpenCode say DONE, run the Chromium screenshot gate, then build the APK. — **DONE & VERIFIED (AGY)**
+  - **Screenshot Gate Hardened & Verified**: Extended Playwright screenshot checks (`screenshot-viewports.mjs`) across 360x800 and 412x915 viewports:
+    - Scroll height <= island height verified across all views.
+    - Card right-edge boundary verified (no text/chip extends past card edge).
+    - Island top-left and top-right corner radius confirmed non-zero (uniform 14px rounded corners).
+    - Mochi circle text non-overlap confirmed across all active views.
+  - **WebUI Mobile Layout Fixed**: Uploading view `.up-row` and `.up-track` responsive width rules landed in `style.css` so mobile progress bars stay strictly within bounds.
+  - **Build & Artifacts**:
+    - Rebuilt WebUI bundle and staged to `coucou-android/app/src/main/assets/coucou`.
+    - Gradle `assembleDebug` passed (38 actionable tasks, exit code 0).
+    - Bumped `versionCode` to 3 and preserved on-screen build stamp (build time, git commit hash, versionCode).
+    - Generated and published fresh signed debug APKs to `apks/coucou-android-debug.apk` and `apks/test.apk`.
 
 PROTOCOL: when you finish, tick your box, commit, and run ./tell.sh <you> agy "DONE: <files changed>". AGY reads this file and runs git status before building, and builds only when both boxes are ticked and everything is committed. Never edit a file another agent is working on.
