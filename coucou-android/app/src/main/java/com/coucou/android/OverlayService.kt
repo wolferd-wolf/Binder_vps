@@ -92,8 +92,7 @@ class OverlayService : Service() {
     /** The collapsed rectangle, inflated once and re-used. */
     private var bubbleView: View? = null
 
-    /** The intro card, shown on service start before collapsing. */
-    private var introView: View? = null
+    
 
     /** Says what went wrong instead of leaving an empty window on screen. */
     private var errorView: TextView? = null
@@ -153,8 +152,7 @@ class OverlayService : Service() {
         /** Layout name owned by @Cline, resolved reflectively so this compiles standalone. */
         const val LAYOUT_COLLAPSED = "overlay_bubble"
 
-        /** Layout name for the desktop intro card, owned by @Cline. */
-        const val LAYOUT_INTRO = "overlay_intro_card"
+        
 
         private const val ID_PREFIX = "coucou_"
         private const val KEYBOARD_SHOW_DELAY_MS = 150L
@@ -401,63 +399,30 @@ class OverlayService : Service() {
     }
 
     /**
-     * Show the desktop intro card centered on screen on service start,
-     * run the greeting sequence, then smoothly animate to the top-right collapsed bubble.
+     * Show the authentic desktop greeting in the WebView at the top of the screen.
+     * The WebView is already warmed from startAsForeground(); we just make it visible
+     * and let the web code's own greeting sequence run (header icons, starfield, Mochi).
      */
     private fun showIntroAndAnimate() {
-        // Inflate the intro card layout owned by @Cline
-        introView = inflateLayoutByName(LAYOUT_INTRO)
-        if (introView == null) {
-            Log.w(TAG, "Failed to inflate intro layout, skipping intro")
-            return
-        }
-        // Add the intro card to the window container
         ensureContainer()?.let { container ->
-            container.addView(introView,
-                FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    Gravity.CENTER))
-        }
-        // Position the intro card centered on screen using layout params
-        layoutParams?.let { params ->
-            params.width = WindowManager.LayoutParams.WRAP_CONTENT
-            params.height = WindowManager.LayoutParams.WRAP_CONTENT
-            params.gravity = Gravity.CENTER
-            params.x = 0
-            params.y = 0
-            params.flags = baseFlags(focusable = false)
-            clampOnScreen(params)
-            pushLayout()
-        }
-        // Bind character view inside introView so animation and sound events are wired
-        introView?.let { bindCharacter(it) }
+            // Show the island WebView, hide the collapsed bubble
+            island?.view?.visibility = View.VISIBLE
+            bubbleView?.visibility = View.GONE
 
-        // Run the greeting sequence: centered Mochi wave + greet sound
-        characterView?.greet()
-        // After ~1.8s, animate from center to top-right collapsed bubble
-        mainHandler.postDelayed({ animateToCollapsedBubble() }, 1800L)
-    }
-
-    /**
-     * Animate the intro card from center to the top-right collapsed bubble position.
-     * Interpolates LayoutParams to transition from centered intro to collapsed bubble.
-     */
-    private fun animateToCollapsedBubble() {
-        layoutParams?.let { params ->
-            // Move to collapsed bubble position: top-right area with small padding
-            params.gravity = Gravity.TOP or Gravity.START
-            params.x = dp(16)
-            params.y = dp(120)
-            params.width = collapsedWidthPx()
-            params.height = collapsedHeightPx()
-            params.flags = baseFlags(focusable = false)
-            pushLayout()
+            // Position at the top of the screen, centered horizontally
+            layoutParams?.let { params ->
+                params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                params.x = 0
+                params.y = 0
+                params.width = WindowManager.LayoutParams.WRAP_CONTENT
+                params.height = WindowManager.LayoutParams.WRAP_CONTENT
+                params.flags = baseFlags(focusable = false)
+                clampOnScreen(params)
+                pushLayout()
+            }
         }
-        // Remove the intro view from the container after animation completes
-        introView?.let { view ->
-            mainHandler.postDelayed({ container?.removeView(view) }, 200L)
-        }
-        introView = null
+        // The WebView's main.ts automatically launches the greeting on page load
+        // No native character view greeting needed - WebView handles it via greeting.ts
     }
 
     private fun startAsForeground() {
