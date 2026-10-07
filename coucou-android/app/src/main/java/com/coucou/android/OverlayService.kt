@@ -710,7 +710,6 @@ class OverlayService : Service() {
         params.x = 0
         params.y = dp(40)
         islandFocused = true
-        params.flags = baseFlags(focusable = true)
         params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         clampOnScreen(params)
         pushLayout()
