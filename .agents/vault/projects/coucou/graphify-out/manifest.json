@@ -1,0 +1,548 @@
+{
+  "app/build.gradle": {
+    "mtime": 1791125672.8541775,
+    "seen": 1791299255.7400286,
+    "ast_hash": "b9640851145f4a949020e284137e2020",
+    "semantic_hash": "b9640851145f4a949020e284137e2020"
+  },
+  "app/src/main/assets/coucou/assets/dom-nmERa8aV.js": {
+    "mtime": 1791182074.3428757,
+    "seen": 1791299255.7400343,
+    "ast_hash": "c6e2720cdbf2dd424511a59315bd853a",
+    "semantic_hash": "c6e2720cdbf2dd424511a59315bd853a"
+  },
+  "app/src/main/assets/coucou/assets/island-Bwgryo4W.js": {
+    "mtime": 1791182074.3428757,
+    "seen": 1791299255.7400367,
+    "ast_hash": "a9c2039c01c5cb515ded3b437c902b64",
+    "semantic_hash": "a9c2039c01c5cb515ded3b437c902b64"
+  },
+  "app/src/main/assets/coucou/assets/settings-D0LQ22b6.js": {
+    "mtime": 1791182074.3428757,
+    "seen": 1791299255.7400382,
+    "ast_hash": "e2287e53a1c4b364ca686f33d4fa60c8",
+    "semantic_hash": "e2287e53a1c4b364ca686f33d4fa60c8"
+  },
+  "app/src/main/assets/coucou/tauri-shim.js": {
+    "mtime": 1791182074.3458757,
+    "seen": 1791299255.740039,
+    "ast_hash": "32717b6b2bdcf7036f72734655b9b496",
+    "semantic_hash": "32717b6b2bdcf7036f72734655b9b496"
+  },
+  "app/src/main/java/com/coucou/android/AppLauncher.kt": {
+    "mtime": 1791005995.0198078,
+    "seen": 1791299255.7400405,
+    "ast_hash": "d6f9ea02f1be6b01ed56e9bcbb636e12",
+    "semantic_hash": "d6f9ea02f1be6b01ed56e9bcbb636e12"
+  },
+  "app/src/main/java/com/coucou/android/CommandRouter.kt": {
+    "mtime": 1791010371.676497,
+    "seen": 1791299255.740042,
+    "ast_hash": "680b920a0879e5f6dc30d209e675c1b3",
+    "semantic_hash": "680b920a0879e5f6dc30d209e675c1b3"
+  },
+  "app/src/main/java/com/coucou/android/CoucouCharacterEngine.kt": {
+    "mtime": 1791119219.5400355,
+    "seen": 1791299255.740043,
+    "ast_hash": "672794fb83eb5e11a4ad45046cf0df48",
+    "semantic_hash": "672794fb83eb5e11a4ad45046cf0df48"
+  },
+  "app/src/main/java/com/coucou/android/CoucouCharacterView.kt": {
+    "mtime": 1791118889.8700283,
+    "seen": 1791299255.7400444,
+    "ast_hash": "9a0915a8f688098d9ee5cd7ddaf867b6",
+    "semantic_hash": "9a0915a8f688098d9ee5cd7ddaf867b6"
+  },
+  "app/src/main/java/com/coucou/android/CoucouIslandWebView.kt": {
+    "mtime": 1791178917.3081,
+    "seen": 1791299255.7400455,
+    "ast_hash": "8ef9ca2f8ef11a12f82aacd2b6c675f5",
+    "semantic_hash": "8ef9ca2f8ef11a12f82aacd2b6c675f5"
+  },
+  "app/src/main/java/com/coucou/android/IslandBridgeCommands.kt": {
+    "mtime": 1791177946.206169,
+    "seen": 1791299255.7400467,
+    "ast_hash": "3547a354e1769949812f73b9a3db812f",
+    "semantic_hash": "3547a354e1769949812f73b9a3db812f"
+  },
+  "app/src/main/java/com/coucou/android/IslandBridgeHost.kt": {
+    "mtime": 1791178242.017148,
+    "seen": 1791299255.7400484,
+    "ast_hash": "a26fc770994c2d6c0316124b367dad1c",
+    "semantic_hash": "a26fc770994c2d6c0316124b367dad1c"
+  },
+  "app/src/main/java/com/coucou/android/Json.kt": {
+    "mtime": 1791127784.628224,
+    "seen": 1791299255.7400494,
+    "ast_hash": "245bdb720453cf476d90da8bb5bfa2e7",
+    "semantic_hash": "245bdb720453cf476d90da8bb5bfa2e7"
+  },
+  "app/src/main/java/com/coucou/android/MainActivity.kt": {
+    "mtime": 1791005944.4088116,
+    "seen": 1791299255.740051,
+    "ast_hash": "8b644c5359dc4a97907c50ca4c2c8c46",
+    "semantic_hash": "8b644c5359dc4a97907c50ca4c2c8c46"
+  },
+  "app/src/main/java/com/coucou/android/OverlayHostLayout.kt": {
+    "mtime": 1791176143.783297,
+    "seen": 1791299255.740052,
+    "ast_hash": "80228ef207e2aa1f7e1c30417ec43b1d",
+    "semantic_hash": "80228ef207e2aa1f7e1c30417ec43b1d"
+  },
+  "app/src/main/java/com/coucou/android/OverlayService.kt": {
+    "mtime": 1791180589.066981,
+    "seen": 1791299255.740053,
+    "ast_hash": "1a99d35600d8a0080d5f96bd8cab73c8",
+    "semantic_hash": "1a99d35600d8a0080d5f96bd8cab73c8"
+  },
+  "app/src/main/java/com/coucou/android/SoundPlayer.kt": {
+    "mtime": 1791054366.5741403,
+    "seen": 1791299255.7400544,
+    "ast_hash": "8ee984519fde215b44b6203ade1fd1af",
+    "semantic_hash": "8ee984519fde215b44b6203ade1fd1af"
+  },
+  "app/src/test/java/com/coucou/android/CommandRouterParseTest.kt": {
+    "mtime": 1791010428.8064928,
+    "seen": 1791299255.7400556,
+    "ast_hash": "a8d0e44dcc735183f6d17422cfc48a72",
+    "semantic_hash": "a8d0e44dcc735183f6d17422cfc48a72"
+  },
+  "app/src/test/java/com/coucou/android/CoucouCharacterEngineTest.kt": {
+    "mtime": 1791119260.7440364,
+    "seen": 1791299255.7400568,
+    "ast_hash": "e68f56d686880e1505e5ade204956438",
+    "semantic_hash": "e68f56d686880e1505e5ade204956438"
+  },
+  "app/src/test/java/com/coucou/android/IslandBridgeCommandsTest.kt": {
+    "mtime": 1791178869.7851033,
+    "seen": 1791299255.740058,
+    "ast_hash": "7108d04719cd6ab9d53ba7dc85d46251",
+    "semantic_hash": "7108d04719cd6ab9d53ba7dc85d46251"
+  },
+  "app/src/test/java/com/coucou/android/JsonTest.kt": {
+    "mtime": 1791127567.9402192,
+    "seen": 1791299255.7400591,
+    "ast_hash": "d2b0c297c135c9d93e7d50c6d33c1afc",
+    "semantic_hash": "d2b0c297c135c9d93e7d50c6d33c1afc"
+  },
+  "app/src/test/java/com/coucou/android/SoundPlayerTest.kt": {
+    "mtime": 1791017400.7899976,
+    "seen": 1791299255.7400603,
+    "ast_hash": "c964209011a162630bedcacc76b30f78",
+    "semantic_hash": "c964209011a162630bedcacc76b30f78"
+  },
+  "build.gradle": {
+    "mtime": 1791006040.6828046,
+    "seen": 1791299255.7400618,
+    "ast_hash": "ab98031954263175603a9ea84266c4d5",
+    "semantic_hash": "ab98031954263175603a9ea84266c4d5"
+  },
+  "build.sh": {
+    "mtime": 1791174957.1083813,
+    "seen": 1791299255.740063,
+    "ast_hash": "ce514aaa66033d784268c2cd43aa6043",
+    "semantic_hash": "ce514aaa66033d784268c2cd43aa6043"
+  },
+  "gradlew": {
+    "mtime": 1791005849.3498182,
+    "seen": 1791299255.740064,
+    "ast_hash": "780b1d3e23a3b82154795f73df943a14",
+    "semantic_hash": "780b1d3e23a3b82154795f73df943a14"
+  },
+  "settings.gradle": {
+    "mtime": 1791005861.6448174,
+    "seen": 1791299255.7400653,
+    "ast_hash": "ef4e620e8aa2a5243f3ab3499549290c",
+    "semantic_hash": "ef4e620e8aa2a5243f3ab3499549290c"
+  },
+  "tools/stage-coucou-web.mjs": {
+    "mtime": 1791175614.2653346,
+    "seen": 1791299255.7400663,
+    "ast_hash": "e22c5cf504b97f0a8928dcd0c8e5452d",
+    "semantic_hash": "e22c5cf504b97f0a8928dcd0c8e5452d"
+  },
+  "tools/tauri-shim.js": {
+    "mtime": 1791127946.6192276,
+    "seen": 1791299255.7400672,
+    "ast_hash": "32717b6b2bdcf7036f72734655b9b496",
+    "semantic_hash": "32717b6b2bdcf7036f72734655b9b496"
+  },
+  "tools/verify-shim.mjs": {
+    "mtime": 1791127925.3532271,
+    "seen": 1791299255.7400687,
+    "ast_hash": "dd0fe908808bd1bef0dc60df8a47599f",
+    "semantic_hash": "dd0fe908808bd1bef0dc60df8a47599f"
+  },
+  "webui/package.json": {
+    "mtime": 1791175771.9813235,
+    "seen": 1791299255.7400699,
+    "ast_hash": "fc77b1e39eafca6b27b0d68a3ff90409",
+    "semantic_hash": "fc77b1e39eafca6b27b0d68a3ff90409"
+  },
+  "webui/scripts/gen-icons.mjs": {
+    "mtime": 1791125600.792176,
+    "seen": 1791299255.7400708,
+    "ast_hash": "894e82b7d6b638bf70b5d528f43c1030",
+    "semantic_hash": "894e82b7d6b638bf70b5d528f43c1030"
+  },
+  "webui/scripts/pack.mjs": {
+    "mtime": 1791125600.792176,
+    "seen": 1791299255.7400723,
+    "ast_hash": "ae14da9d25ff7ac49e0ad9e4b7887293",
+    "semantic_hash": "ae14da9d25ff7ac49e0ad9e4b7887293"
+  },
+  "webui/scripts/screenshot-viewports.mjs": {
+    "mtime": 1791177958.814168,
+    "seen": 1791299255.7400734,
+    "ast_hash": "349ffc70b7a50fc50932a7e0db3af905",
+    "semantic_hash": "349ffc70b7a50fc50932a7e0db3af905"
+  },
+  "webui/src/core/anim.ts": {
+    "mtime": 1791125600.797176,
+    "seen": 1791299255.7400744,
+    "ast_hash": "bdc14b16486374c2aa71910b10863158",
+    "semantic_hash": "bdc14b16486374c2aa71910b10863158"
+  },
+  "webui/src/core/bridge.android.ts": {
+    "mtime": 1791175623.346334,
+    "seen": 1791299255.7400758,
+    "ast_hash": "a294cd45c01c7ae4104905e262d991a1",
+    "semantic_hash": "a294cd45c01c7ae4104905e262d991a1"
+  },
+  "webui/src/core/bridge.ts": {
+    "mtime": 1791176516.8382704,
+    "seen": 1791299255.7400768,
+    "ast_hash": "5007faf03d1fdd26269d86f560764ce8",
+    "semantic_hash": "5007faf03d1fdd26269d86f560764ce8"
+  },
+  "webui/src/core/layout.ts": {
+    "mtime": 1791176652.871261,
+    "seen": 1791299255.740078,
+    "ast_hash": "f278261bc41c982dd894d0ca606a0f30",
+    "semantic_hash": "f278261bc41c982dd894d0ca606a0f30"
+  },
+  "webui/src/core/sound.ts": {
+    "mtime": 1791125600.797176,
+    "seen": 1791299255.7400792,
+    "ast_hash": "427b57204bb1afd13dfcbda50c8a044f",
+    "semantic_hash": "427b57204bb1afd13dfcbda50c8a044f"
+  },
+  "webui/src/core/state.ts": {
+    "mtime": 1791175265.9093595,
+    "seen": 1791299255.7400804,
+    "ast_hash": "5c39cba570f2f536a4a5d7af70d0a601",
+    "semantic_hash": "5c39cba570f2f536a4a5d7af70d0a601"
+  },
+  "webui/src/island/fsm.ts": {
+    "mtime": 1791125600.797176,
+    "seen": 1791299255.7400813,
+    "ast_hash": "87a1ab8adaddfea0ee43b0e2ed635645",
+    "semantic_hash": "87a1ab8adaddfea0ee43b0e2ed635645"
+  },
+  "webui/src/island/hooks.ts": {
+    "mtime": 1791125600.797176,
+    "seen": 1791299255.7400827,
+    "ast_hash": "1678bb79abc15c2bd65fbe3ed6b8777e",
+    "semantic_hash": "1678bb79abc15c2bd65fbe3ed6b8777e"
+  },
+  "webui/src/island/integrations.ts": {
+    "mtime": 1791125600.797176,
+    "seen": 1791299255.7400837,
+    "ast_hash": "f628c2eff0b8b16ccf9ee2ec37c12a82",
+    "semantic_hash": "f628c2eff0b8b16ccf9ee2ec37c12a82"
+  },
+  "webui/src/island/island.ts": {
+    "mtime": 1791176487.0052726,
+    "seen": 1791299255.7400846,
+    "ast_hash": "cac8a8c9832502da2c07f1d118aa8fb6",
+    "semantic_hash": "cac8a8c9832502da2c07f1d118aa8fb6"
+  },
+  "webui/src/main.ts": {
+    "mtime": 1791173866.1414587,
+    "seen": 1791299255.7400866,
+    "ast_hash": "eb8a12d17d23b6e5c7ee79071eca9220",
+    "semantic_hash": "eb8a12d17d23b6e5c7ee79071eca9220"
+  },
+  "webui/src/mochi/engine.ts": {
+    "mtime": 1791125600.798176,
+    "seen": 1791299255.740088,
+    "ast_hash": "3da7b100f59a91ba6cf1d5162511347a",
+    "semantic_hash": "3da7b100f59a91ba6cf1d5162511347a"
+  },
+  "webui/src/mochi/greeting.ts": {
+    "mtime": 1791125600.798176,
+    "seen": 1791299255.7400892,
+    "ast_hash": "39a14ce312e965cb33919bb2b1ea85ef",
+    "semantic_hash": "39a14ce312e965cb33919bb2b1ea85ef"
+  },
+  "webui/src/mochi/minibots.ts": {
+    "mtime": 1791125600.798176,
+    "seen": 1791299255.7400904,
+    "ast_hash": "1382875b4e4d767299e3d1722f7f59ba",
+    "semantic_hash": "1382875b4e4d767299e3d1722f7f59ba"
+  },
+  "webui/src/settings/main.ts": {
+    "mtime": 1791125600.798176,
+    "seen": 1791299255.7400916,
+    "ast_hash": "af50516cbdc1635f82147669fe4535f9",
+    "semantic_hash": "af50516cbdc1635f82147669fe4535f9"
+  },
+  "webui/src/upload/canvas.ts": {
+    "mtime": 1791126662.1341994,
+    "seen": 1791299255.7400928,
+    "ast_hash": "90130d2b2be6b8efc412de4b930083ea",
+    "semantic_hash": "90130d2b2be6b8efc412de4b930083ea"
+  },
+  "webui/src/upload/sequence.ts": {
+    "mtime": 1791125600.798176,
+    "seen": 1791299255.740094,
+    "ast_hash": "931318fe4ac1cb9245ff4e5569b2c38e",
+    "semantic_hash": "931318fe4ac1cb9245ff4e5569b2c38e"
+  },
+  "webui/src/views/chat.ts": {
+    "mtime": 1791125600.799176,
+    "seen": 1791299255.740095,
+    "ast_hash": "5a0b59ca4058a30238b0ada09c103b8b",
+    "semantic_hash": "5a0b59ca4058a30238b0ada09c103b8b"
+  },
+  "webui/src/views/dom.ts": {
+    "mtime": 1791125600.799176,
+    "seen": 1791299255.7400963,
+    "ast_hash": "7d3e5ca7decc0a218868d80526d663f2",
+    "semantic_hash": "7d3e5ca7decc0a218868d80526d663f2"
+  },
+  "webui/src/views/icons.ts": {
+    "mtime": 1791125600.799176,
+    "seen": 1791299255.7400975,
+    "ast_hash": "7112a0a4a93d092cc9ac43f9780a52bc",
+    "semantic_hash": "7112a0a4a93d092cc9ac43f9780a52bc"
+  },
+  "webui/src/views/integrations.ts": {
+    "mtime": 1791125600.799176,
+    "seen": 1791299255.7400985,
+    "ast_hash": "052c30b509039ed2b36eae56ebdb2eb9",
+    "semantic_hash": "052c30b509039ed2b36eae56ebdb2eb9"
+  },
+  "webui/src/views/ticker.ts": {
+    "mtime": 1791125600.799176,
+    "seen": 1791299255.7401,
+    "ast_hash": "37d79b9381b16afd88f4692f93be5151",
+    "semantic_hash": "37d79b9381b16afd88f4692f93be5151"
+  },
+  "webui/src/views/upload.ts": {
+    "mtime": 1791125600.799176,
+    "seen": 1791299255.7401009,
+    "ast_hash": "98740b4ac17ccbb639ecfa2ed8adf671",
+    "semantic_hash": "98740b4ac17ccbb639ecfa2ed8adf671"
+  },
+  "webui/src/views/views.ts": {
+    "mtime": 1791175328.576355,
+    "seen": 1791299255.740102,
+    "ast_hash": "8f90d59c4066dd9ff83db64e296a60da",
+    "semantic_hash": "8f90d59c4066dd9ff83db64e296a60da"
+  },
+  "webui/tools/verify-android-bridge.mjs": {
+    "mtime": 1791175760.2293243,
+    "seen": 1791299255.7401035,
+    "ast_hash": "0afe06d3cd6c986a458e7baa4e328040",
+    "semantic_hash": "0afe06d3cd6c986a458e7baa4e328040"
+  },
+  "webui/tools/verify-bridge-contract.mjs": {
+    "mtime": 1791175495.797343,
+    "seen": 1791299255.7401044,
+    "ast_hash": "efa5f3709fe21ad0c9ffa7e95db46f54",
+    "semantic_hash": "efa5f3709fe21ad0c9ffa7e95db46f54"
+  },
+  "webui/tools/verify-staged-bundle.mjs": {
+    "mtime": 1791175505.0533423,
+    "seen": 1791299255.7401056,
+    "ast_hash": "a09b844e2e190c877ee8f8ff1990f8c0",
+    "semantic_hash": "a09b844e2e190c877ee8f8ff1990f8c0"
+  },
+  "webui/tsconfig.json": {
+    "mtime": 1791125600.799176,
+    "seen": 1791299255.7401068,
+    "ast_hash": "023742d59b3f2c948143a8b7707a701b",
+    "semantic_hash": "023742d59b3f2c948143a8b7707a701b"
+  },
+  "webui/vite.config.android.ts": {
+    "mtime": 1791175377.2563515,
+    "seen": 1791299255.740108,
+    "ast_hash": "b65563ccfba2bd43dde18ef69c28932c",
+    "semantic_hash": "b65563ccfba2bd43dde18ef69c28932c"
+  },
+  "webui/vite.config.ts": {
+    "mtime": 1791125600.799176,
+    "seen": 1791299255.740109,
+    "ast_hash": "26b2a0738af49f84d990cd686e19c0a0",
+    "semantic_hash": "26b2a0738af49f84d990cd686e19c0a0"
+  },
+  "app/src/main/res/raw/coucou_annoyed.wav": {
+    "mtime": 1791054039.7061448,
+    "seen": 1791299255.7401104,
+    "ast_hash": "7a1b09f835de632ecedb8172f1ef6e5f",
+    "semantic_hash": "7a1b09f835de632ecedb8172f1ef6e5f"
+  },
+  "app/src/main/res/raw/coucou_approval.wav": {
+    "mtime": 1791054039.7151449,
+    "seen": 1791299255.7401114,
+    "ast_hash": "bcf435da0124b24a239e7276cea722dc",
+    "semantic_hash": "bcf435da0124b24a239e7276cea722dc"
+  },
+  "app/src/main/res/raw/coucou_approve.wav": {
+    "mtime": 1791054039.728145,
+    "seen": 1791299255.7401125,
+    "ast_hash": "62d2e9cd54e2dd74fb9b52e19f976eb1",
+    "semantic_hash": "62d2e9cd54e2dd74fb9b52e19f976eb1"
+  },
+  "app/src/main/res/raw/coucou_attach.wav": {
+    "mtime": 1791054039.7361448,
+    "seen": 1791299255.7401137,
+    "ast_hash": "0a89913ec2ce3b45b2e7d86622dd9926",
+    "semantic_hash": "0a89913ec2ce3b45b2e7d86622dd9926"
+  },
+  "app/src/main/res/raw/coucou_blip.wav": {
+    "mtime": 1791054039.7421448,
+    "seen": 1791299255.7401147,
+    "ast_hash": "812bb64a085cbbf3f412f6dab6b82a97",
+    "semantic_hash": "812bb64a085cbbf3f412f6dab6b82a97"
+  },
+  "app/src/main/res/raw/coucou_close.wav": {
+    "mtime": 1791054039.7491448,
+    "seen": 1791299255.740116,
+    "ast_hash": "60eafcd85dbe860dbf2f713199e3f178",
+    "semantic_hash": "60eafcd85dbe860dbf2f713199e3f178"
+  },
+  "app/src/main/res/raw/coucou_dizzy.wav": {
+    "mtime": 1791054039.760145,
+    "seen": 1791299255.7401173,
+    "ast_hash": "b1abeceb39e55fa4ed693667e08eb40a",
+    "semantic_hash": "b1abeceb39e55fa4ed693667e08eb40a"
+  },
+  "app/src/main/res/raw/coucou_error.wav": {
+    "mtime": 1791054039.767145,
+    "seen": 1791299255.7401183,
+    "ast_hash": "ca937a1ce9b64bff9b33508f69dc9d91",
+    "semantic_hash": "ca937a1ce9b64bff9b33508f69dc9d91"
+  },
+  "app/src/main/res/raw/coucou_finish.wav": {
+    "mtime": 1791054039.780145,
+    "seen": 1791299255.7401195,
+    "ast_hash": "9078b4b6309629c39f9c6fc1bc0694e6",
+    "semantic_hash": "9078b4b6309629c39f9c6fc1bc0694e6"
+  },
+  "app/src/main/res/raw/coucou_greet.wav": {
+    "mtime": 1791054039.803145,
+    "seen": 1791299255.7401206,
+    "ast_hash": "45cd11a1cd4a92007e64475f475c4f1e",
+    "semantic_hash": "45cd11a1cd4a92007e64475f475c4f1e"
+  },
+  "app/src/main/res/raw/coucou_gulp.wav": {
+    "mtime": 1791054039.8141448,
+    "seen": 1791299255.7401216,
+    "ast_hash": "862f1b872ebdaaada1ea7f1e98b11cf1",
+    "semantic_hash": "862f1b872ebdaaada1ea7f1e98b11cf1"
+  },
+  "app/src/main/res/raw/coucou_hover.wav": {
+    "mtime": 1791054039.8211448,
+    "seen": 1791299255.7401228,
+    "ast_hash": "772fc1d020c78f51116315debd075308",
+    "semantic_hash": "772fc1d020c78f51116315debd075308"
+  },
+  "app/src/main/res/raw/coucou_love.wav": {
+    "mtime": 1791054039.829145,
+    "seen": 1791299255.740124,
+    "ast_hash": "b0d1885ed59990a3bfe0c0f7349789cd",
+    "semantic_hash": "b0d1885ed59990a3bfe0c0f7349789cd"
+  },
+  "app/src/main/res/raw/coucou_open.wav": {
+    "mtime": 1791054039.836145,
+    "seen": 1791299255.7401252,
+    "ast_hash": "91bc6c48f9e87145775457623da398f3",
+    "semantic_hash": "91bc6c48f9e87145775457623da398f3"
+  },
+  "app/src/main/res/raw/coucou_peek.wav": {
+    "mtime": 1791054039.8441448,
+    "seen": 1791299255.7401261,
+    "ast_hash": "ef04c9bbd0374dcabe2cd0a8b21054f9",
+    "semantic_hash": "ef04c9bbd0374dcabe2cd0a8b21054f9"
+  },
+  "app/src/main/res/raw/coucou_pop.wav": {
+    "mtime": 1791054039.862145,
+    "seen": 1791299255.7401278,
+    "ast_hash": "7fbb980fb4bee3907c7b35063adfd343",
+    "semantic_hash": "7fbb980fb4bee3907c7b35063adfd343"
+  },
+  "app/src/main/res/raw/coucou_proud.wav": {
+    "mtime": 1791054039.872145,
+    "seen": 1791299255.7401288,
+    "ast_hash": "ec7c64a9095a41c4a45347dc34245946",
+    "semantic_hash": "ec7c64a9095a41c4a45347dc34245946"
+  },
+  "app/src/main/res/raw/coucou_question.wav": {
+    "mtime": 1791054039.8841448,
+    "seen": 1791299255.74013,
+    "ast_hash": "6e88e70d75bc6bcf323aaf708dcdbad0",
+    "semantic_hash": "6e88e70d75bc6bcf323aaf708dcdbad0"
+  },
+  "app/src/main/res/raw/coucou_rate.wav": {
+    "mtime": 1791054039.8901448,
+    "seen": 1791299255.7401311,
+    "ast_hash": "e12b4cf642952a91bf428a16f7207378",
+    "semantic_hash": "e12b4cf642952a91bf428a16f7207378"
+  },
+  "app/src/main/res/raw/coucou_search.wav": {
+    "mtime": 1791054039.8941448,
+    "seen": 1791299255.7401323,
+    "ast_hash": "b1c301ac6e7f1a92d9528c7d7dab3e38",
+    "semantic_hash": "b1c301ac6e7f1a92d9528c7d7dab3e38"
+  },
+  "app/src/main/res/raw/coucou_send.wav": {
+    "mtime": 1791054039.899145,
+    "seen": 1791299255.7401333,
+    "ast_hash": "4d17613a4d123132e6d7580e678d2ff9",
+    "semantic_hash": "4d17613a4d123132e6d7580e678d2ff9"
+  },
+  "app/src/main/res/raw/coucou_slap.wav": {
+    "mtime": 1791054039.9061449,
+    "seen": 1791299255.7401347,
+    "ast_hash": "c635be655822c5848e8421061282a4a4",
+    "semantic_hash": "c635be655822c5848e8421061282a4a4"
+  },
+  "app/src/main/res/raw/coucou_sleep.wav": {
+    "mtime": 1791054039.911145,
+    "seen": 1791299255.740136,
+    "ast_hash": "03a55615bc73b14e490014935d8e78f3",
+    "semantic_hash": "03a55615bc73b14e490014935d8e78f3"
+  },
+  "app/src/main/res/raw/coucou_think.wav": {
+    "mtime": 1791054039.9161448,
+    "seen": 1791299255.740138,
+    "ast_hash": "0aef4c79728335ab827feeaa80f384aa",
+    "semantic_hash": "0aef4c79728335ab827feeaa80f384aa"
+  },
+  "app/src/main/res/raw/coucou_tick.wav": {
+    "mtime": 1791054039.921145,
+    "seen": 1791299255.7401392,
+    "ast_hash": "02f4eb1c7cb662ca8e2d437de9f3aa55",
+    "semantic_hash": "02f4eb1c7cb662ca8e2d437de9f3aa55"
+  },
+  "app/src/main/res/raw/coucou_wink.wav": {
+    "mtime": 1791054039.925145,
+    "seen": 1791299255.7401404,
+    "ast_hash": "e2fa95d241facc13c70c7e2bbac07da2",
+    "semantic_hash": "e2fa95d241facc13c70c7e2bbac07da2"
+  },
+  "app/src/main/res/raw/coucou_work.wav": {
+    "mtime": 1791054039.9301448,
+    "seen": 1791299255.7401419,
+    "ast_hash": "0d66aada45911f747911cf3588e09f2c",
+    "semantic_hash": "0d66aada45911f747911cf3588e09f2c"
+  },
+  "app/src/main/res/raw/coucou_yawn.wav": {
+    "mtime": 1791054039.937145,
+    "seen": 1791299255.7401428,
+    "ast_hash": "c642f8fb19aea2577e965d71a663ca33",
+    "semantic_hash": "c642f8fb19aea2577e965d71a663ca33"
+  }
+}

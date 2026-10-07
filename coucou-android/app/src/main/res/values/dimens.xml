@@ -72,4 +72,8 @@
     <dimen name="coucou_animation_look_interval_max">2000</dimen>
     <dimen name="coucou_animation_eye_tilt_amount">0.06</dimen>
     <dimen name="coucou_animation_badge_scale">1.15</dimen>
+
+    <!-- SPRINT 4.5 Top Island Greeting proportions (aspect ratio ~3.7:1) -->
+    <dimen name="coucou_island_intro_width">350dp</dimen>
+    <dimen name="coucou_island_intro_height">92dp</dimen>
 </resources>

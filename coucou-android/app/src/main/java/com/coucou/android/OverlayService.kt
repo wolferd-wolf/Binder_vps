@@ -264,8 +264,8 @@ class OverlayService : Service() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         appLauncher = AppLauncher(this)
         router = DefaultCommandRouter(listOf(
-                LaunchAppCommandRouter(appLauncher!!),
-                AssistantRouter(this)
+                AssistantRouter(this),
+                LaunchAppCommandRouter(appLauncher!!)
             ))
         soundPlayer = SoundPlayer(this).also { it.preloadAvailable() }
         islandListener = IslandListener()
@@ -324,15 +324,22 @@ class OverlayService : Service() {
             // exactly what the page is waiting for.
             val result = router?.route(query)
             val text = when (result) {
-                is CommandResult.Success -> getString(R.string.command_opened, result.message ?: query)
+                is CommandResult.Success -> result.message ?: query
                 is CommandResult.Failed -> getString(R.string.command_failed, result.reason)
-                else -> getString(R.string.command_not_found, query)
+                else -> "I'm not sure what you mean. Try 'hello', 'open <app>', 'note: ...', or 'search <query>'."
             }
             setCharacterState(
                 if (result is CommandResult.Success) CoucouState.FINISHED else CoucouState.ERROR,
                 if (result is CommandResult.Success) SoundPlayer.Sound.SEND else SoundPlayer.Sound.ERROR
             )
             Log.i(TAG, "Island command '$query' -> $result")
+            mainHandler.post {
+                val cleanResponse = text.replace("'", "\\'").replace("\n", " ")
+                island?.view?.evaluateJavascript(
+                    "window.CoucouAndroid && window.CoucouAndroid.onChatResponse && window.CoucouAndroid.onChatResponse('$cleanResponse')",
+                    null
+                )
+            }
             return text
         }
 
@@ -397,10 +404,13 @@ class OverlayService : Service() {
         return START_STICKY
     }
 
-    /**
+/**
      * Start the overlay with the authentic desktop top island greeting:
-     * Positioned at TOP CENTER with dimensions width 360-390dp, height 140-160dp.
+     * Positioned at TOP CENTER with dimensions width 350dp, height 92dp (aspect ratio ~3.7:1).
      * The WebView Overlay is added first, with collapsed bubble hidden.
+     * Dimensions read from coucou_island_intro_width / coucou_island_intro_height resources.
+     * Coerced to max screen width via coerceAtMost() to never fill the screen.
+     * FLAG_NOT_FOCUSABLE is cleared on expand so the soft keyboard can pop up.
      */
     private fun startGreetingOverlay() {
         isGreetingActive = true
@@ -415,9 +425,9 @@ class OverlayService : Service() {
         params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
         params.x = 0
         params.y = 0
-        // Dimensions: width 360dp–390dp, height 140dp–160dp
-        params.width = dp(380).coerceAtMost(metrics.widthPixels)
-        params.height = dp(150)
+        // Dimensions: width 350dp, height 92dp (aspect ratio ~3.7:1)
+        params.width = resources.getDimensionPixelSize(R.dimen.coucou_island_intro_width).coerceAtMost(metrics.widthPixels)
+        params.height = resources.getDimensionPixelSize(R.dimen.coucou_island_intro_height)
         params.flags = baseFlags(focusable = false)
         params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
 
@@ -663,6 +673,50 @@ class OverlayService : Service() {
     }
 
     /**
+     * Expands to the assistant view, re-attaching the WebView overlay and clearing
+     * FLAG_NOT_FOCUSABLE so the soft keyboard can pop up when typing in the chat.
+     * This is called from onRootTouch when the collapsed bubble is tapped (not dragged).
+     */
+    private fun expandToAssistantView() {
+        if (island == null) {
+            Log.i(TAG, "No island to expand into; staying on the rectangle")
+            return
+        }
+        isExpanded = true
+        isExpandedState = true
+        isGreetingActive = false
+
+        bubbleView?.visibility = View.GONE
+        island?.view?.apply {
+            visibility = View.VISIBLE
+            alpha = 1f
+        }
+
+        val params = layoutParams ?: return
+        val metrics = resources.displayMetrics
+        if (islandWidthCss > 0 && islandHeightCss > 0) {
+            val bounds = IslandBridgeCommands.windowBounds(
+                islandWidthCss, islandHeightCss, metrics.density, metrics.widthPixels
+            )
+            params.width = bounds[0]
+            params.height = bounds[1]
+        } else {
+            params.width = dp(350).coerceAtMost(metrics.widthPixels)
+            params.height = dp(280)
+        }
+        params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        params.x = 0
+        params.y = dp(40)
+        islandFocused = true
+        params.flags = baseFlags(focusable = true)
+        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        clampOnScreen(params)
+        pushLayout()
+
+        revealPrompt()
+    }
+
+    /**
      * Shrinks back to the rectangle.
      *
      * Focus and the IME go first: the window has to stop being focusable for the app
@@ -844,9 +898,9 @@ class OverlayService : Service() {
             params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             params.x = 0
             params.y = 0
-            val metrics = resources.displayMetrics
-            params.width = dp(380).coerceAtMost(metrics.widthPixels)
-            params.height = dp(150)
+val metrics = resources.displayMetrics
+            params.width = resources.getDimensionPixelSize(R.dimen.coucou_island_intro_width).coerceAtMost(metrics.widthPixels)
+            params.height = resources.getDimensionPixelSize(R.dimen.coucou_island_intro_height)
             pushLayout()
             return
         }
@@ -1415,10 +1469,11 @@ class OverlayService : Service() {
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (!isDragging) {
+                if (!isDragging && Math.hypot((event.rawX - downRawX).toDouble(), (event.rawY - downRawY).toDouble()) < touchSlop) {
+                    bubbleView?.performClick()
+                    characterView?.performClick()
                     characterView?.onTap()
-                    playSound(SoundPlayer.Sound.BLIP)
-                    expand()
+                    expandToAssistantView()
                 } else {
                     // Smooth snap to screen edge on release
                     val cardSize = resources.getDimensionPixelSize(R.dimen.coucou_bubble_card_size)

@@ -53,9 +53,9 @@ export class Island {
   private views!: Map<IslandViewName, ViewHost>;
   private uploadCanvas!: UploadCanvas;
 
-  private width = new Tracked(getExpandedWidth());
-  private height = new Tracked(150);
-  private radius = new Tracked(EXPANDED_CORNER);
+  private width = new Tracked(350);
+  private height = new Tracked(92);
+  private radius = new Tracked(20);
   private botCx = new Spring(46);
   private botCy = new Spring(16);
   private botSize = new Spring(10);
@@ -289,9 +289,9 @@ export class Island {
     const GREETING_REF_W = 640;
     const expandedW = getExpandedWidth();
     this.greetingCanvas.width = Math.round(GREETING_REF_W * dpr);
-    this.greetingCanvas.height = Math.round(150 * dpr);
+    this.greetingCanvas.height = Math.round(92 * dpr);
     this.greetingCanvas.style.width = `${Math.min(expandedW, GREETING_REF_W)}px`;
-    this.greetingCanvas.style.height = "150px";
+    this.greetingCanvas.style.height = "92px";
 
     this.root.append(this.wakeStrip, this.islandEl);
     this.applyGeometry();
@@ -560,12 +560,22 @@ export class Island {
     // the state-driven DOM sync.
     this.miniGrid.style.left = `${w - 40 - 14.5}px`;
     this.miniGrid.style.top = `${hh / 2 - 14.5}px`;
+    if (State.view === "greeting") {
+      this.greetingCanvas.style.left = "0px";
+      this.greetingCanvas.style.top = "0px";
+      this.greetingCanvas.style.width = "100%";
+      this.greetingCanvas.style.height = "100%";
+      this.greetingCanvas.style.objectFit = "contain";
+    } else {
+      const expandedW = getExpandedWidth();
+      const GREETING_REF_W = 640;
+      const greetingDisplayW = Math.min(expandedW, GREETING_REF_W);
+      this.greetingCanvas.style.left = `${(w - greetingDisplayW) / 2}px`;
+      this.greetingCanvas.style.width = `${greetingDisplayW}px`;
+      this.greetingCanvas.style.height = "92px";
+    }
     const expandedW = getExpandedWidth();
-    const GREETING_REF_W = 640;
     const UPLOAD_REF_W = 640;
-    const greetingDisplayW = Math.min(expandedW, GREETING_REF_W);
-    this.greetingCanvas.style.left = `${(w - greetingDisplayW) / 2}px`;
-    this.greetingCanvas.style.width = `${greetingDisplayW}px`;
     const uploadDisplayW = Math.min(expandedW, UPLOAD_REF_W);
     this.uploadCanvas.el.style.left = `${(w - uploadDisplayW) / 2}px`;
     this.uploadCanvas.setDisplayWidth(uploadDisplayW);
@@ -925,6 +935,8 @@ export class Island {
     const expanded = State.mode === "expanded";
     const greetingActive = expanded && State.view === "greeting";
 
+    this.islandEl.classList.toggle("greeting-mode", greetingActive);
+    this.islandEl.dataset.view = State.view;
     this.contentEl.style.opacity = expanded ? "1" : "0";
     this.contentEl.style.pointerEvents = expanded ? "auto" : "none";
     this.greetingCanvas.style.display = greetingActive ? "block" : "none";

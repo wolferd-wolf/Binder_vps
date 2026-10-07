@@ -1,10 +1,15 @@
 package com.coucou.android
 
 import android.content.Context
-import android.content.SharedPreferences
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.util.Log
 import android.webkit.JavascriptInterface
 import com.coucou.android.IslandBridgeCommands.BridgeAction
+import com.coucou.android.IslandBridgeCommands.chatReply
+import com.coucou.android.IslandBridgeCommands.errorEnvelope
+import com.coucou.android.IslandBridgeCommands.nullEnvelope
+import com.coucou.android.IslandBridgeCommands.chatSend asbridgeChatsend
 
 /**
  * The Android end of the island bridge: the `window.CoucouNative` object the page's
@@ -94,6 +99,16 @@ internal class IslandBridgeHost(
     fun setCollapsed(collapsed: Boolean): String {
         listener.onIslandCollapsed(collapsed)
         return IslandBridgeCommands.nullEnvelope()
+    }
+
+    @JavascriptInterface
+    fun chatSend(query: String?, contextJson: String? = null): String {
+        val q = query.orEmpty().trim()
+        if (q.isEmpty()) {
+            return IslandBridgeCommands.errorEnvelope("Nothing to send.")
+        }
+        val replyText = listener.onChatQuery(q)
+        return IslandBridgeCommands.envelope(IslandBridgeCommands.chatReply(replyText))
     }
 
     /** Runs [action] and returns the envelope to hand back to the page. */

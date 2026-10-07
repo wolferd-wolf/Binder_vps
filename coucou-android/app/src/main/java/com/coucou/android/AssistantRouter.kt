@@ -41,20 +41,23 @@ class AssistantRouter(
             }
         }
 
-        // Task/Note intent: "note: <text>" / "task: <text>" / "remember <text>"
+        // Task/Note intent: "note: <text>" / "note <text>" / "task: <text>" / "task <text>" / "remember <text>"
         when {
-            q.startsWith("note:") -> {
-                val text = rawInput.substring(5).trim()
+            q.startsWith("note:") || q.startsWith("note ") -> {
+                val prefixLen = if (q.startsWith("note:")) 5 else 5
+                val text = rawInput.substring(prefixLen).trim()
                 taskStore.saveNote("note_${System.currentTimeMillis()}", text)
                 return CommandResult.Success("Note saved: '$text'")
             }
-            q.startsWith("task:") -> {
-                val text = rawInput.substring(5).trim()
+            q.startsWith("task:") || q.startsWith("task ") -> {
+                val prefixLen = if (q.startsWith("task:")) 5 else 5
+                val text = rawInput.substring(prefixLen).trim()
                 taskStore.saveNote("task_${System.currentTimeMillis()}", text)
                 return CommandResult.Success("Task saved: '$text'")
             }
-            q.startsWith("remember") -> {
-                val text = rawInput.substring(8).trim()
+            q.startsWith("remember:") || q.startsWith("remember ") -> {
+                val prefixLen = if (q.startsWith("remember:")) 9 else 9
+                val text = rawInput.substring(prefixLen).trim()
                 taskStore.saveNote("remember_${System.currentTimeMillis()}", text)
                 return CommandResult.Success("Remembered: '$text'")
             }

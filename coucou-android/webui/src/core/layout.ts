@@ -195,7 +195,7 @@ export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
   result: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
   note: { height: 160, botX: 60, botY: null, botDiameter: 50, agentMode: "column" },
   settings: { height: 160, botX: 54, botY: null, botDiameter: 46, agentMode: "none" },
-  greeting: { height: 150, botX: 320, botY: 90, botDiameter: 0, agentMode: "none" },
+  greeting: { height: 92, botX: 175, botY: 46, botDiameter: 0, agentMode: "none" },
 };
 
 // The upload views above are only the fallback geometry. Once a file is actually
@@ -220,6 +220,9 @@ export function islandSize(
     case "compact":
       return { w: getCompactWidth(), h: NOTCH_H };
     case "expanded": {
+      if (view === "greeting") {
+        return { w: 350, h: 92 };
+      }
       // For overview view: height matches content space (~264px) so nothing is cut off or overlaps
       const isOverview = view === "overview";
       const h = isOverview ? 264 : (view === "prompt" ? chatPromptHeight(chatCount) : VIEW_LAYOUTS[view].height);

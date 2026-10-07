@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+SESSION="agents"
+ROOT_DIR="/workspaces/Binder_vps"
+
+CMD_AGY="agy --dangerously-skip-permissions"
+CMD_OPENCODE="opencode"
+CMD_BUFFY="freebuff"
+CMD_CLINE="cline"
+
+echo "Recreating session..."
+tmux kill-session -t "$SESSION" 2>/dev/null
+
+cd "$ROOT_DIR" || exit 1
+tmux new-session -d -s "$SESSION" -n main -c "$ROOT_DIR"
+
+# 1. Split Left and Right:
+#    Left = Pane 0
+#    Right = Pane 1
+tmux split-window -h -t "$SESSION" -c "$ROOT_DIR"
+
+# 2. Split Left side into 3 panes:
+#    Pane 0 stays Top-Left
+#    Pane 2 becomes Mid-Left
+#    Pane 3 becomes Bottom-Left
+tmux split-window -v -t "$SESSION:0.0" -c "$ROOT_DIR"
+tmux split-window -v -t "$SESSION:0.2" -c "$ROOT_DIR"
+
+# 3. Split Right side into 2 panes:
+#    Pane 1 stays Top-Right
+#    Pane 4 becomes Bottom-Right (Boss Console)
+tmux split-window -v -t "$SESSION:0.1" -c "$ROOT_DIR"
+
+# Wait for bash shells to initialize
+sleep 1
+
+# Launch each agent into their exact panels:
+# Pane 0 (Top-Left): AGY
+tmux send-keys -t "$SESSION:0.0" -l "$CMD_AGY"; sleep 0.1; tmux send-keys -t "$SESSION:0.0" C-m
+
+# Pane 1 (Top-Right): OpenCode
+tmux send-keys -t "$SESSION:0.1" -l "$CMD_OPENCODE"; sleep 0.1; tmux send-keys -t "$SESSION:0.1" C-m
+
+# Pane 2 (Mid-Left): Buffy
+tmux send-keys -t "$SESSION:0.2" -l "$CMD_BUFFY"; sleep 0.1; tmux send-keys -t "$SESSION:0.2" C-m
+
+# Pane 3 (Bottom-Left): Cline
+tmux send-keys -t "$SESSION:0.3" -l "$CMD_CLINE"; sleep 0.1; tmux send-keys -t "$SESSION:0.3" C-m
+
+# Pane 4 (Bottom-Right): Boss Interactive Bash Shell
+tmux send-keys -t "$SESSION:0.4" "clear; echo '=== Pod Ready ==='" C-m
+
+# Select Boss shell in Pane 4 and attach
+tmux select-pane -t "$SESSION:0.4"
+tmux attach -t "$SESSION"

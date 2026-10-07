@@ -1,67 +1,71 @@
 # AGENT TEAM BOARD (CONCURRENT MODE)
 
-## Active Sprint: SPRINT 4.4 — Fix Startup Greeting (SOLO: @AGY)
+## Active Sprint: SPRINT 4.5 — Fix Aspect Ratio Stretch, Restore Bubble Tap & Wire Assistant Bridge
 
-### The Problem (Diagnosed from Device Video):
-When the user taps "Start Floating Bubble", the service immediately spawns the tiny collapsed bubble. The authentic desktop launch greeting never plays!
-In the real desktop version:
-1. The app starts as a **Top Island** at the very top of the screen (`x=0, y=0`).
-2. Inside that island is the **Header Bar** (`[Home]`, `[Chat]`, `[+]` on left; `[Settings]`, `[Audio]` on right).
-3. Behind Mochi is the **Starfield Canvas** (animated particles/stars on `#141518`).
-4. Mochi sits in the center waving hello (`GREET` state) while `coucou_greet.wav` plays.
-5. After ~2.5 seconds, the island triggers `collapse()` to transition into the small floating bubble.
+### Defects Diagnosed from Device Run (Commit 36b1b3e):
+1. **Stretched Top Island:** The intro animation is vertically stretched. Top island notch dimensions must be fixed to desktop proportions: width ~340dp–360dp, height ~92dp (aspect ratio ~3.7:1), with Canvas/SVG preserving aspect ratio (`object-fit: contain`).
+2. **Dead Bubble Tap:** Tapping the collapsed floating Mochi does nothing because `OnTouchListener` drag logic consumed all touches and broke the click/expand handler.
+3. **Dead Assistant Pipeline:** Once expanded, chat inputs must trigger the actual assistant router (open apps, save notes, web search) and post responses back to the WebUI.
 
 ---
 
-### Solo Assignment: @AGY (Pane 0)
+### Swimlanes & Assigned Tasks
 
-#### 1. Fix WebUI Greeting State (`coucou-android/webui`):
-- Inspect `webui/src/island/island.ts` and `webui/src/main.ts`:
-  * Ensure the initial boot view is set to **`greeting`** (not `overview`, not `chat`).
-  * The greeting state must render the header icons (`buildHeader()`), the canvas particle starfield, and Mochi in the `GREET` state.
-  * When the greeting animation completes (~2.5s), ensure it invokes `Bridge.collapse()` / `window.CoucouAndroid.collapse()`.
-- **CRITICAL RE-STAGE STEP:**
-  * Build and stage the web bundle:
-    ```bash
-    cd /workspaces/Binder_vps/coucou-android/webui
-    npm run build
-    node ../tools/stage-coucou-web.mjs
-    ```
-  * Verify that `app/src/main/assets/coucou/index.html` and its `assets/*.js` reflect the updated greeting bundle.
+- **@Cline (Pane 3 — WebUI Island Proportions & CSS Fix):**
+  - **Scope:** `coucou-android/webui/src/style.css`, `webui/src/island/island.ts`
+  - **Tasks:**
+    1. **Fix Island Dimensions & Stop Vertical Stretch:**
+       - The top greeting island must NOT stretch vertically. Set explicit compact dimensions:
+         `width: 350px; max-width: 92vw; height: 92px; border-radius: 20px;`
+       - Ensure the canvas container behind Mochi preserves aspect ratio (`width: 100%; height: 100%; object-fit: contain;`).
+       - Do NOT let the island container expand to 150px+ during greeting.
+    2. **Re-stage WebUI:**
+       - Rebuild webui bundle: `npm run build && node ../tools/stage-coucou-web.mjs`.
+  - **Handoff:** Notify @OpenCode via `./tell.sh cline opencode "island proportions fixed"`.
 
-#### 2. Fix Overlay Lifecycle in `OverlayService.kt`:
-- **Do NOT show the collapsed bubble on start:**
-  * On service launch / `startOverlay()`, the **WebView Overlay** must be added first.
-  * Position it at the **TOP CENTER** of the screen:
-    `gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL`, `x = 0, y = 0`.
-    Dimensions: width `360dp–390dp`, height `140dp–160dp`.
-- **Listen for Bridge Collapse:**
-  * When `IslandBridgeHost.kt` receives `collapse` / `set_collapsed(true)` from the WebView:
-    - Animate/remove the top island WebView.
-    - Show the small draggable floating bubble in the corner.
+- **@OpenCode (Pane 1 — Bubble Tap/Drag Separation & Assistant Router):**
+  - **Scope:** `OverlayService.kt`, `IslandBridgeHost.kt`, `AssistantRouter.kt`
+  - **Tasks:**
+    1. **Fix Dead Tap on Collapsed Bubble:**
+       - In `OverlayService.kt` `attachDragPhysics`:
+         ```kotlin
+         val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+         // On ACTION_UP:
+         if (!isDragging && Math.hypot((event.rawX - startX).toDouble(), (event.rawY - startY).toDouble()) < touchSlop) {
+             view.performClick()
+             expandToAssistantView() // Must un-hide/re-attach expanded WebView!
+         }
+         ```
+       - Ensure `expandToAssistantView()` re-attaches the expanded WebView overlay, centers it, and **clears `FLAG_NOT_FOCUSABLE`** so the soft keyboard can pop up when typing in the chat!
+    2. **Wire Assistant Router in `IslandBridgeHost.kt`:**
+       - Connect `chatSend(query)`:
+         * `"open <app>"` / `"launch <app>"` -> call fast `AppLauncher` (prefix >= 3 chars).
+         * `"note <text>"` / `"task <text>"` -> save in `TaskStore.kt`, reply `"Saved note: <text>"`.
+         * `"search <query>"` -> dispatch web browser Intent.
+         * Default/conversational -> return clean assistant response.
+       - Send response back into the WebView:
+         `webView.post { webView.evaluateJavascript("window.CoucouAndroid.onChatResponse('$cleanResponse')", null) }`
+  - **Handoff:** Notify @AGY via `./tell.sh opencode agy "tap gesture and assistant router wired"`.
 
-#### 3. Verification & Build:
-- Run `./gradlew assembleDebug` in `coucou-android/`.
-- Deploy to the emulator via adb and capture the startup sequence:
-  * Assert top island appears at `y=0` with header icons + stars + waving Mochi.
-  * Assert it automatically collapses into the floating bubble after the greeting completes.
-- Record results and publish the updated APK to `apks/coucou-android-debug.apk`.
+- **@Buffy (Pane 2 — Dimensions & Token Verification):**
+  - **Scope:** `res/values/dimens.xml`, `bg_bubble_card.xml`
+  - **Tasks:**
+    1. Verify `coucou_island_intro_width` = 350dp, `coucou_island_intro_height` = 92dp.
+    2. Ensure `bg_bubble_card.xml` retains the dark `#141518` card background.
+  - **Handoff:** Notify @AGY via `./tell.sh buffy agy "tokens verified"`.
+  - **VERIFICATION REPORT — @Buffy, SPRINT 4.5, 2026-10-07 17:55 UTC — ✅ BOTH TASKS PASS, NO FILES CHANGED BY ME:**
+    1. **`coucou_island_intro_width` = 350dp (dimens.xml:77), `coucou_island_intro_height` = 92dp (dimens.xml:78)** ✅ — 350/92 = **3.80:1**, inside the board's "340–360dp × 92dp (~3.7:1)" window. `dimens.xml` parses clean (XML well-formedness OK). The tokens were already present in the working tree (mtime 17:49, uncommitted — @Cline's in-flight lane wrote them; I verified, did not re-author).
+    2. **`bg_bubble_card.xml` retains the dark card** ✅ — `<solid android:color="@color/coucou_bubble_bg"/>` and `coucou_bubble_bg = #141518` (colors.xml:43); hairline `@color/coucou_hairline = #09FFFFFF` (colors.xml:36); radius `@dimen/coucou_prompt_card_radius` = 20dp. **Zero raw hex in the shape body** (the two `#141518`/`#09FFFFFF` hits are documentation-comment only). File parses clean.
+    3. Regression check: `coucou_bubble_card_size` still **66dp** (dimens.xml:51) — the value `OverlayService.bubbleCardPx()` (993), the drag clamp (1404-1405) and the edge snap (1423) all read, so drag geometry is untouched by this sprint.
+    4. ⚠️ **FINDING (non-blocking, outside my lane to patch):** `coucou_island_intro_width/height` currently have **zero consumers**. The native greeting window still hardcodes its rect — `OverlayService.kt:419-420` (`params.width = dp(380)`, `params.height = dp(150)`, `startGreetingOverlay`) and again at `OverlayService.kt:848-849` (`onIslandSized`). Once @Cline's page island is 350×92, the native window will sit 30dp wider and **58dp taller than its content** unless those two sites read the new tokens (or let the page rect drive it). The `380×150` comment on line 418 is now stale too. Flagged for @OpenCode (tap/expand lane owns `OverlayService.kt`) and @AGY's device pass.
+    5. **Scope note:** @Boss answered a lane-arbitration question with "Only my Buffy lane" — webui aspect ratio stays with @Cline (files were being edited live at 17:51–17:52), dead tap + router stay with @OpenCode. I touched no source files; this entry is the only write.
 
----
-
-### Status: COMPLETED ✅ (@AGY)
-- **WebUI Greeting State:**
-  * Initial boot view set to `greeting` and initial mode set to `expanded` in [`state.ts`](file:///workspaces/Binder_vps/coucou-android/webui/src/core/state.ts).
-  * Greeting duration tuned to 2.5s with waving Mochi and particle starfield in [`greeting.ts`](file:///workspaces/Binder_vps/coucou-android/webui/src/mochi/greeting.ts).
-  * In [`island.ts`](file:///workspaces/Binder_vps/coucou-android/webui/src/island/island.ts), `syncDom` keeps the header icons visible atop the starfield canvas and hides ordinary views during greeting.
-  * When greeting ends (~2.5s), invokes `collapse()`, `Bridge.collapse()`, and `window.CoucouAndroid.collapse()`.
-  * Staged via `npm run build && node ../tools/stage-coucou-web.mjs`. All web bridge verification checks passed.
-- **Android Overlay Lifecycle:**
-  * Updated [`OverlayService.kt`](file:///workspaces/Binder_vps/coucou-android/app/src/main/java/com/coucou/android/OverlayService.kt) to launch `startGreetingOverlay()` on service startup with `Gravity.TOP or Gravity.CENTER_HORIZONTAL`, `x=0, y=0`, width 380dp (clamped to screen width), height 150dp.
-  * Collapsed bubble is `GONE` initially while WebView is visible.
-  * In `collapse()`, the top island animates out and the small draggable floating bubble is positioned in the corner (`x=16dp, y=80dp`).
-  * Registered direct JavascriptInterface methods on [`IslandBridgeHost.kt`](file:///workspaces/Binder_vps/coucou-android/app/src/main/java/com/coucou/android/IslandBridgeHost.kt) and [`CoucouIslandWebView.kt`](file:///workspaces/Binder_vps/coucou-android/app/src/main/java/com/coucou/android/CoucouIslandWebView.kt).
-- **Build & Verification:**
-  * `./gradlew assembleDebug` succeeded.
-  * `./gradlew testDebugUnitTest` passed (all 28 tasks passed).
-  * Built APK published to [`apks/coucou-android-debug.apk`](file:///workspaces/Binder_vps/apks/coucou-android-debug.apk).
+- **@AGY (Pane 0 — Build Verification, QA & APK):**
+  - **Scope:** Gradle build pipeline, emulator QA & APK publication
+  - **Tasks:**
+    1. Run `./gradlew assembleDebug`.
+    2. Deploy to emulator via adb and test:
+       - Top island starts with normal, un-stretched aspect ratio (350x92dp) with starry background and waving Mochi.
+       - After collapsing, **tapping the bubble reliably expands the assistant window**.
+       - Typing `"note buy milk"` or `"open settings"` works and gives clean output.
+    3. Update APK in `apks/coucou-android-debug.apk` and report back.
