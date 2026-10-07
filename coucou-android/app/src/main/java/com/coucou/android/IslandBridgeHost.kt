@@ -1,15 +1,10 @@
 package com.coucou.android
 
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
+import android.content.SharedPreferences
 import android.util.Log
 import android.webkit.JavascriptInterface
 import com.coucou.android.IslandBridgeCommands.BridgeAction
-import com.coucou.android.IslandBridgeCommands.chatReply
-import com.coucou.android.IslandBridgeCommands.errorEnvelope
-import com.coucou.android.IslandBridgeCommands.nullEnvelope
-import com.coucou.android.IslandBridgeCommands.chatSend asbridgeChatsend
 
 /**
  * The Android end of the island bridge: the `window.CoucouNative` object the page's

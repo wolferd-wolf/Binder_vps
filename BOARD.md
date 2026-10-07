@@ -69,3 +69,9 @@
        - After collapsing, **tapping the bubble reliably expands the assistant window**.
        - Typing `"note buy milk"` or `"open settings"` works and gives clean output.
     3. Update APK in `apks/coucou-android-debug.apk` and report back.
+  - **STATUS — ✅ SPRINT 4.5 COMPLETE:**
+    - Aspect ratio locked to 350x92px (3.8:1) via WebUI layout, CSS (`object-fit: contain`), and native dimensions (`R.dimen.coucou_island_intro_width/height`).
+    - Collapsed bubble tap separated from drag via `touchSlop` check; `expandToAssistantView()` re-centers, reveals WebView overlay, and clears `FLAG_NOT_FOCUSABLE` for keyboard input.
+    - Assistant router connected for `"note <text>"`, `"task <text>"`, `"search <query>"`, `"open <app>"`, and clean conversational fallback with responses dispatched back to WebUI.
+    - `./gradlew testDebugUnitTest` and `./gradlew assembleDebug` passed cleanly.
+    - APK updated in `apks/coucou-android-debug.apk`.

@@ -404,7 +404,7 @@ class OverlayService : Service() {
         return START_STICKY
     }
 
-/**
+    /**
      * Start the overlay with the authentic desktop top island greeting:
      * Positioned at TOP CENTER with dimensions width 350dp, height 92dp (aspect ratio ~3.7:1).
      * The WebView Overlay is added first, with collapsed bubble hidden.
@@ -705,6 +705,8 @@ class OverlayService : Service() {
             params.height = dp(280)
         }
         params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        // Clear FLAG_NOT_FOCUSABLE so the soft keyboard can pop up when typing in the chat
+        params.flags = (params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()) or WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM.inv()
         params.x = 0
         params.y = dp(40)
         islandFocused = true
@@ -898,7 +900,7 @@ class OverlayService : Service() {
             params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             params.x = 0
             params.y = 0
-val metrics = resources.displayMetrics
+            val metrics = resources.displayMetrics
             params.width = resources.getDimensionPixelSize(R.dimen.coucou_island_intro_width).coerceAtMost(metrics.widthPixels)
             params.height = resources.getDimensionPixelSize(R.dimen.coucou_island_intro_height)
             pushLayout()
