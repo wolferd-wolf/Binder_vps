@@ -701,12 +701,15 @@ class OverlayService : Service() {
             params.width = bounds[0]
             params.height = bounds[1]
         } else {
-            params.width = dp(350).coerceAtMost(metrics.widthPixels)
-            params.height = dp(280)
+            params.width = resources.getDimensionPixelSize(R.dimen.coucou_island_width).coerceAtMost(metrics.widthPixels)
+            params.height = resources.getDimensionPixelSize(R.dimen.coucou_island_expanded_height)
         }
         params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        // Clear FLAG_NOT_FOCUSABLE so the soft keyboard can pop up when typing in the chat
-        params.flags = (params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()) or WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM.inv()
+        // baseFlags(focusable = true) rebuilds the flags and clears FLAG_NOT_FOCUSABLE *and*
+        // FLAG_ALT_FOCUSABLE_IM (see baseFlags), which is what lets the soft keyboard pop up
+        // when typing in the chat. Writing `or FLAG_ALT_FOCUSABLE_IM.inv()` here instead ORs in
+        // every other bit, re-setting FLAG_NOT_FOCUSABLE (0x8) and blocking the IME entirely.
+        params.flags = baseFlags(focusable = true)
         params.x = 0
         params.y = dp(40)
         islandFocused = true

@@ -72,20 +72,22 @@ body {
   position: absolute;
   top: 0;
   left: 50%;
-  /* SPRINT 4.5 @Boss: fixed compact island dimensions (350 × 92 dp, ~3.7:1 aspect ratio).
-     The greeting animation runs in a 640×150 reference space scaled down to fit.
-     max-width: 92vw keeps it responsive on small phones; height is fixed at 92dp. */
+  /* SPRINT 4.6 @Boss: fixed island dimensions (360 × 175 dp) — shows full header
+     AND full Mochi card without clipping. height was 92dp which cut Mochi in half. */
   background: var(--card);
   border-radius: 20px;
   overflow: visible;
   will-change: width, height, transform;
+  width: 360px;
+  max-width: 92vw;
+  height: 175px;
 }
 
 #island.greeting-mode,
 #island[data-view="greeting"] {
-  width: 350px !important;
+  width: 360px !important;
   max-width: 92vw !important;
-  height: 92px !important;
+  height: 175px !important;
   border-radius: 20px !important;
 }
 

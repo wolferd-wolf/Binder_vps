@@ -1,7 +1,9 @@
 package com.coucou.android
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.util.Log
 import android.webkit.JavascriptInterface
 import com.coucou.android.IslandBridgeCommands.BridgeAction
@@ -103,7 +105,14 @@ internal class IslandBridgeHost(
             return IslandBridgeCommands.errorEnvelope("Nothing to send.")
         }
         val replyText = listener.onChatQuery(q)
+        onChatResponse(replyText)
         return IslandBridgeCommands.envelope(IslandBridgeCommands.chatReply(replyText))
+    }
+
+    /** Called from the WebPage to send a chat response back. */
+    @JavascriptInterface
+    fun onChatResponse(response: String) {
+        Log.i(TAG, "Chat response from WebPage: $response")
     }
 
     /** Runs [action] and returns the envelope to hand back to the page. */

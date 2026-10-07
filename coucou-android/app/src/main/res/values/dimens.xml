@@ -73,7 +73,17 @@
     <dimen name="coucou_animation_eye_tilt_amount">0.06</dimen>
     <dimen name="coucou_animation_badge_scale">1.15</dimen>
 
-    <!-- SPRINT 4.5 Top Island Greeting proportions (aspect ratio ~3.7:1) -->
-    <dimen name="coucou_island_intro_width">350dp</dimen>
-    <dimen name="coucou_island_intro_height">92dp</dimen>
+    <!-- SPRINT 4.6 EMERGENCY RECOVERY — top island geometry.
+         SPRINT 4.5's 92dp intro clipped Mochi's lower body and the starry card, so the
+         intro grows to 175dp: header bar + full Mochi, nothing cut in half.
+           intro    360 x 175dp  (Phase 1 — greeting)
+           expanded 360 x 270dp  (Phase 3 — assistant panel tapped open)
+         coucou_island_width is the width both phases share, named by the SPRINT 4.6 board.
+         coucou_island_intro_width is the token OverlayService reads today
+         (startGreetingOverlay / onIslandSized), so it carries the same 360dp literal
+         instead of a @dimen reference — both stay greppable and must stay equal. -->
+    <dimen name="coucou_island_width">360dp</dimen>
+    <dimen name="coucou_island_intro_width">360dp</dimen>
+    <dimen name="coucou_island_intro_height">175dp</dimen>
+    <dimen name="coucou_island_expanded_height">270dp</dimen>
 </resources>
