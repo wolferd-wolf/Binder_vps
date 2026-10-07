@@ -66,3 +66,11 @@
        - Tapping the bubble opens directly into the Assistant/Chat panel.
        - Idle timeout smoothly transitions Mochi into the top Origin Island pill.
     3. Publish refreshed APK to `apks/coucou-android-debug.apk` and update `BOARD.md`.
+  - **Status / Verification:**
+    - `testDebugUnitTest`: BUILD SUCCESSFUL (28 tasks executed/up-to-date, 0 failures).
+    - `assembleDebug`: BUILD SUCCESSFUL (38 tasks, 7s).
+    - Resource Linking: `processDebugResources` clean; `coucou_origin_island_pill_width/height` (120x36dp) and `bg_origin_island_pill` (true black OLED punch-hole pill) fully resolved.
+    - Bubble Dimensions: Snug squircle tokens active (`coucou_bubble_size` = 48dp, `coucou_bubble_corner_radius` = 18dp, 38x30dp character).
+    - Touch & Tap: `OverlayHostLayout` outside touch guarded by `if (isExpanded) collapse()`, ignoring touches while collapsed; `expandToAssistantView()` sizes directly to 360x270dp with soft input adjust resize and opens chat/prompt directly.
+    - Published: `apks/coucou-android-debug.apk` refreshed and verified (11,383,973 bytes).
+
