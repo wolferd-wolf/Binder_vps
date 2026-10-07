@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPRINT 4.7 Origin Island dock background (@Buffy; layout owned by @Cline as
+     overlay_origin_island.xml).
+     What it is: the compact notch pill that Mochi auto-docks into when the idle /
+     auto-close timer fires (top-centre punch-hole, Gravity.TOP|CENTER_HORIZONTAL,
+     y=0). It must NOT appear when the user closes the overlay by hand — that is
+     @OpenCode's lifecycle rule, this file only draws the shape.
+       background  #000000  -> @color/coucou_origin_island_bg  TRUE BLACK, so the pill
+                               merges with the hardware cut-out instead of reading as a
+                               floating dark card (#141518 would show a seam here).
+       radius      18dp     -> @dimen/coucou_origin_island_radius, a full pill on the
+                               board's 36dp pill height (18 = 36 / 2).
+     No stroke: a hairline around the punch hole would outline the camera. Token
+     references only, zero raw hex, matching the house rule every other drawable
+     in res/drawable follows. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/coucou_origin_island_bg" />
+    <corners android:radius="@dimen/coucou_origin_island_radius" />
+</shape>

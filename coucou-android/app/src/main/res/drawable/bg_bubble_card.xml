@@ -6,7 +6,9 @@
      Upstream coucou/windows/src/style.css ".card" / ":root":
        background   #141518  -> @color/coucou_bubble_bg (dark card, NEVER white)
        hairline     rgba(255, 255, 255, 0.035) -> @color/coucou_hairline (#09FFFFFF)
-       radius       20px     -> @dimen/coucou_prompt_card_radius (20dp)
+       radius       18dp     -> @dimen/coucou_bubble_corner_radius (SPRINT 4.7 snug
+                                squircle; was 20px -> coucou_prompt_card_radius,
+                                which still belongs to the desktop prompt box)
      Token references only, zero raw hex, so a light-mode device cannot resolve
      this to a system surface colour.
      Consumers: @OpenCode's OverlayService.buildFallbackView() (replace the
@@ -18,5 +20,5 @@
     <stroke
         android:width="@dimen/coucou_prompt_card_stroke"
         android:color="@color/coucou_hairline" />
-    <corners android:radius="@dimen/coucou_prompt_card_radius" />
+    <corners android:radius="@dimen/coucou_bubble_corner_radius" />
 </shape>

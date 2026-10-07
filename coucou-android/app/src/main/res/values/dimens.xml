@@ -47,9 +47,30 @@
      The card token doubles as @OverlayService.bubbleCardPx(): the collapsed
      window rectangle before the first layout pass, and the basis of the drag
      clamp + edge snap — it must stay equal to the card the layout draws.
-     Expanded ask bar: 40dp avatar leading the row, 8dp gap to the input. -->
-    <dimen name="coucou_bubble_card_size">66dp</dimen>
-    <dimen name="coucou_bubble_character_size">53dp</dimen>
+     Expanded ask bar: 40dp avatar leading the row, 8dp gap to the input.
+     SPRINT 4.7 SUPERSEDES THE 66dp/53dp NUMBERS ABOVE (kept as provenance, not as
+     spec): the device run called the card "slightly too big and square", so the
+     card is now 48dp per the board ("snug to 48dp, or 46dp") and the legacy square
+     character token drops to 38dp so it can never exceed the card it sits in. -->
+    <dimen name="coucou_bubble_card_size">48dp</dimen>
+    <dimen name="coucou_bubble_character_size">38dp</dimen>
+
+    <!-- SPRINT 4.7 snug-bubble contract — @Buffy owns these, @Cline's
+         overlay_bubble.xml consumes them (board names them explicitly):
+           coucou_bubble_size            48dp  board's name for the SAME number as
+                                               coucou_bubble_card_size
+           coucou_bubble_corner_radius   18dp  smooth squircle on the 48dp card (37.5%)
+           coucou_character_collapsed_width / _height  38dp x 30dp  Mochi box in the card
+           coucou_origin_island_radius   18dp  full pill on the 36dp Origin Island dock
+         coucou_bubble_size MUST stay equal to coucou_bubble_card_size: the latter is
+         OverlayService.bubbleCardPx() — the collapsed window rectangle and the basis of
+         the drag clamp + edge snap — so a split between the two draws one card and
+         clamps another. -->
+    <dimen name="coucou_bubble_size">48dp</dimen>
+    <dimen name="coucou_bubble_corner_radius">18dp</dimen>
+    <dimen name="coucou_character_collapsed_width">38dp</dimen>
+    <dimen name="coucou_character_collapsed_height">30dp</dimen>
+    <dimen name="coucou_origin_island_radius">18dp</dimen>
     <dimen name="coucou_ask_character_size">40dp</dimen>
     <dimen name="coucou_ask_character_margin_end">8dp</dimen>
 
@@ -86,4 +107,12 @@
     <dimen name="coucou_island_intro_width">360dp</dimen>
     <dimen name="coucou_island_intro_height">175dp</dimen>
     <dimen name="coucou_island_expanded_height">270dp</dimen>
+
+    <!-- Origin Island dock pill geometry for @Cline's overlay_origin_island.xml
+         (board: 120 x 36dp pill). SPACING CORRECTED from the rushed `couchou_` typo
+         block that was in this file — nothing referenced the old names, and one of
+         them was a <dimen> holding a @color reference, which does not link.
+         Radius: coucou_origin_island_radius (above); fill: @color/coucou_origin_island_bg. -->
+    <dimen name="coucou_origin_island_pill_width">120dp</dimen>
+    <dimen name="coucou_origin_island_pill_height">36dp</dimen>
 </resources>

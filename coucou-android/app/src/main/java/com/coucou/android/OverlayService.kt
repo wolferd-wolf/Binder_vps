@@ -56,6 +56,9 @@ import com.google.android.material.color.MaterialColors
 class OverlayService : Service() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** Handler for auto-close background operations. */
+    private val autoCloseHandler = Handler(Looper.getMainLooper())
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
@@ -121,6 +124,8 @@ class OverlayService : Service() {
 
     private var isExpanded = false
     private var isGreetingActive = false
+    /** Set to true when overlay collapses due to auto-close timer; used to dock to Origin Island. */
+    private var autoClosed = false
     private var isDragging = false
     private var hasGreeted = false
 
@@ -135,6 +140,23 @@ class OverlayService : Service() {
     private var downTouchX = 0f
     private var downTouchY = 0f
     private val touchSlop by lazy { ViewConfiguration.get(this).scaledTouchSlop }
+
+    /** Starts the auto-close timer (15s inactivity). Resets on any bubble interaction. */
+    private fun startAutoCloseTimer() {
+        stopAutoCloseTimer()
+        autoCloseHandler.postDelayed({ autoClosed = true; collapse() }, AUTO_CLOSE_DELAY_MS)
+    }
+
+    /** Cancels the auto-close timer. */
+    private fun stopAutoCloseTimer() {
+        autoCloseHandler.removeCallbacksAndMessages(null)
+    }
+
+    /** Sets autoClosed flag and collapses; differentiates auto-dock vs user-dismiss. */
+    private fun requestAutoCollapse() {
+        autoClosed = true
+        collapse()
+    }
 
     companion object {
         const val CHANNEL_ID = "coucou_overlay_channel"
@@ -158,6 +180,7 @@ class OverlayService : Service() {
         private const val ID_PREFIX = "coucou_"
         private const val KEYBOARD_SHOW_DELAY_MS = 150L
         private const val COLLAPSE_DELAY_MS = 400L
+        private const val AUTO_CLOSE_DELAY_MS = 15_000L
 
         /**
          * Grace period between the page reporting ready and revealing the island, so the

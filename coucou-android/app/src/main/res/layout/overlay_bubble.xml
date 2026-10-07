@@ -15,16 +15,17 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/bubble_root"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content">
+    android:layout_width="@dimen/coucou_bubble_size"
+    android:layout_height="@dimen/coucou_bubble_size">
 
-    <com.google.android.material.card.MaterialCardView
+<com.google.android.material.card.MaterialCardView
         android:id="@+id/bubble_card"
-        android:layout_width="@dimen/coucou_bubble_card_size"
-        android:layout_height="@dimen/coucou_bubble_card_size"
-        app:cardCornerRadius="@dimen/coucou_prompt_card_radius"
-        app:cardElevation="6dp"
-        app:cardBackgroundColor="@color/coucou_card"
+        android:layout_width="@dimen/coucou_bubble_size"
+        android:layout_height="@dimen/coucou_bubble_size"
+        android:padding="3dp"
+        app:cardCornerRadius="@dimen/coucou_bubble_corner_radius"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="@color/coucou_bubble_bg"
         app:strokeWidth="1dp"
         app:strokeColor="@color/coucou_hairline">
 
@@ -33,7 +34,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_gravity="center"
-            android:layout_margin="4dp"
+            android:layout_margin="3dp"
             android:contentDescription="@string/app_name" />
 
     </com.google.android.material.card.MaterialCardView>
