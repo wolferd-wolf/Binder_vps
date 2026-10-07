@@ -104,6 +104,7 @@ export const Bridge = {
   dragStart: (x?: number) => call<void>("drag_start", { x }),
   dragBy: (dx: number, dy = 0) => call<void>("drag_by", { dx, dy }),
   dragEnd: () => call<void>("drag_end"),
+  collapse: () => call<void>("set_collapsed", { collapsed: true }),
 };
 
 export interface IntegrationUpdate {

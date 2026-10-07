@@ -109,6 +109,7 @@ internal class CoucouIslandWebView private constructor(
         )
 
         webView.addJavascriptInterface(bridge, NATIVE_INTERFACE)
+        webView.addJavascriptInterface(bridge, "CoucouAndroid")
         webView.webViewClient = IslandWebViewClient()
         webView.webChromeClient = IslandChromeClient()
     }

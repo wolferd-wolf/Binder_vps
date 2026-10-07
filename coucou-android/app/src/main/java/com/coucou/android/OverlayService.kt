@@ -120,6 +120,7 @@ class OverlayService : Service() {
     private var islandFocused = false
 
     private var isExpanded = false
+    private var isGreetingActive = false
     private var isDragging = false
     private var hasGreeted = false
 
@@ -373,7 +374,7 @@ class OverlayService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_EXPAND -> {
-                startAsForeground()
+                startAsForeground(showGreeting = false)
                 expand()
                 return START_STICKY
             }
@@ -382,7 +383,7 @@ class OverlayService : Service() {
                 return START_STICKY
             }
             ACTION_COMMAND -> {
-                startAsForeground()
+                startAsForeground(showGreeting = false)
                 val text = intent.getStringExtra(EXTRA_COMMAND).orEmpty()
                 if (text.isNotBlank()) {
                     submitCommand(text)
@@ -390,42 +391,64 @@ class OverlayService : Service() {
                 return START_STICKY
             }
             ACTION_START, null -> {
-                startAsForeground()
-                // Show the desktop intro card on service start
-                mainHandler.post { showIntroAndAnimate() }
+                startAsForeground(showGreeting = true)
             }
         }
         return START_STICKY
     }
 
     /**
-     * Show the authentic desktop greeting in the WebView at the top of the screen.
-     * The WebView is already warmed from startAsForeground(); we just make it visible
-     * and let the web code's own greeting sequence run (header icons, starfield, Mochi).
+     * Start the overlay with the authentic desktop top island greeting:
+     * Positioned at TOP CENTER with dimensions width 360-390dp, height 140-160dp.
+     * The WebView Overlay is added first, with collapsed bubble hidden.
      */
-    private fun showIntroAndAnimate() {
-        ensureContainer()?.let { container ->
-            // Show the island WebView, hide the collapsed bubble
-            island?.view?.visibility = View.VISIBLE
-            bubbleView?.visibility = View.GONE
+    private fun startGreetingOverlay() {
+        isGreetingActive = true
+        isExpanded = true
+        isExpandedState = true
 
-            // Position at the top of the screen, centered horizontally
-            layoutParams?.let { params ->
-                params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                params.x = 0
-                params.y = 0
-                params.width = WindowManager.LayoutParams.WRAP_CONTENT
-                params.height = WindowManager.LayoutParams.WRAP_CONTENT
-                params.flags = baseFlags(focusable = false)
-                clampOnScreen(params)
-                pushLayout()
-            }
+        val root = ensureContainer() ?: return
+        val params = layoutParams ?: buildLayoutParams().also { layoutParams = it }
+        val metrics = resources.displayMetrics
+
+        // Position it at the TOP CENTER of the screen
+        params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        params.x = 0
+        params.y = 0
+        // Dimensions: width 360dp–390dp, height 140dp–160dp
+        params.width = dp(380).coerceAtMost(metrics.widthPixels)
+        params.height = dp(150)
+        params.flags = baseFlags(focusable = false)
+        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
+
+        // Do NOT show the collapsed bubble on start: show WebView Overlay first
+        bubbleView?.visibility = View.GONE
+        island?.view?.apply {
+            visibility = View.VISIBLE
+            alpha = 1f
         }
-        // The WebView's main.ts automatically launches the greeting on page load
-        // No native character view greeting needed - WebView handles it via greeting.ts
+        errorView?.visibility = View.GONE
+
+        try {
+            if (overlayView == null) {
+                windowManager?.addView(root, params)
+                overlayView = root
+            } else {
+                windowManager?.updateViewLayout(root, params)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to place the greeting overlay window", e)
+            overlayView = null
+        }
+
+        islandWarm = true
+        islandHosting = true
+        islandDescription = describeWindow(params)
+        island?.resume()
+        island?.load()
     }
 
-    private fun startAsForeground() {
+    private fun startAsForeground(showGreeting: Boolean = false) {
         isRunning = true
         val notification = createNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -444,8 +467,12 @@ class OverlayService : Service() {
             Toast.makeText(this, R.string.overlay_permission_required, Toast.LENGTH_LONG).show()
             return
         }
-        warmIsland()
-        applyWindowState()
+        if (showGreeting) {
+            startGreetingOverlay()
+        } else {
+            warmIsland()
+            applyWindowState()
+        }
     }
 
     // region overlay window
@@ -524,6 +551,7 @@ class OverlayService : Service() {
             FrameLayout.LayoutParams.WRAP_CONTENT
         )
         root.addView(bubble)
+        if (island == null) inflateIsland()
         island?.view?.apply {
             layoutParams = fill
             visibility = View.GONE
@@ -642,14 +670,53 @@ class OverlayService : Service() {
      * keyboard is dismissed or the IME keeps the window alive.
      */
     private fun collapse() {
-        if (!isExpanded && overlayView == null) return
+        if (!isExpanded && overlayView == null && island?.view?.visibility != View.VISIBLE) return
         revealPending = false
         isExpanded = false
+        isExpandedState = false
+        isGreetingActive = false
         if (islandFocused) {
             islandFocused = false
             setFocusable(false)
         }
-        applyWindowState()
+
+        val wm = windowManager ?: return
+        val root = overlayView ?: return
+        val params = layoutParams ?: return
+
+        val iv = island?.view
+        if (iv != null && iv.visibility == View.VISIBLE) {
+            iv.animate()
+                .alpha(0f)
+                .setDuration(200)
+                .withEndAction {
+                    iv.visibility = View.GONE
+                    iv.alpha = 1f
+                    showCollapsedBubble(wm, root, params)
+                }
+                .start()
+        } else {
+            showCollapsedBubble(wm, root, params)
+        }
+    }
+
+    private fun showCollapsedBubble(wm: WindowManager, root: View, params: WindowManager.LayoutParams) {
+        applyCollapsedParams(params)
+        // Position in the corner
+        params.gravity = Gravity.TOP or Gravity.START
+        params.x = dp(16)
+        params.y = dp(80)
+        bubbleView?.visibility = View.VISIBLE
+        bubbleView?.alpha = 0f
+        bubbleView?.animate()?.alpha(1f)?.setDuration(200)?.start()
+        clampOnScreen(params)
+        try {
+            wm.updateViewLayout(root, params)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update layout for collapsed bubble", e)
+        }
+        characterView?.setHostVisible(true)
+        islandDescription = describeWindow(params)
     }
 
     /**
@@ -757,8 +824,10 @@ class OverlayService : Service() {
         Log.i(TAG, "Island page ready; screen=${resources.displayMetrics.widthPixels}px")
         islandFailed = false
         islandDescription = "island: booted sized=$islandSized"
-        island?.showPrompt()
-        if (islandSized) applyWindowState()
+        if (!isGreetingActive) {
+            island?.showPrompt()
+            if (islandSized) applyWindowState()
+        }
     }
 
     /**
@@ -770,6 +839,17 @@ class OverlayService : Service() {
     private fun onIslandSized() {
         val firstTime = !islandSized
         islandSized = true
+        if (isGreetingActive) {
+            val params = layoutParams ?: return
+            params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            params.x = 0
+            params.y = 0
+            val metrics = resources.displayMetrics
+            params.width = dp(380).coerceAtMost(metrics.widthPixels)
+            params.height = dp(150)
+            pushLayout()
+            return
+        }
         if (isExpanded) {
             applyPanelParams(layoutParams ?: return)
             clampOnScreen(layoutParams ?: return)

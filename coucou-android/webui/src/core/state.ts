@@ -111,8 +111,8 @@ export const DEFAULT_SETTINGS: Settings = {
 type Listener = () => void;
 
 class AppState {
-  mode: IslandMode = "hidden";
-  view: IslandViewName = "overview";
+  mode: IslandMode = "expanded";
+  view: IslandViewName = "greeting";
 
   tasks: AgentTask[] = [];
   focusId: string | null = null;

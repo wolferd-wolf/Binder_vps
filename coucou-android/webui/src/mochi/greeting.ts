@@ -24,8 +24,8 @@ const T = {
   blink2: 3.8,
   tint0: 3.85,
   tint1: 4.15,
-  end: 4.6,
-  autoLeave: 4.9,
+  end: 2.5,
+  autoLeave: 2.5,
   COLLAPSE: 0.34,
 };
 
@@ -500,7 +500,7 @@ export class Greeting {
     this.timers.push(
       window.setTimeout(() => Sound.play("greet"), T.pop0 * 1000),
       window.setTimeout(() => Sound.play("blip"), T.badge * 1000),
-      window.setTimeout(() => this.fire(), (T.end + 0.05) * 1000),
+      window.setTimeout(() => this.fire(), T.end * 1000),
     );
   }
 

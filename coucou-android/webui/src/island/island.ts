@@ -53,9 +53,9 @@ export class Island {
   private views!: Map<IslandViewName, ViewHost>;
   private uploadCanvas!: UploadCanvas;
 
-  private width = new Tracked(getCompactWidth());
-  private height = new Tracked(0);
-  private radius = new Tracked(ROUNDED_CORNER);
+  private width = new Tracked(getExpandedWidth());
+  private height = new Tracked(150);
+  private radius = new Tracked(EXPANDED_CORNER);
   private botCx = new Spring(46);
   private botCy = new Spring(16);
   private botSize = new Spring(10);
@@ -134,7 +134,13 @@ export class Island {
     this.wireFsm();
     this.wireInput();
     this.engine.onDizzy = () => this.handleDizzy();
-    this.greeting.onComplete = () => this.fsm.greetComplete();
+    this.greeting.onComplete = () => {
+      this.fsm.greetComplete();
+      this.collapse();
+      void Bridge.collapse();
+      const coucouAndroid = (window as unknown as { CoucouAndroid?: { collapse?: () => void } }).CoucouAndroid;
+      coucouAndroid?.collapse?.();
+    };
     State.subscribe(() => {
       this.dirty = true;
       this.ensureRunning();
@@ -391,6 +397,9 @@ export class Island {
     // back left it thinking the island was still open, and a click on the compact
     // island then did nothing — the island could never be reopened.
     this.fsm.forcePetit();
+    void Bridge.collapse();
+    const coucouAndroid = (window as unknown as { CoucouAndroid?: { collapse?: () => void } }).CoucouAndroid;
+    coucouAndroid?.collapse?.();
   }
 
   /** Alert from the hook server: open on this view. Pinned alerts never auto-close. */
@@ -916,13 +925,14 @@ export class Island {
     const expanded = State.mode === "expanded";
     const greetingActive = expanded && State.view === "greeting";
 
-    this.contentEl.style.opacity = expanded && !greetingActive ? "1" : "0";
-    this.contentEl.style.pointerEvents = expanded && !greetingActive ? "auto" : "none";
+    this.contentEl.style.opacity = expanded ? "1" : "0";
+    this.contentEl.style.pointerEvents = expanded ? "auto" : "none";
     this.greetingCanvas.style.display = greetingActive ? "block" : "none";
 
     this.header.sync();
+    this.viewsEl.style.display = greetingActive ? "none" : "";
     for (const [name, view] of this.views) {
-      const on = name === State.view;
+      const on = !greetingActive && name === State.view;
       view.el.classList.toggle("on", on);
       if (on) view.sync();
     }

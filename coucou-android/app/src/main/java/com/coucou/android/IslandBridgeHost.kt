@@ -84,6 +84,18 @@ internal class IslandBridgeHost(
         return execute(action)
     }
 
+    @JavascriptInterface
+    fun collapse(): String {
+        listener.onIslandCollapsed(true)
+        return IslandBridgeCommands.nullEnvelope()
+    }
+
+    @JavascriptInterface
+    fun setCollapsed(collapsed: Boolean): String {
+        listener.onIslandCollapsed(collapsed)
+        return IslandBridgeCommands.nullEnvelope()
+    }
+
     /** Runs [action] and returns the envelope to hand back to the page. */
     fun execute(action: BridgeAction): String = try {
         when (action) {

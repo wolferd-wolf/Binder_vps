@@ -28,7 +28,8 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
-const upstream = resolve(process.argv[2] ?? "/workspaces/Binder_vps/coucou/windows");
+const webuiDir = join(repoRoot, "webui");
+const upstream = resolve(process.argv[2] ?? (existsSync(webuiDir) ? webuiDir : "/workspaces/Binder_vps/coucou/windows"));
 const outDir = join(repoRoot, "app/src/main/assets/coucou");
 
 if (!existsSync(join(upstream, "vite.config.ts")) || !existsSync(join(upstream, "vite.config.android.ts"))) {
