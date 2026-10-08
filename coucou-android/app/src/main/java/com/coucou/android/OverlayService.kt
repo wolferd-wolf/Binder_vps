@@ -30,6 +30,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ContextThemeWrapper
 import android.view.WindowManager
+import android.view.ViewOutlineProvider
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -530,6 +531,10 @@ class OverlayService : Service() {
             applyPanelParams(params)
             bubbleView?.visibility = View.GONE
             islandView?.visibility = if (islandFailed) View.GONE else View.VISIBLE
+            // Apply background and outline clipping to ensure 20dp corner radius on WebView
+            islandView?.setBackgroundResource(R.drawable.bg_webview_container)
+            islandView?.outlineProvider = ViewOutlineProvider.BACKGROUND
+            islandView?.clipToOutline = true
             errorView?.visibility = if (islandFailed) View.VISIBLE else View.GONE
         } else {
             applyCollapsedParams(params)
@@ -709,12 +714,17 @@ class OverlayService : Service() {
      */
     private fun expandToAssistantView() {
         // Directly expand the WebView to full assistant size (360x270dp)
-        // Keep the bubble visible 24/7; do NOT hide it
         isExpanded = true
         isExpandedState = true
         isGreetingActive = false
 
+        // Hide the bubble when chat is expanded
+        bubbleView?.visibility = View.GONE
+
         island?.view?.apply {
+            setBackgroundResource(R.drawable.bg_webview_container)
+            outlineProvider = ViewOutlineProvider.BACKGROUND
+            clipToOutline = true
             visibility = View.VISIBLE
             alpha = 1f
         }
@@ -741,7 +751,6 @@ class OverlayService : Service() {
             "if (window.CoucouAndroid && window.CoucouAndroid.openChat) { window.CoucouAndroid.openChat(); } else if (window.CoucouAndroid) { window.CoucouAndroid.setCollapsed(false); }",
             null
         )
-
     }
 
     /**

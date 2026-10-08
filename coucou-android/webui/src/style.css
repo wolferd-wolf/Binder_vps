@@ -98,6 +98,20 @@ body {
   border-radius: inherit;
 }
 
+/* ── Card radius & overflow ────────────────────────────────────────────── */
+.island-card,
+.chat-view {
+  border-radius: 20px !important;
+  overflow: hidden !important;
+}
+
+/* Ensure chat-history container has 20dp squircle on all corners */
+.chat-history {
+  border-radius: 20px !important;
+  overflow: hidden !important;
+}
+/* ── End card radius ───────────────────────────────────────────────────── */
+
 #bot-canvas {
   position: absolute;
   pointer-events: none;

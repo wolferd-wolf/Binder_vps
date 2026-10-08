@@ -55,7 +55,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        binding.btnStopOverlay.setOnClickListener {
+        binding.btnStopBubble.setOnClickListener {
             stopOverlayService()
         }
     }
@@ -109,10 +109,10 @@ class MainActivity : AppCompatActivity() {
 
         if (OverlayService.isRunning) {
             binding.serviceStatusText.setText(R.string.overlay_status_running)
-            binding.btnStopOverlay.isEnabled = true
+            binding.btnStopBubble.isEnabled = true
         } else {
             binding.serviceStatusText.setText(R.string.overlay_status_stopped)
-            binding.btnStopOverlay.isEnabled = false
+            binding.btnStopBubble.isEnabled = false
         }
     }
 }

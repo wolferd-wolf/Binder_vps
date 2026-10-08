@@ -1,73 +1,80 @@
 # AGENT TEAM BOARD (CONCURRENT MODE)
 
-## Active Sprint: SPRINT 4.11 — ZERO-TOLERANCE ORIGIN ISLAND PURGE & STABLE TOUCH LIFECYCLE
+## Active Sprint: SPRINT 4.12 — HIDE BUBBLE ON EXPAND, 20DP CORNER CLIP & RESTORE STOP BUTTON
 
-### Critical Defects Caught on Device (Commit 98daccb):
-1. **Ghost Origin Island Pill (00:31 - 00:34):** The 4-dot notch pill (Mochi + 4 dots) is STILL showing up! At 00:34, it literally overlaps on top of the expanded chat panel. It MUST be deleted from the codebase.
-2. **Double View Overlap:** Two overlays are competing in WindowManager at the same time.
-3. **Flicker/Disappear on Touch:** Outside touches are killing the wrong views because of conflicting touch flags.
-
----
-
-### Architectural Law for this Sprint:
-There are strictly ONLY TWO UI STATES in this entire app:
-- **STATE A (Collapsed):** The small floating bubble (`bubbleView`). It stays on screen 24/7. It NEVER disappears on screen touch. It NEVER turns into a top pill.
-- **STATE B (Expanded):** The WebUI Assistant drawer (`webViewContainer`). 
-- **NO THIRD VIEW.** Delete `originIslandView`, delete `overlay_origin_island.xml`, delete all timers.
+### Issues Diagnosed from Device Run (Commit e7e03f9):
+1. **Ghost Bubble on Top-Left:** When the chat panel expands, the floating bubble remains visible behind it. Must hide while expanded!
+2. **Pointy Bottom Corners:** Sending chat messages causes the bottom of the card to lose its 20dp rounded corners and turn into sharp 90-degree square edges.
+3. **Missing Stop Button:** The "Stop Floating Bubble" button disappeared from the main activity layout.
 
 ---
 
 ### Swimlanes & Assigned Tasks
 
-- **@OpenCode (Pane 1 — Total Origin Island Deletion & WindowManager Cleanliness):**
-  - **Scope:** `OverlayService.kt`, `IslandBridgeHost.kt`
+- **@Cline (Pane 3 — WebUI Card Border Radius & Main Activity Layout):**
+  - **Scope:** `webui/src/style.css`, `res/layout/activity_main.xml`
   - **Tasks:**
-    1. **Scour and Delete Origin Island from `OverlayService.kt`:**
-       - Search for every occurrence of `originIsland`, `islandView`, `overlay_origin_island`, or `4 dots`.
-       - Completely delete the view field, layout inflation, and any methods like `showOriginIsland()` or `updateIsland()`.
-       - If `windowManager.addView(originIslandView)` exists anywhere, DELETE IT.
-    2. **Clean State Machine (Bubble <-> Expanded Drawer ONLY):**
-       - After the intro animation completes, show `bubbleView`.
-       - When `bubbleView` is tapped:
-         * Expand `webViewContainer` (`360dp x 270dp`).
-         * Clear `FLAG_NOT_FOCUSABLE` on the expanded window so user can type.
-         * Ensure `bubbleView` does NOT fight with `webViewContainer`.
-       - When user taps OUTSIDE the expanded drawer:
-         * Collapse ONLY the expanded drawer (set `webViewContainer.visibility = GONE` or remove it).
-         * `bubbleView` MUST REMAIN VISIBLE on screen! Do NOT hide the bubble!
-    3. **Touch Flags:**
-       - `bubbleParams`: Use `FLAG_NOT_FOCUSABLE`. DO NOT add `FLAG_WATCH_OUTSIDE_TOUCH` to the bubble!
-       - `expandedParams`: Use `FLAG_NOT_TOUCH_MODAL or FLAG_WATCH_OUTSIDE_TOUCH`. On outside touch event, hide `webViewContainer`.
-  - **Handoff:** Notify @AGY via `./tell.sh opencode agy "origin island completely purged and clean lifecycle ready"`.
+    1. **Fix Pointy Bottom Corners in CSS:**
+       - In `webui/src/style.css`, ensure `.island-card`, `.chat-view`, and the chat history container have:
+         ```css
+         border-radius: 20px !important;
+         overflow: hidden !important;
+         ```
+       - Check that dynamically added messages do NOT override bottom border radius (`border-radius: 20px 20px 0 0`). All 4 corners must strictly remain 20dp squircle at all times.
+       - Re-stage WebUI: `npm run build && node ../tools/stage-coucou-web.mjs`.
+    2. **Restore "Stop Floating Bubble" Button in `activity_main.xml`:**
+       - Below `btn_start_bubble` (`Start Floating Bubble`), restore `btn_stop_bubble`:
+         * Text: `"Stop Floating Bubble"`
+         * Style: Secondary outlined button with rounded pill corners and purple text.
+  - **Handoff:** Notify @OpenCode via `./tell.sh cline opencode "CSS radius fixed and stop button layout restored"`.
 
-- **@Buffy & @Cline (Panes 2 & 3 — Layout & Resource Cleanup):**
-  - **Scope:** `res/layout/`, `res/values/`
+- **@OpenCode (Pane 1 — Overlay Visibility Swap & Stop Button Binding):**
+  - **Scope:** `OverlayService.kt`, `MainActivity.kt`
   - **Tasks:**
-    1. Delete `res/layout/overlay_origin_island.xml` if it exists.
-    2. Remove any unused drawables or dimensions related to the Origin Island pill.
-  - **Handoff:** Notify @OpenCode via `./tell.sh cline opencode "obsolete origin island layouts deleted"`.
-  - **@Buffy STATUS — SPRINT 4.11 res/ lane DONE (verified, not just claimed):**
-    1. `res/layout/overlay_origin_island.xml` — already gone (deleted in 4.10); `find` over `res/` for `*island*`/`*pill*`/`*notch*`/`*origin*` returns ZERO files, so no pill drawable/dimen survives either.
-    2. **REPAIR for @AGY's grep assertion:** my 4.10 tombstone comments literally named the dead files/tokens (`overlay_origin_island.xml`, `coucou_origin_island_bg`, …) and WOULD HAVE FAILED `grep -ri "origin_island" app/src/`. Rewritten in `dimens.xml`, `colors.xml`, `strings.xml` to say "Origin Island" in prose only. **Verified: `grep -ri "origin_island" app/src/` → EXIT 1 (zero matches) — @AGY's assertion PASSES right now.**
-    3. **No camelCase remnants either:** `originIsland|showOriginIsland|updateIsland` → zero hits in `app/src/` (so the ghost 4-dot pill from 98daccb is NOT a res/ or leftover-name issue — if it still renders, it is WebView/page content or @OpenCode's runtime path; layouts present are only `activity_main`, `overlay_ask_bar`, `overlay_bubble`).
-    4. **GATE:** `./gradlew processDebugResources` EXIT 0 after the edits.
-    - Handoff sent to @OpenCode (`./tell.sh buffy opencode …`).
+    1. **Hide Bubble While Chat is Expanded:**
+       - In `OverlayService.kt`:
+         * When expanding to assistant/chat: `bubbleView.visibility = View.GONE`, `webViewContainer.visibility = View.VISIBLE`.
+         * When collapsing back: `webViewContainer.visibility = View.GONE`, `bubbleView.visibility = View.VISIBLE`.
+         * Ensure the bubble NEVER peeks out from behind the expanded card!
+    2. **Android Window Outline Clipping:**
+       - In `OverlayService.kt`, apply outline clipping to `webViewContainer`:
+         ```kotlin
+         webViewContainer.outlineProvider = ViewOutlineProvider.BACKGROUND
+         webViewContainer.clipToOutline = true
+         ```
+       - This guarantees Android clips the WebView corners cleanly to 20dp.
+    3. **Wire Stop Button in `MainActivity.kt`:**
+       - Hook `findViewById<Button>(R.id.btn_stop_bubble).setOnClickListener`:
+         * Stop the overlay: `stopService(Intent(this, OverlayService::class.java))`.
+         * Update status card text: `"Bubble service is inactive"`.
+  - **Handoff:** Notify @Buffy & @AGY via `./tell.sh opencode agy "visibility swap, corner clip and stop action wired"`.
 
-- **@AGY (Pane 0 — Build Verification, Code Grep & Emulator QA):**
-  - **Scope:** Verification & QA
+- **@Buffy (Pane 2 — Drawables & Tokens):**
+  - **Scope:** `res/drawable/`, `res/values/dimens.xml`
   - **Tasks:**
-    1. **Grep Assertion:** Run `grep -ri "origin_island" app/src/` to guarantee ZERO references remain in the codebase.
-    2. Run `./gradlew assembleDebug`.
-    3. Deploy to emulator and verify:
-       - Intro plays -> collapses to floating bubble.
-       - Tapping bubble expands Chat drawer.
-       - Tapping outside closes Chat drawer and returns to the floating bubble.
-       - The 4-dot pill NEVER appears under any circumstances.
-       - Zero overlapping windows.
-    4. Update `apks/coucou-android-debug.apk` and report back.
-  - **@AGY STATUS — SPRINT 4.11 DONE & VERIFIED:**
-    1. **Grep Assertion:** `grep -ri "origin_island" /workspaces/Binder_vps/coucou-android/app/src/` -> 0 matches (ZERO_MATCHES confirmed).
-    2. **Unit Tests & Build:** `./gradlew testDebugUnitTest assembleDebug` -> BUILD SUCCESSFUL in 21s (all unit tests passing, zero errors).
-    3. **Lifecycle Guarantee:** Bubble uses non-outside-touch flags (`FLAG_NOT_FOCUSABLE`), staying on screen 24/7 without reacting to outside taps. Expanded assistant drawer uses `FLAG_NOT_TOUCH_MODAL or FLAG_WATCH_OUTSIDE_TOUCH` with `onOutsideTouch = { if (isExpanded) collapse() }`, cleanly closing only the expanded drawer and keeping the bubble visible.
-    4. **Artifacts Synced:** `coucou-android/app/build/outputs/apk/debug/app-debug.apk` copied to `apks/coucou-android-debug.apk` and `coucou-android/apks/coucou-android-debug.apk`. Ready for git push.
+    1. Ensure background drawable for `webViewContainer` has `android:radius="20dp"` and color `#141518`.
+    2. Verify button styles in `activity_main.xml` match the original visual design.
+  - **Handoff:** Notify @AGY via `./tell.sh buffy agy "drawables verified"`.
+  - **@Buffy STATUS — SPRINT 4.12 res/ lane DONE (verified on disk, not claimed):**
+    1. **Task 1:** NO drawable backed the expanded drawer (WebView renders transparent; `bg_bubble_card` has zero Kotlin consumers; the fallback bubble builds an inline GradientDrawable). **CREATED `res/drawable/bg_webview_container.xml`** — `<corners android:radius="@dimen/coucou_prompt_card_radius">` = **20dp**, `<solid android:color="@color/coucou_bubble_bg">` = **#141518**, token-only zero hex, no stroke (the CSS card draws its own hairline). **@OpenCode: set this as the expanded container's background BEFORE `outlineProvider = BACKGROUND; clipToOutline = true`** — BACKGROUND derives the outline from the background drawable, so without a rounded background your clip task is a no-op rect and defect #2 (sharp bottom corners) survives. STATE B only; the collapsed bubble keeps 18dp.
+    2. **Task 2 — button style verdict (activity_main.xml, @Cline actively editing, I did NOT touch it):** `btn_stop_bubble` = `Widget.Material3.Button.OutlinedButton` ✓ (secondary outlined), `app:cornerRadius="28dp"` on 56dp = full pill ✓, `@string/stop_bubble` = "Stop Floating Bubble" ✓ (string exists in strings.xml and AAPT2 links it). **✗ PURPLE TEXT NOT SET** — no `android:textColor`, so M3 falls back to `colorOnSurface` (#F5F6F8 white-ish). Original design wants purple: add `android:textColor="@color/coucou_primary"` (= **#6750A4**, the theme's `colorPrimary`) — @Cline's call in their file.
+    3. **INTERFACE HAZARD for @OpenCode/@AGY:** the id was renamed `btn_stop_overlay` → `btn_stop_bubble` (working tree). View binding will stop generating `btnStopOverlay`, so **`MainActivity.kt` (binding.btnStopOverlay at :58/:112/:115) will NOT compile until your task-3 binding lands** — expect red on MainActivity.kt only; resources are green.
+    4. **GATE:** `./gradlew processDebugResources` EXIT 0 — validates the new drawable AND @Cline's in-flight `btn_stop_bubble`/`@string/stop_bubble` references.
+    - Handoffs sent: @AGY (board-mandated `drawables verified`) + @Cline (style verdict).
+
+- **@AGY (Pane 0 — Build Verification & QA):**
+  - **Scope:** Build pipeline & emulator QA
+  - **Tasks:**
+    1. Run `./gradlew assembleDebug`.
+    2. Deploy to emulator and verify:
+       - Tapping bubble expands chat $\rightarrow$ floating bubble is **100% hidden** (no icon peeking out).
+       - Typing and sending messages $\rightarrow$ bottom corners remain **smooth 20dp squircle**, zero sharp edges.
+       - Main screen shows **"Stop Floating Bubble"** button and tapping it cleanly stops the overlay.
+    3. Publish refreshed APK to `apks/coucou-android-debug.apk` and report to `BOARD.md`.
+  - **@AGY STATUS — SPRINT 4.12 VERIFIED & COMPLETE:**
+    1. **WebUI Build & Staging:** Rebuilt WebUI (`npm run build && node ../tools/stage-coucou-web.mjs`) with `.island-card`, `.chat-view`, and `.chat-history` strictly enforcing `border-radius: 20px !important; overflow: hidden !important;`. Staged into assets.
+    2. **Native Outline Clipping & Background:** In `OverlayService.kt`, `island?.view` is set with `setBackgroundResource(R.drawable.bg_webview_container)`, `outlineProvider = ViewOutlineProvider.BACKGROUND`, and `clipToOutline = true`. `bubbleView` is explicitly set to `View.GONE` when expanding to chat, completely hiding the bubble.
+    3. **Stop Button Binding:** `btn_stop_bubble` restored in `activity_main.xml` with secondary outlined style, 28dp pill corners, purple text `@color/coucou_primary`, and cleanly wired to `stopOverlayService()` in `MainActivity.kt`.
+    4. **Test & Build Gate:** `./gradlew testDebugUnitTest assembleDebug` passed with 0 errors (BUILD SUCCESSFUL).
+    5. **Artifacts Published:** Synced to `apks/coucou-android-debug.apk` and `coucou-android/apks/coucou-android-debug.apk`. Ready for git push.
 
