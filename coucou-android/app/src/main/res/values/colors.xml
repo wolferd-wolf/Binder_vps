@@ -43,6 +43,13 @@
     <color name="coucou_bubble_bg">#141518</color>
     <color name="coucou_pink">#f472b6</color>
 
+    <!-- Sprint 6.2 Main Dashboard Tokens (@Buffy lane) -->
+    <color name="coucou_surface_dark">#141518</color>
+    <color name="coucou_card_surface">#1E2024</color>
+    <color name="coucou_card_stroke">#0FFFFFFF</color>
+    <color name="coucou_card_placeholder">#181A1D</color>
+    <color name="coucou_text_muted">#8A8F98</color>
+
     <!-- SPRINT 4.10/4.11: Origin Island dock tokens REMOVED — the top pill is 100%
          CANCELLED (@Boss), so its true-black background token (and the old
          misspelled twin) went with the pill layout. Do not re-add. -->
