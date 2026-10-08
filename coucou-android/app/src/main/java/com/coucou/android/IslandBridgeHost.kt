@@ -99,6 +99,30 @@ internal class IslandBridgeHost(
     }
 
     @JavascriptInterface
+    fun getNotesJson(): String {
+        return IslandBridgeCommands.envelope(TaskStore.create(context).getAllNotesJson())
+    }
+
+    @JavascriptInterface
+    fun addNote(text: String, isTask: Boolean): String {
+        val id = System.currentTimeMillis()
+        TaskStore.create(context).saveNote("note_$id", text, isTask)
+        return IslandBridgeCommands.envelope(TaskStore.create(context).getAllNotesJson())
+    }
+
+    @JavascriptInterface
+    fun deleteNote(id: Long): String {
+        TaskStore.create(context).deleteNoteById(id)
+        return IslandBridgeCommands.envelope("{}")
+    }
+
+    @JavascriptInterface
+    fun toggleNote(id: Long): String {
+        TaskStore.create(context).toggleNoteById(id)
+        return IslandBridgeCommands.envelope("{}")
+    }
+
+    @JavascriptInterface
     fun chatSend(query: String?, contextJson: String? = null): String {
         val q = query.orEmpty().trim()
         if (q.isEmpty()) {

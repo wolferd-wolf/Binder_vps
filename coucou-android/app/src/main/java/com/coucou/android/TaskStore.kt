@@ -20,6 +20,14 @@ class TaskStore(private val sharedPrefs: SharedPreferences) {
     }
 
     /**
+     * Save a note/task with the given key, text, and isDone status.
+     * Overwrites any existing value for the key.
+     */
+    fun saveNote(key: String, text: String, isDone: Boolean) {
+        sharedPrefs.edit().putString(normalize(key), "$text|$isDone").apply()
+    }
+
+    /**
      * Retrieve a note/task by key.
      * Returns null if no value is stored under the key.
      */
@@ -27,10 +35,84 @@ class TaskStore(private val sharedPrefs: SharedPreferences) {
         sharedPrefs.getString(normalize(key), null)
 
     /**
+     * Get all notes serialized as JSON string for WebUI consumption.
+     * Format: [{"id":...,"text":"...","isDone":...}]
+     */
+    fun getAllNotesJson(): String {
+        val all = sharedPrefs.getAll()
+        val items = mutableListOf<String>()
+        for ((key, value) in all) {
+            val normalized = normalize(key)
+            if (normalized.startsWith("note_")) {
+                val raw = value as? String ?: continue
+                if (raw.isEmpty()) continue
+                val arr = raw.split("|", limit = 2)
+                val text = arr[0].replace("\\", "\\\\").replace("\"", "\\\"")
+                val isDone = if (arr.size > 1) arr[1].toBoolean() else false
+                val id = normalized.removePrefix("note_").toLongOrNull() ?: normalized.hashCode().toLong()
+                items.add("{\"id\":$id,\"text\":\"$text\",\"isDone\":$isDone}")
+            }
+        }
+        if (items.isEmpty()) return "[]"
+        return "[" + items.joinToString(",") + "]"
+    }
+
+    /**
      * Remove a saved note/task.
      */
     fun removeNote(key: String) {
         sharedPrefs.edit().remove(normalize(key)).apply()
+    }
+
+    /**
+     * Delete a note by its internal ID.
+     * Returns true if deleted, false if not found.
+     */
+    fun deleteNoteById(id: Long): Boolean {
+        val all = sharedPrefs.getAll()
+        for ((key, _) in all) {
+            val normalized = normalize(key)
+            if (normalized.startsWith("note_")) {
+                val noteId = normalized.removePrefix("note_").toLongOrNull() ?: normalized.hashCode().toLong()
+                if (noteId == id) {
+                    sharedPrefs.edit().remove(normalized).apply()
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    /**
+     * Toggle the isDone status of a note by its internal ID.
+     * Returns true if toggled, false if not found.
+     */
+    fun toggleNoteById(id: Long): Boolean {
+        val all = sharedPrefs.getAll()
+        for ((key, value) in all) {
+            val normalized = normalize(key)
+            if (normalized.startsWith("note_")) {
+                val noteId = normalized.removePrefix("note_").toLongOrNull() ?: normalized.hashCode().toLong()
+                if (noteId == id) {
+                    val raw = value as? String ?: continue
+                    val parts = raw.split("|", limit = 2)
+                    if (parts.size >= 2) {
+                        val currentIsDone = parts[1].toBoolean()
+                        val newIsDone = !currentIsDone
+                        sharedPrefs.edit()
+                            .putString(normalized, "${parts[0]}|$newIsDone")
+                            .apply()
+                        return true
+                    } else if (parts.size == 1) {
+                        sharedPrefs.edit()
+                            .putString(normalized, "${parts[0]}|true")
+                            .apply()
+                        return true
+                    }
+                }
+            }
+        }
+        return false
     }
 
     /**

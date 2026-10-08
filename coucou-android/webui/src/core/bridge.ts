@@ -105,6 +105,12 @@ export const Bridge = {
   dragBy: (dx: number, dy = 0) => call<void>("drag_by", { dx, dy }),
   dragEnd: () => call<void>("drag_end"),
   collapse: () => call<void>("set_collapsed", { collapsed: true }),
+
+  // ── Notes & Tasks (Sprint 6.1) ────────────────────────────────────────────
+  getNotesJson: () => call<string>("get_notes_json"),
+  addNote: (text: string, isTask: boolean) => call<string>("add_note", { text, isTask }),
+  deleteNote: (id: number) => call<boolean>("delete_note", { id }),
+  toggleNote: (id: number) => call<boolean>("toggle_note", { id }),
 };
 
 export interface IntegrationUpdate {

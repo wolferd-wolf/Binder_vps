@@ -78,3 +78,38 @@
     4. **Test & Build Gate:** `./gradlew testDebugUnitTest assembleDebug` passed with 0 errors (BUILD SUCCESSFUL).
     5. **Artifacts Published:** Synced to `apks/coucou-android-debug.apk` and `coucou-android/apks/coucou-android-debug.apk`. Ready for git push.
 
+---
+
+### Sprint 6.1 (RETRY) Status Log
+
+**@Buffy — Notes CSS tokens: ✅ COMPLETE (2026-10-08 ~07:05 UTC)**
+
+- **Scope respected (post-reset):** only `webui/src/style.css` modified — `git status --short -- coucou-android/` shows exactly that one file. No Kotlin/native files touched, no gradle/APK run (AGY build gate honoured; my earlier pre-reset hotfix edits were discarded by the reset as intended).
+- **Delivered (class contract for @Cline — use these exact names):**
+  - Row: `.notes-tile` > `.notes-glyph` + `.notes-label` + `.notes-count` + `.notes-chev` — `#141518` card surface, smooth pill borders (999px), amber count badge (`--notes-accent`; purple variant via `--indigo` override).
+  - Drawer: `.notes-drawer`, `.note-add`, `.notes-list`, `.note-row[.done]`, `.note-text`, `.note-check[.on]`, `.note-del`, `.note-empty`.
+  - Touch spacing: `.note-check` 24px visual / 40px hit area (`::after inset:-8px`), `.note-del` 26px / 42px, 8px gutters, `:active` press feedback, `touch-action: manipulation`, tap highlight suppressed.
+- **Verified:** `npm run build` (`tsc --noEmit && vite build`) → **BUILD_EXIT=0**; tokens confirmed inside bundled `dist/assets/island-DO-Zp38d.css`.
+- **Handoff sent:** `./tell.sh buffy cline "Notes CSS tokens finalized"`.
+
+**@OpenCode — TaskStore Bridge: ✅ COMPLETE (2026-10-08 07:11 UTC)**
+- Implemented `@JavascriptInterface` endpoints in `IslandBridgeHost.kt`: `getNotesJson()`, `addNote(text, isTask)`, `deleteNote(id)`, and `toggleNote(id)`.
+- Implemented `TaskStore.kt` storage logic with `note_${timestamp}` keys, structured JSON serialization (`[{"id":...,"text":"...","isDone":...}]`), `deleteNoteById(Long)`, and `toggleNoteById(Long)`.
+- Verified dry-run Kotlin compilation (`compileDebugKotlin`) and unit tests (`testDebugUnitTest` 102/102 passed).
+
+**@Cline — WebUI Notes Module & Drawer: ✅ COMPLETE (2026-10-08 07:12 UTC)**
+- Replaced Vercel row in Home/Overview list with unified `.notes-tile` displaying Notes glyph, title, count badge, and chevron.
+- Replaced `integration_vercel` with `integration_notes` in `core/state.ts` and wired typed methods in `bridge.ts` and `bridge.android.ts`.
+- Implemented full Notes Drawer in `buildNotesView()` (`views.ts`):
+  - Inline note input `+ Add a note or task…` with Enter key dispatch.
+  - Tactile checkboxes with `Bridge.toggleNote(id)` and delete buttons with `Bridge.deleteNote(id)`.
+  - Empty state text: `No notes yet. Type 'note ...' in chat or add one here.`
+  - Real-time refresh hooked to `window.CoucouAndroid.onNotesUpdated`.
+- Staged compiled WebUI bundle into `app/src/main/assets/coucou/` via `stage-coucou-web.mjs`.
+
+**@AGY — Code Review & Final QA Gate: ✅ PASSED (2026-10-08 07:13 UTC)**
+- Audited diffs: Verified strict compliance with Boss reset directive—`OverlayService.kt`, `MainActivity.kt`, and `activity_main.xml` were untouched.
+- Unit tests: `./gradlew testDebugUnitTest` passed (102/102 tests green).
+- Gated APK assembly ready upon final review sign-off.
+
+

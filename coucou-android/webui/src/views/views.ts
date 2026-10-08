@@ -11,6 +11,7 @@ import { createMiniBot, pruneMiniBots } from "../mochi/minibots";
 import { buildPrompt } from "./chat";
 import { buildChoose, buildUpload, buildUploading } from "./upload";
 import { renderIntegrationCard, type IntegrationCardHooks } from "./integrations";
+import { Bridge } from "../core/bridge";
 
 export interface ViewActions {
   setView(v: IslandViewName): void;
@@ -231,6 +232,43 @@ function buildOverview(actions: ViewActions): ViewHost {
 }
 
 function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
+  if (task.id === "integration_notes") {
+    const tile = h(
+      "div",
+      {
+        class: "notes-tile",
+        onclick: () => actions.setView("note"),
+      },
+      h("div", { class: "notes-glyph" }, svg(ICONS.note, 14)),
+      h("span", { class: "notes-label", text: "Notes" }),
+      h("span", { class: "notes-count", text: "0" }),
+      h("div", { class: "notes-chev" }, svg(ICONS.chevronRight, 10)),
+    );
+    // Listen for live note count updates if available
+    if (typeof window !== "undefined") {
+      const updateCount = async () => {
+        try {
+          const raw = await Bridge.getNotesJson();
+          if (raw) {
+            const list = JSON.parse(raw);
+            const countEl = tile.querySelector(".notes-count");
+            if (countEl) countEl.textContent = String(Array.isArray(list) ? list.length : 0);
+          }
+        } catch {}
+      };
+      void updateCount();
+      const coucou = (window as unknown as { CoucouAndroid?: { onNotesUpdated?: () => void } }).CoucouAndroid;
+      if (coucou) {
+        const prev = coucou.onNotesUpdated;
+        coucou.onNotesUpdated = () => {
+          if (typeof prev === "function") prev();
+          void updateCount();
+        };
+      }
+    }
+    return tile;
+  }
+
   const label = task.id === "integration_claude" ? "VS Code" : task.name;
   const canvas = createMiniBot(task, 24);
   const pill = h(
@@ -396,15 +434,117 @@ function buildConfused(): ViewHost {
   return { el: h("div", { class: "view" }, card("pink", body)), sync() {} };
 }
 
-// ── Note ──────────────────────────────────────────────────────────────────────
+// ── Note / Tasks Drawer (Sprint 6.1) ────────────────────────────────────────
 
-function buildNote(): ViewHost {
-  const title = h("div", { class: "title" });
-  const el = h("div", { class: "view" }, card(null, h("div", { class: "stack", style: "padding:0 18px 0 98px" }, title)));
+interface NoteItem {
+  id: number;
+  text: string;
+  isDone?: boolean;
+}
+
+function buildNotesView(actions: ViewActions): ViewHost {
+  const listEl = h("div", { class: "notes-list" });
+  const inputEl = h("input", {
+    type: "text",
+    placeholder: "+ Add a note or task…",
+    onkeydown: (e: Event) => {
+      const ke = e as KeyboardEvent;
+      if (ke.key === "Enter") {
+        const val = inputEl.value.trim();
+        if (val) {
+          inputEl.value = "";
+          void (async () => {
+            await Bridge.addNote(val, true);
+            void refreshNotes();
+          })();
+        }
+      }
+    },
+  }) as HTMLInputElement;
+
+  const drawer = h(
+    "div",
+    { class: "notes-drawer" },
+    h("div", { class: "note-add" }, inputEl),
+    listEl,
+  );
+
+  const header = h(
+    "div",
+    {
+      style: "display:flex;align-items:center;gap:8px;padding:4px 8px;margin-bottom:4px;cursor:pointer;",
+      onclick: () => actions.setView("overview"),
+    },
+    svg(ICONS.chevronLeft, 12),
+    h("span", { style: "font:600 12px var(--font);color:var(--ink);", text: "Notes & Tasks" }),
+  );
+
+  const el = h("div", { class: "view" }, card(null, h("div", { class: "stack", style: "padding:8px 12px;height:100%;display:flex;flex-direction:column;" }, header, drawer)));
+
+  const refreshNotes = async () => {
+    try {
+      const raw = await Bridge.getNotesJson();
+      clear(listEl);
+      if (!raw) {
+        listEl.append(h("div", { class: "note-empty", text: "No notes yet. Type 'note ...' in chat or add one here." }));
+        return;
+      }
+      const notes: NoteItem[] = JSON.parse(raw);
+      if (!Array.isArray(notes) || notes.length === 0) {
+        listEl.append(h("div", { class: "note-empty", text: "No notes yet. Type 'note ...' in chat or add one here." }));
+        return;
+      }
+      for (const item of notes) {
+        const row = h(
+          "div",
+          { class: `note-row${item.isDone ? " done" : ""}` },
+          h(
+            "button",
+            {
+              class: `note-check${item.isDone ? " on" : ""}`,
+              onclick: async () => {
+                await Bridge.toggleNote(item.id);
+                void refreshNotes();
+              },
+            },
+            item.isDone ? svg(ICONS.check, 12, { stroke: 3 }) : h("span", {}),
+          ),
+          h("span", { class: "note-text", text: item.text }),
+          h(
+            "button",
+            {
+              class: "note-del",
+              onclick: async () => {
+                await Bridge.deleteNote(item.id);
+                void refreshNotes();
+              },
+            },
+            svg(ICONS.trash, 12),
+          ),
+        );
+        listEl.append(row);
+      }
+    } catch {
+      clear(listEl);
+      listEl.append(h("div", { class: "note-empty", text: "Failed to load notes." }));
+    }
+  };
+
+  if (typeof window !== "undefined") {
+    const coucou = (window as unknown as { CoucouAndroid?: { onNotesUpdated?: () => void } }).CoucouAndroid;
+    if (coucou) {
+      const prev = coucou.onNotesUpdated;
+      coucou.onNotesUpdated = () => {
+        if (typeof prev === "function") prev();
+        void refreshNotes();
+      };
+    }
+  }
+
   return {
     el,
     sync() {
-      title.textContent = State.noteMessage ?? "";
+      void refreshNotes();
     },
   };
 }
@@ -499,7 +639,7 @@ export function buildViews(
   map.set("error", buildError(actions));
   map.set("finished", buildFinished(actions));
   map.set("confused", buildConfused());
-  map.set("note", buildNote());
+  map.set("note", buildNotesView(actions));
   map.set("settings", buildSettings(actions));
   const promptView = buildPrompt(onChatHeightChange);
   map.set("prompt", promptView);

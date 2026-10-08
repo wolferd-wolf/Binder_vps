@@ -75,6 +75,10 @@ interface CoucouAndroidApi {
   dragEnd(): unknown;
   collapse(): unknown;
   openChat?(): unknown;
+  getNotesJson?(): unknown;
+  addNote?(text: string, isTask: boolean): unknown;
+  deleteNote?(id: number): unknown;
+  toggleNote?(id: number): unknown;
   invoke?(cmd: string, argsJson: string): unknown;
 }
 
@@ -261,6 +265,16 @@ export const Bridge = {
 
   /** Tray → Pause. Stops the integration pollers, not just the island. */
   setPaused: (paused: boolean) => call<void>("set_paused", { paused }),
+
+  // ── Notes & Tasks (Sprint 6.1) ────────────────────────────────────────────
+  getNotesJson: () =>
+    call<string>("get_notes_json", {}, () => getApi().getNotesJson?.() as string),
+  addNote: (text: string, isTask: boolean) =>
+    call<string>("add_note", { text, isTask }, () => getApi().addNote?.(text, isTask) as string),
+  deleteNote: (id: number) =>
+    call<boolean>("delete_note", { id }, () => getApi().deleteNote?.(id) as boolean),
+  toggleNote: (id: number) =>
+    call<boolean>("toggle_note", { id }, () => getApi().toggleNote?.(id) as boolean),
 };
 
 /** Files dragged onto the island. Android has no OLE drag-and-drop, so this is inert. */

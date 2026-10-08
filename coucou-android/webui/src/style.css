@@ -1532,3 +1532,250 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 /* Wake strip and upload layer widths are set via JS in island.ts */
+
+/* ── Sprint 6.1 (RETRY) — Notes row & drawer tokens ───────────────────────────
+   Styling contract for @Cline's markup — use these exact class names:
+
+     row:    .notes-tile > .notes-glyph (svg icon) + .notes-label ("Notes")
+             + .notes-count (count badge, e.g. “(3)”) + .notes-chev
+     drawer: .notes-drawer > .note-add (input + button) + .notes-list >
+             .note-row > button.note-check[.on] + span.note-text
+             + button.note-del; empty state .note-empty; done row .note-row.done
+
+   Palette: card surface --card (#141518) with smooth pill borders, amber
+   accent (--amber); set --notes-accent: var(--indigo) on the drawer for the
+   soft purple variant. Checkbox & delete are spaced for mobile touch:
+   24–26px visual boxes with a 40–42px invisible hit area (inset -8px),
+   8px gutters between targets, press feedback, no tap highlight, and
+   touch-action: manipulation so taps register instantly with no zoom delay. */
+
+:root {
+  --notes-accent: var(--amber);
+  --notes-accent-soft: rgba(245, 165, 36, 0.15);
+}
+
+.notes-tile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 8px 0 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  transition: transform 0.2s cubic-bezier(0.3, 1.2, 0.4, 1), filter 0.18s, border-color 0.18s;
+}
+
+.notes-tile:hover {
+  transform: scale(1.03);
+  filter: brightness(1.06);
+}
+
+.notes-tile:active {
+  transform: scale(0.97);
+}
+
+.notes-glyph {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--card);
+  color: var(--notes-accent);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.notes-glyph svg {
+  display: block;
+}
+
+.notes-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: 600 11px var(--font);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notes-count {
+  flex: 0 0 auto;
+  min-width: 16px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font: 500 10px var(--font);
+  text-align: center;
+  color: var(--notes-accent);
+  background: var(--notes-accent-soft);
+}
+
+.notes-chev {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--dim-3);
+}
+
+/* ── Notes drawer ─────────────────────────────────────────────────────── */
+
+.notes-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  min-height: 0;
+  padding: 2px;
+}
+
+.note-add {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.note-add input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--card);
+  font: 400 12px var(--font);
+  color: var(--ink);
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.note-add input:focus {
+  border-color: var(--notes-accent);
+}
+
+.note-add input::placeholder {
+  color: var(--dim-4);
+}
+
+.notes-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
+}
+
+.note-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 3px 6px;
+  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  background: var(--card);
+}
+
+.note-row + .note-row {
+  margin-top: 4px;
+}
+
+.note-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: 400 12px var(--font);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/* Completed notes: struck through but still readable. */
+.note-row.done .note-text {
+  color: var(--dim-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--dim-4);
+}
+
+/* Tactile checkbox — 24px visual, 40px hit area via the ::after inset. */
+.note-check {
+  position: relative;
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1.5px solid var(--dim-4);
+  border-radius: 8px;
+  background: transparent;
+  color: transparent;
+  display: grid;
+  place-items: center;
+  cursor: default;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s, transform 0.12s;
+}
+
+/* Invisible expansion to a 40px touch target without affecting layout. */
+.note-check::after,
+.note-del::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+.note-check.on {
+  background: var(--notes-accent);
+  border-color: var(--notes-accent);
+  color: #141518;
+}
+
+.note-check.on svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Tactile delete — red-tinted circle, press feedback. */
+.note-del {
+  position: relative;
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(244, 80, 94, 0.1);
+  color: var(--red-text);
+  display: grid;
+  place-items: center;
+  cursor: default;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, transform 0.12s;
+}
+
+.note-del:hover {
+  background: rgba(244, 80, 94, 0.2);
+}
+
+.note-check:active,
+.note-del:active {
+  transform: scale(0.9);
+}
+
+.note-empty {
+  padding: 10px 6px;
+  font: 400 11.5px var(--font);
+  color: var(--dim);
+  text-align: center;
+}

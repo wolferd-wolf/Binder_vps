@@ -61,7 +61,7 @@ export const INTEGRATION_AGENTS: AgentTask[] = [
   task("integration_claude", "VS Code", "#F5F6F8", "claudeCode"),
   task("integration_resend", "Resend", "#22C55E", "n8n"),
   task("integration_n8n", "n8n", "#F29B38", "n8n"),
-  task("integration_vercel", "Vercel", "#7C5CFF", "n8n"),
+  task("integration_notes", "Notes", "#F5A524", "agent"),
   task("integration_github", "GitHub", "#F4505E", "n8n"),
   task("integration_notion", "Notion", "#8C8C8C", "n8n"),
   task("integration_calcom", "Cal.com", "#C9956A", "n8n"),
@@ -69,7 +69,7 @@ export const INTEGRATION_AGENTS: AgentTask[] = [
 ];
 
 export const TOGGLEABLE_INTEGRATION_IDS = [
-  "integration_resend", "integration_n8n", "integration_vercel", "integration_github",
+  "integration_resend", "integration_n8n", "integration_notes", "integration_github",
   "integration_notion", "integration_calcom", "integration_stripe",
 ];
 
@@ -100,7 +100,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoCloseInterval: 15,
   absenceInterval: 180,
   activeIntegrations: [
-    "integration_resend", "integration_n8n", "integration_vercel", "integration_github",
+    "integration_resend", "integration_n8n", "integration_notes", "integration_github",
   ],
   screen: "primary",
   autostart: false,
