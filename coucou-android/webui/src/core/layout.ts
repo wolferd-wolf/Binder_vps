@@ -195,7 +195,7 @@ export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
   chat: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
   searching: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
   result: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
-  note: { height: 160, botX: 60, botY: null, botDiameter: 50, agentMode: "column" },
+  note: { height: 264, botX: 60, botY: null, botDiameter: 0, agentMode: "column" },
   settings: { height: 160, botX: 54, botY: null, botDiameter: 46, agentMode: "none" },
   greeting: { height: 175, botX: 180, botY: 85, botDiameter: 0, agentMode: "none" },
 };
@@ -220,7 +220,7 @@ export function islandSize(
       // slides into the top edge of the screen instead of sitting there as a bar.
       return { w: NOTCH_W, h: 0 };
     case "compact":
-      return { w: getCompactWidth(), h: NOTCH_H };
+      return { w: NOTCH_W, h: 0 };
     case "expanded": {
       if (view === "greeting") {
         return { w: 360, h: 175 };

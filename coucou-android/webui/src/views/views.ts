@@ -232,48 +232,21 @@ function buildOverview(actions: ViewActions): ViewHost {
 }
 
 function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
-  if (task.id === "integration_notes") {
-    const tile = h(
-      "div",
-      {
-        class: "notes-tile",
-        onclick: () => actions.setView("note"),
-      },
-      h("div", { class: "notes-glyph" }, svg(ICONS.note, 14)),
-      h("span", { class: "notes-label", text: "Notes" }),
-      h("span", { class: "notes-count", text: "0" }),
-      h("div", { class: "notes-chev" }, svg(ICONS.chevronRight, 10)),
-    );
-    // Listen for live note count updates if available
-    if (typeof window !== "undefined") {
-      const updateCount = async () => {
-        try {
-          const raw = await Bridge.getNotesJson();
-          if (raw) {
-            const list = JSON.parse(raw);
-            const countEl = tile.querySelector(".notes-count");
-            if (countEl) countEl.textContent = String(Array.isArray(list) ? list.length : 0);
-          }
-        } catch {}
-      };
-      void updateCount();
-      const coucou = (window as unknown as { CoucouAndroid?: { onNotesUpdated?: () => void } }).CoucouAndroid;
-      if (coucou) {
-        const prev = coucou.onNotesUpdated;
-        coucou.onNotesUpdated = () => {
-          if (typeof prev === "function") prev();
-          void updateCount();
-        };
-      }
-    }
-    return tile;
-  }
-
+  const isNotes = task.id === "integration_notes";
   const label = task.id === "integration_claude" ? "VS Code" : task.name;
   const canvas = createMiniBot(task, 24);
   const pill = h(
     "div",
-    { class: "pill", onclick: () => actions.setFocus(task.id) },
+    {
+      class: "pill",
+      onclick: () => {
+        if (isNotes) {
+          actions.setView("note");
+        } else {
+          actions.setFocus(task.id);
+        }
+      },
+    },
     canvas,
     h("span", { class: "lbl", text: label }),
   );
@@ -301,6 +274,7 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
   }
   return pill;
 }
+
 
 function lighten(hex: string, amount: number): string {
   const v = parseInt(hex.replace("#", ""), 16);

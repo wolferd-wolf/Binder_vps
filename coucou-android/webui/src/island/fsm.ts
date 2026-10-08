@@ -60,7 +60,7 @@ export class IslandStateMachine {
         break;
       case "coucou":
         this.clear("greetCollapse");
-        this.transition("petit");
+        this.transition("hidden");
         break;
     }
   }
@@ -74,15 +74,15 @@ export class IslandStateMachine {
   /** Greeting animation finished (T.end). Doesn't override a running hover timer. */
   greetComplete() {
     if (this.state !== "coucou") return;
-    if (this.greetCollapse == null) this.scheduleGreetCollapse(this.greetAutoCollapseDelay);
+    this.cancelTimers();
+    this.transition("hidden");
   }
 
   /** Non-alert work event: show compact from hidden. */
   reveal() {
     if (this.state !== "hidden") return;
     this.cancelTimers();
-    this.transition("petit");
-    this.schedulePetitHide();
+    this.transition("home");
   }
 
   /** Alert or explicit request: open straight to expanded. */
@@ -94,7 +94,7 @@ export class IslandStateMachine {
   /// Explicit close (OK button, Escape, an alert being answered).
   forcePetit() {
     this.cancelTimers();
-    this.transition("petit");
+    this.transition("hidden");
   }
 
   forceHidden() {

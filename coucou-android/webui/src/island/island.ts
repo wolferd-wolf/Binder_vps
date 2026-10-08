@@ -15,7 +15,7 @@ import { Sound } from "../core/sound";
 import { State } from "../core/state";
 import { BotEngine, hexToRGB } from "../mochi/engine";
 import { Greeting } from "../mochi/greeting";
-import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../mochi/minibots";
+import { syncMiniBotStates, tickMiniBots } from "../mochi/minibots";
 import { UploadCanvas } from "../upload/canvas";
 import { USC, UploadSeq } from "../upload/sequence";
 import { buildHeader, buildViews, type ViewActions, type ViewHost } from "../views/views";
@@ -317,10 +317,8 @@ export class Island {
           break;
         case "petit":
           if (from === "coucou") this.greeting.interrupt();
-          else if (from === "hidden") Sound.play("peek");
-          this.setMode("compact");
-          if (from === "coucou") State.view = State.defaultView();
-          if (!this.wasInIsland) this.fsm.mouseLeft();
+          this.setMode("hidden");
+          void Bridge.collapse();
           break;
         case "home":
           this.expand(State.defaultView());
@@ -402,10 +400,8 @@ export class Island {
   collapse() {
     State.isPinned = false;
     this.fsm.pinned = false;
-    // Drive the state machine rather than the mode: setting the mode behind its
-    // back left it thinking the island was still open, and a click on the compact
-    // island then did nothing — the island could never be reopened.
-    this.fsm.forcePetit();
+    this.fsm.forceHidden();
+    this.setMode("hidden");
     void Bridge.collapse();
     const coucouAndroid = (window as unknown as { CoucouAndroid?: { collapse?: () => void } }).CoucouAndroid;
     coucouAndroid?.collapse?.();
@@ -868,7 +864,7 @@ export class Island {
     const visible = p.opacity > 0 && !greetingActive && !this.uploadActive;
     this.botCanvas.style.opacity = visible ? "1" : "0";
 
-    if (State.mode === "expanded" && State.view !== "uploading" && !greetingActive && !this.uploadActive) {
+    if (State.mode === "expanded" && State.view !== "uploading" && State.view !== "note" && !greetingActive && !this.uploadActive && p.diameter > 0) {
       const d = p.diameter;
       const color = botGlowColor(State.effectiveState);
       this.botGlow.style.display = "block";
@@ -885,6 +881,11 @@ export class Island {
 
   private drawBot(dt: number) {
     const size = this.botSize.value;
+    if (State.view === "note" || size < 1) {
+      this.botCanvas.style.display = "none";
+      return;
+    }
+    this.botCanvas.style.display = "";
     const w = Math.max(1, Math.round(size));
     const hCss = w + BOT_OVERHANG;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -977,21 +978,9 @@ export class Island {
       }
     }
 
-    // Compact mini grid
-    const showGrid = State.mode === "compact";
-    this.miniGrid.style.opacity = showGrid ? "1" : "0";
-    if (showGrid) {
-      const others = State.otherTasks.slice(0, 4);
-      const key = others.map((t) => t.id).join("|");
-      if (this.miniGrid.dataset.key !== key) {
-        this.miniGrid.dataset.key = key;
-        this.miniGrid.replaceChildren();
-        for (const t of others) {
-          this.miniGrid.append(createMiniBot(t, 13));
-        }
-        pruneMiniBots();
-      }
-    }
+    // Compact mini grid permanently purged
+    this.miniGrid.style.display = "none";
+    this.miniGrid.style.opacity = "0";
 
     syncMiniBotStates(State.tasks);
     this.engine.setState(State.effectiveState);
