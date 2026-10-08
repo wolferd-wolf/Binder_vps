@@ -74,6 +74,7 @@ interface CoucouAndroidApi {
   dragBy(dx: number, dy: number): unknown;
   dragEnd(): unknown;
   collapse(): unknown;
+  openChat?(): unknown;
   invoke?(cmd: string, argsJson: string): unknown;
 }
 
@@ -123,6 +124,7 @@ function facadeOverNative(): CoucouAndroidApi {
     // reuses the modelled `set_collapsed` command rather than inventing a second one the
     // host would answer with a silent null.
     collapse: () => send("set_collapsed", { collapsed: true }),
+    openChat: () => send("open_chat"),
   };
 }
 
@@ -200,6 +202,7 @@ export const Bridge = {
   quit: () => call<void>("quit_app"),
 
   openSettingsWindow: () => call<void>("open_settings_window"),
+  openChat: () => call<void>("open_chat", {}, () => getApi().openChat?.()),
 
   /** Writes a line into logcat, next to the Kotlin lines. */
   log: (message: string) => call<void>("log_line", { message }, () => getApi().log(message)),

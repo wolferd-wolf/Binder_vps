@@ -34,7 +34,6 @@
     <color name="coucou_ink_2">#F1F2F4</color>
     <color name="coucou_dim_3">#6B7079</color>
     <color name="coucou_hairline">#09FFFFFF</color>
-    <color name="couchou_origin_island_bg">#000000</color>
     <color name="coucou_input_bg">#12FFFFFF</color>
     <color name="coucou_wash">#21FFFFFF</color>
     <color name="coucou_send_bg">#F5F6F8</color>
@@ -43,13 +42,9 @@
     <!-- Bubble/ask-bar card fill, aligned with the desktop "card" (#141518). -->
     <color name="coucou_bubble_bg">#141518</color>
 
-    <!-- SPRINT 4.7 Origin Island dock: the pill that wraps the top-centre camera
-         punch hole must be TRUE BLACK (#000000), not #141518 — the OLED-off black
-         is what makes the pill read as part of the hardware cut-out instead of a
-         card floating over it. The one deliberate raw value in this file; it is a
-         token so res/drawable/bg_origin_island_pill.xml stays hex-free.
-         Consumers: @Cline's overlay_origin_island via @color/coucou_origin_island_bg. -->
-    <color name="coucou_origin_island_bg">#000000</color>
+    <!-- SPRINT 4.10: Origin Island dock tokens REMOVED — the top pill is 100%
+         CANCELLED (@Boss), so coucou_origin_island_bg (and the old couchou_
+         typo twin above it) went with overlay_origin_island.xml. Do not re-add. -->
 
     <!-- Sprint 4 desktop intro card.
          Source: upstream coucou/windows/src/style.css ".card" rule — the island box

@@ -124,7 +124,7 @@ class OverlayService : Service() {
 
     private var isExpanded = false
     private var isGreetingActive = false
-    /** Set to true when overlay collapses due to auto-close timer; used to dock to Origin Island. */
+    /** Set to true when overlay collapses due to auto-close timer. */
     private var autoClosed = false
     private var isDragging = false
     private var hasGreeted = false
@@ -572,7 +572,6 @@ class OverlayService : Service() {
         val bubble = bubbleView ?: inflateBubble().also { bubbleView = it }
         val root = OverlayHostLayout(
             this,
-            onOutsideTouch = { collapse() },
             onBackPressed = { collapse() }
         )
         val fill = FrameLayout.LayoutParams(
@@ -701,15 +700,12 @@ class OverlayService : Service() {
      * This is called from onRootTouch when the collapsed bubble is tapped (not dragged).
      */
     private fun expandToAssistantView() {
-        if (island == null) {
-            Log.i(TAG, "No island to expand into; staying on the rectangle")
-            return
-        }
+        // Directly expand the WebView to full assistant size (360x270dp)
+        // Keep the bubble visible 24/7; do NOT hide it
         isExpanded = true
         isExpandedState = true
         isGreetingActive = false
 
-        bubbleView?.visibility = View.GONE
         island?.view?.apply {
             visibility = View.VISIBLE
             alpha = 1f
@@ -717,30 +713,25 @@ class OverlayService : Service() {
 
         val params = layoutParams ?: return
         val metrics = resources.displayMetrics
-        if (islandWidthCss > 0 && islandHeightCss > 0) {
-            val bounds = IslandBridgeCommands.windowBounds(
-                islandWidthCss, islandHeightCss, metrics.density, metrics.widthPixels
-            )
-            params.width = bounds[0]
-            params.height = bounds[1]
-        } else {
-            params.width = resources.getDimensionPixelSize(R.dimen.coucou_island_width).coerceAtMost(metrics.widthPixels)
-            params.height = resources.getDimensionPixelSize(R.dimen.coucou_island_expanded_height)
-        }
+
+        // Expand WebView to fixed assistant size at upper center
+        params.width = dp(360).coerceAtMost(metrics.widthPixels)
+        params.height = dp(270).coerceAtMost(metrics.heightPixels)
         params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        // baseFlags(focusable = true) rebuilds the flags and clears FLAG_NOT_FOCUSABLE *and*
-        // FLAG_ALT_FOCUSABLE_IM (see baseFlags), which is what lets the soft keyboard pop up
-        // when typing in the chat. Writing `or FLAG_ALT_FOCUSABLE_IM.inv()` here instead ORs in
-        // every other bit, re-setting FLAG_NOT_FOCUSABLE (0x8) and blocking the IME entirely.
-        params.flags = baseFlags(focusable = true)
+        params.y = dp(60) // 60dp from top
         params.x = 0
-        params.y = dp(40)
-        islandFocused = true
+
+        // Clear FLAG_NOT_FOCUSABLE so the soft keyboard can pop up when typing in chat
+        params.flags = baseFlags(focusable = true)
         params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+
         clampOnScreen(params)
         pushLayout()
+        island?.view?.evaluateJavascript(
+            "if (window.CoucouAndroid && window.CoucouAndroid.openChat) { window.CoucouAndroid.openChat(); } else if (window.CoucouAndroid) { window.CoucouAndroid.setCollapsed(false); }",
+            null
+        )
 
-        revealPrompt()
     }
 
     /**

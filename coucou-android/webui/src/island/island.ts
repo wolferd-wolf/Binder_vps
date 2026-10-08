@@ -145,6 +145,15 @@ export class Island {
       this.dirty = true;
       this.ensureRunning();
     });
+
+    const anyWin = window as unknown as { CoucouAndroid?: { openChat?: () => void; collapse?: () => void } };
+    if (anyWin.CoucouAndroid) {
+      anyWin.CoucouAndroid.openChat = () => this.openChat();
+    } else {
+      (window as unknown as { CoucouAndroid: { openChat: () => void } }).CoucouAndroid = {
+        openChat: () => this.openChat(),
+      };
+    }
   }
 
   // ── DOM ─────────────────────────────────────────────────────────────────────
@@ -411,6 +420,12 @@ export class Island {
 
   reveal() {
     this.fsm.reveal();
+  }
+
+  /** Switches active view to chat and brings island to home state. */
+  openChat() {
+    this.fsm.forceHome();
+    this.setView("chat");
   }
 
   /** An alert stopped waiting for an answer: let the island auto-close again. */

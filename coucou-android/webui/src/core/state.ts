@@ -264,7 +264,9 @@ class AppState {
   }
 
   defaultView(): IslandViewName {
-    return this.tasks.length === 0 ? "empty" : "prompt";
+    if (this.tasks.length === 0) return "empty";
+    if (State.view === "chat") return "chat";
+    return "prompt";
   }
 }
 

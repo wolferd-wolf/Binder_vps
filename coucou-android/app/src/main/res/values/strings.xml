@@ -22,5 +22,5 @@
     <string name="command_not_found">No app found for \'%1$s\'</string>
     <string name="island_load_failed">Coucou could not load its window: %1$s</string>
     <string name="build_info_format">Build: %1$s\nCommit: %2$s (v%3$d)</string>
-    <string name="origin_mochi">Mochi</string>
+    <!-- SPRINT 4.10: origin_mochi ("Mochi") removed with overlay_origin_island.xml. -->
 </resources>

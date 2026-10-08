@@ -7,11 +7,14 @@
      com.coucou.android.CoucouCharacterView canvas (@OpenCode owner, lands
      separately). Until that class lands, inflateLayoutByName catches the
      inflation error and falls back to the programmatic bubble.
-     Sprint 4 adjustment: character match_parent+4dp inside token card per @Buffy final tokens.
-     Ratio: 53dp/66dp=80.3% target; our 58dp/66dp=88% keeps one number for all consumers.
+     Sprint 4 adjustment: character match_parent + margin inside token card per @Buffy final tokens.
+     SPRINT 4.7/4.10 snug contract: card = @dimen/coucou_bubble_size (48dp, MUST equal
+     coucou_bubble_card_size — OverlayService clamps/drags against that one), radius =
+     @dimen/coucou_bubble_corner_radius (18dp), fill = @color/coucou_bubble_bg (#141518)
+     with the @color/coucou_hairline 1dp stroke — dark squircle, never white.
      WRAP_CONTENT guard: ensureContainer()/applyCollapsedParams() keep window WRAP_CONTENT,
-     so card stays @dimen/coucou_bubble_card_size (66dp) and character uses match_parent+4dp
-     inside it to prevent collapsed window from measuring to screen size. -->
+     so the card stays at the 48dp token and the character fills it with a 3dp margin,
+     preventing the collapsed window from measuring to screen size. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/bubble_root"

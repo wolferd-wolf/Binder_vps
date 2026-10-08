@@ -26,7 +26,7 @@ import android.widget.FrameLayout
  */
 internal class OverlayHostLayout(
     context: Context,
-    private val onOutsideTouch: () -> Unit,
+    private val onOutsideTouch: () -> Unit = {},
     private val onBackPressed: () -> Unit
 ) : FrameLayout(context) {
 

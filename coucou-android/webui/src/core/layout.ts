@@ -21,7 +21,8 @@ export type IslandViewName =
   | "result"
   | "note"
   | "settings"
-  | "greeting";
+  | "greeting"
+  | "chat";
 
 export type BotStateName =
   | "idle"
@@ -191,6 +192,7 @@ export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
   choose: { height: 176, botX: 60, botY: 101, botDiameter: 52, agentMode: "column" },
   mail: { height: 240, botX: 56, botY: null, botDiameter: 46, agentMode: "column" },
   prompt: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
+  chat: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
   searching: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
   result: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
   note: { height: 160, botX: 60, botY: null, botDiameter: 50, agentMode: "column" },
@@ -225,7 +227,7 @@ export function islandSize(
       }
       // For overview view: height matches content space (~264px) so nothing is cut off or overlaps
       const isOverview = view === "overview";
-      const h = isOverview ? 264 : (view === "prompt" ? chatPromptHeight(chatCount) : VIEW_LAYOUTS[view].height);
+      const h = isOverview ? 264 : (view === "prompt" || view === "chat" ? chatPromptHeight(chatCount) : VIEW_LAYOUTS[view].height);
       return { w: getExpandedWidth(), h };
     }
   }
