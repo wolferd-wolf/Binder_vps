@@ -57,6 +57,26 @@ class TaskStore(private val sharedPrefs: SharedPreferences) {
         return "[" + items.joinToString(",") + "]"
     }
 
+    data class NoteRecord(val id: Long, val text: String, val isDone: Boolean)
+
+    fun getAllNotes(): List<NoteRecord> {
+        val all = sharedPrefs.getAll()
+        val items = mutableListOf<NoteRecord>()
+        for ((key, value) in all) {
+            val normalized = normalize(key)
+            if (normalized.startsWith("note_")) {
+                val raw = value as? String ?: continue
+                if (raw.isEmpty()) continue
+                val arr = raw.split("|", limit = 2)
+                val text = arr[0]
+                val isDone = if (arr.size > 1) arr[1].toBoolean() else false
+                val id = normalized.removePrefix("note_").toLongOrNull() ?: normalized.hashCode().toLong()
+                items.add(NoteRecord(id, text, isDone))
+            }
+        }
+        return items.sortedByDescending { it.id }
+    }
+
     /**
      * Remove a saved note/task.
      */
@@ -125,6 +145,18 @@ class TaskStore(private val sharedPrefs: SharedPreferences) {
             .map { it.replace("coucou_", "") }
             .filter { it != "coucou_" }
             .toList()
+    }
+
+    fun listAllNotes(): List<String> {
+        val all = sharedPrefs.getAll()
+        val result = mutableListOf<String>()
+        for ((key, _) in all) {
+            val normalized = normalize(key)
+            if (normalized.startsWith("note_")) {
+                result.add(normalized)
+            }
+        }
+        return result.sorted()
     }
 
     companion object {

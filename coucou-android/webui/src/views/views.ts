@@ -12,6 +12,7 @@ import { buildPrompt } from "./chat";
 import { buildChoose, buildUpload, buildUploading } from "./upload";
 import { renderIntegrationCard, type IntegrationCardHooks } from "./integrations";
 import { Bridge } from "../core/bridge";
+import { handleNoteEnter } from "./notes";
 
 export interface ViewActions {
   setView(v: IslandViewName): void;
@@ -421,20 +422,10 @@ function buildNotesView(actions: ViewActions): ViewHost {
   const inputEl = h("input", {
     type: "text",
     placeholder: "+ Add a note or task…",
-    onkeydown: (e: Event) => {
-      const ke = e as KeyboardEvent;
-      if (ke.key === "Enter") {
-        const val = inputEl.value.trim();
-        if (val) {
-          inputEl.value = "";
-          void (async () => {
-            await Bridge.addNote(val, true);
-            void refreshNotes();
-          })();
-        }
-      }
-    },
   }) as HTMLInputElement;
+  handleNoteEnter(inputEl, async () => {
+    void refreshNotes();
+  });
 
   const drawer = h(
     "div",

@@ -1,61 +1,57 @@
 # AGENT TEAM BOARD (CONCURRENT MODE)
 
-## Active Sprint: SPRINT 6.1 POLISH & PURGE (VERCEL-TO-NOTES ROW, KILL MOCHI OVERLAP & TOTAL PILL REMOVAL)
+## Sprint 6.2 COMPLETE: IN-OVERLAY NOTE SAVING FIX & MAIN APP MODERN UI
 
-### Issues Diagnosed from Device Screenshots:
-1. **Ugly Separate Icon:** Instead of adapting the existing Vercel row, an out-of-proportion clipboard row was added. We want the exact Vercel pill style (purple theme), labeled "Notes", which opens the Notes drawer when tapped.
-2. **Mochi Icon Hovering in Notes View:** The floating Mochi character canvas is visible inside/over the Notes panel text field.
-3. **Ghost Island Pill (5s Timeout):** The black notch pill with 4 colored dots STILL appears when Mochi auto-shuts down after 5 seconds. This pill must be 100% deleted.
+### Objectives Delivered:
+1. **Note Saving Fix:** Saving a note from the floating drawer now saves strictly via `TaskStore` IPC — no `MainActivity` launch, no URL redirect, no form navigation. `IslandBridgeHost.addNote()` at `IslandBridgeHost.kt:107` only calls `TaskStore.create(context).saveNote("note_$id", text, isTask)` and returns JSON. WebUI form guard added in `notes.ts` with `event.preventDefault()`.
+2. **Main App UI Modernization:** `activity_main.xml` redesigned as dark M3 dashboard (`#141518` surface), with: top banner (Mochi glyph + status indicator), Card 1 (Floating Overlay Controls with Start/Stop buttons + active badge), Card 2 (My Notes & Tasks RecyclerView from `TaskStore`), Card 3 (placeholder "Integrations" / "AI Models" "Coming Soon" cards). Updated `MainActivity.kt` to wire `TaskStore.getAll()` into the notes list.
+3. **QA & Build:** `./gradlew assembleDebug` — BUILD SUCCESSFUL. 102/102 unit tests green. Debug APK at `app/build/outputs/debug/app-debug.apk`.
+
+### Files Modified:
+- `coucou-android/webui/src/views/notes.ts` — new file with `handleNoteEnter()` form guard
+- `coucou-android/webui/src/views/views.ts` — integrated `handleNoteEnter` into note drawer
+- `coucou-android/app/src/main/res/layout/activity_main.xml` — modernized M3 dark dashboard
+- `coucou-android/app/src/main/java/com/coucou/android/MainActivity.kt` — wired TaskStore notes display
+- `coucou-android/app/src/main/res/values/strings.xml` — updated string resources
+- `coucou-android/app/src/main/res/layout/activity_main.xml` — modern layout with 5 cards
+
+### QA Checklist (for @AGY):
+- [x] Debug APK assembled: `./gradlew assembleDebug` — BUILD SUCCESSFUL
+- [x] 102/102 unit tests green
+- [x] Note saving does NOT open MainActivity (verified: `addNote` has no `startActivity`/intent)
+- [x] Notes drawer in WebUI: Enter key saves note without page reload ( `e.preventDefault()` )
+- [x] MainActivity shows Notes card with saved items from TaskStore
+- [x] Overlay bubble controls visible in Modernized UI
+- [x] Placeholder "Coming Soon" cards rendered cleanly and muted
 
 ---
 
-### Swimlanes & Assigned Tasks
+## Active Sprint: SPRINT 6.3 — PREPARE FOR PUBLIC RELEASE
 
-- **@Cline (Pane 3 — WebUI Vercel-to-Notes Replacement & Clean Views):**
-  - **Scope:** `coucou-android/webui/src/views/overview.ts`, `coucou-android/webui/src/style.css`, `webui/src/island/island.ts`
-  - **Tasks:**
-    1. **Use Exact Vercel Pill for Notes:**
-       - In `overview.ts`, do NOT create an ugly custom icon.
-       - Take the 3rd row (the purple Vercel row) and replace its text with `"Notes"`.
-       - Keep the original purple styling and pill layout intact.
-       - Tapping this purple "Notes" row transitions cleanly to the Notes panel.
-    2. **Clean Notes Panel (No Embedded Mochi):**
-       - Ensure the Notes sub-panel does NOT render any canvas Mochi mascot over the input area.
-       - Clean layout: Back arrow (`<`), `"Notes & Tasks"`, the `+ Add note` input field, and the list of notes.
-    3. **Re-stage WebUI:**
-       - `cd /workspaces/Binder_vps/coucou-android/webui && npm run build && node ../tools/stage-coucou-web.mjs`
-  - **Handoff:** Notify @OpenCode via `./tell.sh cline opencode "Notes row styled like Vercel and staged"`.
+### Objectives:
+1. **Final QA Sign-off:** @AGY captures emulator screencap, validates logcat, signs APK for release
+2. **Release Notes:** Document all sprint deliverations for v2 release
+3. **APK Publication:** Push debug APK to release channel, update store listings
 
-- **@OpenCode (Pane 1 — 100% Island Pill Purge & Bubble Visibility Lock):**
-  - **Scope:** `coucou-android/app/src/main/java/com/coucou/android/OverlayService.kt`
-  - **Tasks:**
-    1. **TOTAL PURGE of 5-Second Island Pill Timeout:**
-       - Search `OverlayService.kt` for any 5000ms / 5s `postDelayed` timer, `autoShutdown`, `showOriginIsland`, or `islandView`.
-       - COMPLETELY DELETE the timer and the view inflation.
-       - The 4-dot pill MUST NEVER BE ADDED TO WINDOWMANAGER UNDER ANY CIRCUMSTANCES.
-    2. **Hide Floating Bubble When Notes Panel is Open:**
-       - In `OverlayService.kt`, verify that whenever `webViewContainer` is visible/expanded (whether Chat, Overview, or Notes), `bubbleView.visibility = View.GONE`.
-       - The native bubble must NEVER overlap the WebView!
-  - **Handoff:** Notify @Buffy & @AGY via `./tell.sh opencode agy "island pill purged and bubble visibility locked"`.
+### Swimlanes:
+- **@AGY (Pane 0 — Release Gate & Screencap QA):**
+  - Emulator QA: overlay note saving, MainActivity UI, logcat audit
+  - Screencap: `adb exec-out screencap -p > /workspaces/Binder_vps/qa_notes_app_screen.png`
+  - Logcat: `adb logcat -d | grep -iE "fatal|exception|coucou"`
+  - APK signing and publication
+  - **Handoff:** Update `BOARD.md` with release results
+- **@OpenCode (Pane 1 — Bridge & IPC Harden):**
+  - Harden IslandBridgeHost pure-IPC guarantees
+  - Ensure zero intent launches from bridge commands
+  - **Handoff:** Notify @AGY when bridge is solid
+- **@Cline (Pane 3 — WebUI Polish & Regression):**
+  - Verify WebUI notes form, pill interactions, dark mode
+  - Run full test suite, fix any regressions
+  - **Handoff:** Notify @AGY when WebUI stable
+- **@Buffy (Pane 2 — Asset Polish):**
+  - Final drawable asset review
+  - Icon consistency check
+  - **Handoff:** Notify @AGY when assets pass
 
-- **@Buffy (Pane 2 — Layout & Resource Cleanup):**
-  - **Scope:** `res/layout/`, `res/values/dimens.xml`
-  - **Tasks:**
-    1. Verify `overlay_origin_island.xml` is deleted from disk.
-    2. Ensure no obsolete drawable or layout references remain for the 4-dot pill.
-  - **Handoff:** Notify @AGY via `./tell.sh buffy agy "resource cleanup verified"`.
-
-- **@AGY (Pane 0 — Build Gate, Bug Hunter & QA):**
-  - **Status:** COMPLETED & VERIFIED
-  - **Results:**
-    1. **Grep Assertion:** `grep -ri "origin_island" app/src/` returned exit 1 (0 references).
-    2. **WebUI & Overlay Verification:**
-       - Purple Notes pill rendered via standard `.pill` with `#7C5CFF` accent matching Vercel.
-       - Tapping Notes transitions cleanly to the Notes panel.
-       - Mochi canvas suppressed (`botDiameter: 0`, `#bot-canvas` hidden in note view).
-       - Top 4-dot compact notch pill permanently deleted (`#mini-grid` purged, transitions collapse directly to hidden).
-    3. **Tests & Build:**
-       - `npm run build && node ../tools/stage-coucou-web.mjs`: EXIT 0
-       - `./gradlew testDebugUnitTest assembleDebug`: 102/102 tests green, EXIT 0
-       - Fresh APK published to `apks/coucou-android-debug.apk` (11MB).
-
+---
+*Previous sprint (6.2) delivered the overhaul note-saving behavior and main app UI modernization. Sprint 6.3 focuses on release preparation and QA sign-off.*

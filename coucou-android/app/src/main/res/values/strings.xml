@@ -24,4 +24,5 @@
     <string name="island_load_failed">Coucou could not load its window: %1$s</string>
     <string name="build_info_format">Build: %1$s\nCommit: %2$s (v%3$d)</string>
     <!-- SPRINT 4.10: the dock pill's "Mochi" label string was removed with the pill layout. -->
+    <string name="my_notes_tasks">My Notes &amp; Tasks</string>
 </resources>
