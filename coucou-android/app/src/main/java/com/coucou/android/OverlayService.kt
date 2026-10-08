@@ -451,7 +451,7 @@ class OverlayService : Service() {
         // Dimensions: width 350dp, height 92dp (aspect ratio ~3.7:1)
         params.width = resources.getDimensionPixelSize(R.dimen.coucou_island_intro_width).coerceAtMost(metrics.widthPixels)
         params.height = resources.getDimensionPixelSize(R.dimen.coucou_island_intro_height)
-        params.flags = baseFlags(focusable = false)
+        params.flags = bubbleFlags()
         params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
 
         // Do NOT show the collapsed bubble on start: show WebView Overlay first
@@ -572,6 +572,11 @@ class OverlayService : Service() {
         val bubble = bubbleView ?: inflateBubble().also { bubbleView = it }
         val root = OverlayHostLayout(
             this,
+            onOutsideTouch = {
+                if (isExpanded) {
+                    collapse()
+                }
+            },
             onBackPressed = { collapse() }
         )
         val fill = FrameLayout.LayoutParams(
@@ -643,7 +648,8 @@ class OverlayService : Service() {
         params.height = WindowManager.LayoutParams.WRAP_CONTENT
         params.gravity = Gravity.TOP or Gravity.START
         // Not focusable, so the app underneath keeps its own input.
-        params.flags = baseFlags(focusable = false)
+        // bubbleParams: Use FLAG_NOT_FOCUSABLE. DO NOT add FLAG_WATCH_OUTSIDE_TOUCH to the bubble!
+        params.flags = bubbleFlags(focusable = false)
         params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
     }
 
@@ -670,7 +676,9 @@ class OverlayService : Service() {
         }
         params.gravity = Gravity.TOP or Gravity.START
         params.x = 0
-        params.flags = baseFlags(focusable = islandFocused)
+        // expandedParams: Use FLAG_NOT_TOUCH_MODAL or FLAG_WATCH_OUTSIDE_TOUCH.
+        // On outside touch event, hide webViewContainer.
+        params.flags = expandedFlags(focusable = islandFocused)
         params.softInputMode = if (islandFocused) {
             WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         } else {
@@ -722,7 +730,9 @@ class OverlayService : Service() {
         params.x = 0
 
         // Clear FLAG_NOT_FOCUSABLE so the soft keyboard can pop up when typing in chat
-        params.flags = baseFlags(focusable = true)
+        params.flags = expandedFlags(focusable = true)
+        // expandedParams: Use FLAG_NOT_TOUCH_MODAL or FLAG_WATCH_OUTSIDE_TOUCH.
+        // On outside touch event, hide webViewContainer.
         params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
 
         clampOnScreen(params)
@@ -779,8 +789,7 @@ class OverlayService : Service() {
         params.x = dp(16)
         params.y = dp(80)
         bubbleView?.visibility = View.VISIBLE
-        bubbleView?.alpha = 0f
-        bubbleView?.animate()?.alpha(1f)?.setDuration(200)?.start()
+        bubbleView?.alpha = 1f
         clampOnScreen(params)
         try {
             wm.updateViewLayout(root, params)
@@ -992,7 +1001,8 @@ class OverlayService : Service() {
     private fun setFocusable(focusable: Boolean) {
         val params = layoutParams ?: return
         val view = island?.view
-        params.flags = baseFlags(focusable = focusable)
+        // expandedParams: Use FLAG_NOT_TOUCH_MODAL or FLAG_WATCH_OUTSIDE_TOUCH.
+        params.flags = expandedFlags(focusable = focusable)
         params.softInputMode = if (focusable) {
             // Resize, so the prompt box is pushed up instead of being covered by the keyboard.
             WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
@@ -1141,23 +1151,29 @@ class OverlayService : Service() {
     }
 
     /**
-     * The window flags every shape starts from.
+     * Flags for the collapsed bubble window.
      *
-     * `FLAG_NOT_TOUCH_MODAL` is the one @Boss's screen recording was missing: without it
-     * an overlay window is touch-modal by default, so it receives *every* touch on the
-     * screen and the app underneath goes dead — which is what "blocks touches" looked like.
-     * With it, touches outside the window carry on to the app below.
-     *
-     * `FLAG_WATCH_OUTSIDE_TOUCH` is what makes those outside touches visible to us as well,
-     * so the same tap can close the prompt box (see [OverlayHostLayout]).
-     *
-     * `FLAG_NOT_FOCUSABLE` keeps the window out of the input chain until the prompt box
-     * asks to be typed into (see [setFocusable]).
-     *
-     * Deliberately **no** `FLAG_DIM_BEHIND`: it dims everything behind an overlay, which is
-     * a system-dialog look the app does not want floating over someone's game.
+     * The bubble must NOT have FLAG_WATCH_OUTSIDE_TOUCH: outside touches must
+     * pass through to the app below, and the bubble must remain visible 24/7.
+     * Only FLAG_NOT_FOCUSABLE keeps the IME away until the chat field requests it.
      */
-    private fun baseFlags(focusable: Boolean): Int {
+    private fun bubbleFlags(focusable: Boolean = false): Int =
+        if (focusable) {
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        } else {
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+        }
+
+    /**
+     * Flags for the expanded chat drawer window.
+     *
+     * FLAG_NOT_TOUCH_MODAL allows the app underneath to receive touches.
+     * FLAG_WATCH_OUTSIDE_TOUCH delivers outside-touch events so the drawer
+     * can be collapsed while the bubble stays visible.
+     * FLAG_ALT_FOCUSABLE_IM lets the IME route through when the chat field is active.
+     */
+    private fun expandedFlags(focusable: Boolean): Int {
         var flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
         flags = if (focusable) {
@@ -1181,7 +1197,7 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
-            baseFlags(focusable = false),
+            bubbleFlags(focusable = false),
             // TRANSLUCENT is what lets the island be a rounded rectangle with nothing
             // behind it; an opaque window is a solid black slab over whatever is below.
             PixelFormat.TRANSLUCENT

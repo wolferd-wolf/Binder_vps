@@ -61,9 +61,9 @@
                                                coucou_bubble_card_size
            coucou_bubble_corner_radius   18dp  smooth squircle on the 48dp card (37.5%)
            coucou_character_collapsed_width / _height  38dp x 30dp  Mochi box in the card
-         SPRINT 4.10: the Origin Island dock pill is 100% CANCELLED — its tokens
-         (coucou_origin_island_radius / _pill_width / _pill_height) and their
-         consumers were purged; do not re-add them.
+         SPRINT 4.10/4.11: the Origin Island dock pill is 100% CANCELLED — its
+         radius/width/height tokens and their consumers were purged from every
+         res/ file; do not re-add them (AGY greps for the old names).
          coucou_bubble_size MUST stay equal to coucou_bubble_card_size: the latter is
          OverlayService.bubbleCardPx() — the collapsed window rectangle and the basis of
          the drag clamp + edge snap — so a split between the two draws one card and
@@ -109,6 +109,6 @@
     <dimen name="coucou_island_intro_height">175dp</dimen>
     <dimen name="coucou_island_expanded_height">270dp</dimen>
 
-    <!-- SPRINT 4.10: Origin Island dock pill geometry (120 x 36dp) REMOVED with
-         overlay_origin_island.xml — the pill idea is cancelled per @Boss. -->
+    <!-- SPRINT 4.10/4.11: Origin Island dock pill geometry (120 x 36dp) REMOVED
+         with its layout — the pill idea is cancelled per @Boss. -->
 </resources>

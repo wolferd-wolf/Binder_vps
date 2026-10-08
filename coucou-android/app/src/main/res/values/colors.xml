@@ -42,9 +42,9 @@
     <!-- Bubble/ask-bar card fill, aligned with the desktop "card" (#141518). -->
     <color name="coucou_bubble_bg">#141518</color>
 
-    <!-- SPRINT 4.10: Origin Island dock tokens REMOVED — the top pill is 100%
-         CANCELLED (@Boss), so coucou_origin_island_bg (and the old couchou_
-         typo twin above it) went with overlay_origin_island.xml. Do not re-add. -->
+    <!-- SPRINT 4.10/4.11: Origin Island dock tokens REMOVED — the top pill is 100%
+         CANCELLED (@Boss), so its true-black background token (and the old
+         misspelled twin) went with the pill layout. Do not re-add. -->
 
     <!-- Sprint 4 desktop intro card.
          Source: upstream coucou/windows/src/style.css ".card" rule — the island box
