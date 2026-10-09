@@ -7,6 +7,43 @@ import { State, type Settings } from "./core/state";
 import { Island } from "./island/island";
 import { registerHookHandlers } from "./island/hooks";
 import { registerIntegrationHandlers, refreshConfigured } from "./island/integrations";
+import { handlePickedFile } from "./views/hub-helpers";
+
+// SPRINT 6.5 @Cline — BOARD contract: `window.IslandBridge.openFilePicker()` /
+// `getTasksJson()`, and `window.CoucouAndroid.onFileSelected(...)` for the SAF
+// result. Kotlin injects `CoucouAndroid` itself; these aliases only add the
+// *names* BOARD specifies when the host has not provided them, so pills work
+// in `npm run dev` and light up fully once OpenCode's lane lands.
+function installHubAliases(): void {
+  try {
+    const w = window as unknown as {
+      IslandBridge?: Record<string, unknown>;
+      CoucouAndroid?: Record<string, unknown>;
+    };
+    if (!w.IslandBridge) w.IslandBridge = {};
+    const bridge = w.IslandBridge;
+    if (typeof bridge["openFilePicker"] !== "function") {
+      bridge["openFilePicker"] = () => Bridge.openFilePicker();
+    }
+    if (typeof bridge["getTasksJson"] !== "function") {
+      bridge["getTasksJson"] = () => Bridge.getTasksJson();
+    }
+    if (typeof bridge["toggleNote"] !== "function") {
+      bridge["toggleNote"] = (id: number) => Bridge.toggleNote(Number(id));
+    }
+    if (!w.CoucouAndroid) w.CoucouAndroid = {};
+    const android = w.CoucouAndroid;
+    if (typeof android["onFileSelected"] !== "function") {
+      android["onFileSelected"] = (payload: string) => {
+        handlePickedFile(payload);
+      };
+    }
+  } catch {
+    /* aliases are best-effort; direct Bridge calls cover the rest */
+  }
+}
+
+installHubAliases();
 
 async function main() {
   const root = document.getElementById("root");

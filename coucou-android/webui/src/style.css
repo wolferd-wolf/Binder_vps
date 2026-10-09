@@ -1802,3 +1802,83 @@ input[type="range"]::-webkit-slider-thumb {
   color: var(--dim);
   text-align: center;
 }
+
+/* ── Sprint 6.5 @Buffy — Live Voice pulse & hub accents ──────────────────────
+   Consumes @Cline's markup as-is: `.livevoice-orb` inside `.livevoice-room`
+   with the `data-live="idle|listening|thinking|speaking"` attribute that
+   hub-voice.ts already toggles. hub.css defers the `live-voice-pulse`
+   keyframes to this lane — only the ripple rings and the accent tints live
+   here; the orb gradient/box-shadow stay in hub.css. */
+
+.livevoice-room .livevoice-orb {
+  position: relative;
+}
+
+/* Two concentric ripple rings, staggered 0.9 s, expanding + fading. */
+.livevoice-room .livevoice-orb::before,
+.livevoice-room .livevoice-orb::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1.5px solid var(--voice-ripple, rgba(244, 80, 94, 0.55));
+  opacity: 0;
+  pointer-events: none;
+  animation: live-voice-pulse 1.8s ease-out infinite;
+  will-change: transform, opacity;
+}
+
+.livevoice-room .livevoice-orb::after {
+  animation-delay: 0.9s;
+}
+
+/* Idle: Mochi still, rings at rest. Thinking: slow & purple. Listening:
+   fast red rings tracking speech. Speaking: green, breathing with playback. */
+.livevoice-room[data-live="idle"] .livevoice-orb::before,
+.livevoice-room[data-live="idle"] .livevoice-orb::after {
+  animation-play-state: paused;
+  opacity: 0;
+  --voice-ripple: rgba(147, 152, 161, 0.35);
+}
+
+.livevoice-room[data-live="listening"] {
+  --voice-ripple: rgba(244, 80, 94, 0.6);
+}
+
+.livevoice-room[data-live="listening"] .livevoice-orb::before,
+.livevoice-room[data-live="listening"] .livevoice-orb::after {
+  animation-duration: 1.2s;
+}
+
+.livevoice-room[data-live="thinking"] {
+  --voice-ripple: rgba(167, 139, 250, 0.6);
+}
+
+.livevoice-room[data-live="thinking"] .livevoice-orb::before,
+.livevoice-room[data-live="thinking"] .livevoice-orb::after {
+  animation-duration: 2.4s;
+  animation-timing-function: ease-in-out;
+}
+
+.livevoice-room[data-live="speaking"] {
+  --voice-ripple: rgba(52, 211, 153, 0.6);
+}
+
+.livevoice-room[data-live="speaking"] .livevoice-orb::before,
+.livevoice-room[data-live="speaking"] .livevoice-orb::after {
+  animation-duration: 1.5s;
+}
+
+@keyframes live-voice-pulse {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.8;
+  }
+  80% {
+    opacity: 0.08;
+  }
+  100% {
+    transform: scale(1.85);
+    opacity: 0;
+  }
+}

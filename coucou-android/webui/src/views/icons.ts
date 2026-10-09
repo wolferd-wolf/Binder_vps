@@ -42,5 +42,18 @@ export const ICONS = {
   note: "M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 16H5V5h2v3h10V5h2v14zm-12-6h10v2H7v-2zm0 4h7v2H7v-2zm0-8h10v2H7V9z",
   // trash
   trash: "M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z",
+  // ── Sprint 6.5 @Buffy — Assistant Hub glyphs (same 24×24 grid) ───────────
+  // checklist: two ticked rows + one open line (Tasks / Reminders pill)
+  checklist:
+    "M2 6.5 3.5 5 5.5 7 9 3.5 10.5 5 5.5 10zM13 5.4h9v2h-9zM2 13 3.5 11.5 5.5 13.5 9 10 10.5 11.5 5.5 16.5zM13 11.9h9v2h-9zM2 19.4h20v2H2z",
+  // folder.fill: solid vault folder (Vault / File Drop pill)
+  folder:
+    "M3.6 6.9c0-1.1.9-2 2-2h4l2 2.5h6.8c1.1 0 2 .9 2 2v8.1c0 1.1-.9 2-2 2H5.6c-1.1 0-2-.9-2-2V6.9z",
+  // mic.fill: capsule + cradle + stand (Live Voice pill)
+  mic:
+    "M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm-4 7c0 2.76 2.24 5 5 5s5-2.24 5-5h2c0 3.53-2.61 6.43-6 6.72V21h-2v-3.08c-3.39-.49-6-3.39-6-6.72h2z",
+  // waveform: symmetric soundwave bars (Live Voice room accent)
+  waveform:
+    "M1.7 9.6h2.2v4.8H1.7zM6.3 6.6h2.2v10.8H6.3zM10.9 3.6h2.2v16.8h-2.2zM15.5 6.6h2.2v10.8h-2.2zM20.1 9.6h2.2v4.8h-2.2z",
 } as const;
 

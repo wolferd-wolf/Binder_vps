@@ -22,7 +22,11 @@ export type IslandViewName =
   | "note"
   | "settings"
   | "greeting"
-  | "chat";
+  | "chat"
+  // SPRINT 6.5 @Cline — Assistant Hub views (fixed 4-pill overhaul).
+  | "tasks"
+  | "vault"
+  | "livevoice";
 
 export type BotStateName =
   | "idle"
@@ -196,6 +200,11 @@ export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
   searching: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
   result: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
   note: { height: 264, botX: 60, botY: null, botDiameter: 0, agentMode: "column" },
+  // SPRINT 6.5 @Cline — Assistant Hub drawers share the notes geometry so the
+  // island never resizes mid-handoff between the four pills.
+  tasks: { height: 264, botX: 60, botY: null, botDiameter: 0, agentMode: "column" },
+  vault: { height: 264, botX: 60, botY: null, botDiameter: 0, agentMode: "column" },
+  livevoice: { height: 264, botX: 65, botY: 60, botDiameter: 58, agentMode: "none" },
   settings: { height: 160, botX: 54, botY: null, botDiameter: 46, agentMode: "none" },
   greeting: { height: 175, botX: 180, botY: 85, botDiameter: 0, agentMode: "none" },
 };

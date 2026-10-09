@@ -13,6 +13,9 @@ import { buildChoose, buildUpload, buildUploading } from "./upload";
 import { renderIntegrationCard, type IntegrationCardHooks } from "./integrations";
 import { Bridge } from "../core/bridge";
 import { handleNoteEnter } from "./notes";
+import { buildTasksView } from "./hub-tasks";
+import { buildVaultView } from "./hub-vault";
+import { buildLiveVoiceView } from "./hub-voice";
 
 export interface ViewActions {
   setView(v: IslandViewName): void;
@@ -232,24 +235,67 @@ function buildOverview(actions: ViewActions): ViewHost {
   };
 }
 
+function hubPillLabel(id: string, fallback: string): string {
+  if (id === "integration_resend") return "Tasks / Reminders";
+  if (id === "integration_n8n") return "Vault / File Drop";
+  if (id === "integration_notes") return "Notes";
+  if (id === "integration_github") return "Live Voice Mode";
+  return fallback;
+}
+
 function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
   const isNotes = task.id === "integration_notes";
   const label = task.id === "integration_claude" ? "VS Code" : task.name;
   const canvas = createMiniBot(task, 24);
+  // SPRINT 6.5 @Buffy glyphs (fill-mode, plain svg() call, no stroke opt).
+  const hubIcon =
+    task.id === "integration_resend"
+      ? svg(ICONS.checklist, 13)
+      : task.id === "integration_n8n"
+        ? svg(ICONS.folder, 13)
+        : task.id === "integration_github"
+          ? svg(ICONS.mic, 13)
+          : task.id === "integration_notes"
+            ? svg(ICONS.note, 13)
+            : null;
+  if (hubIcon) hubIcon.style.flex = "0 0 auto";
   const pill = h(
     "div",
     {
       class: "pill",
       onclick: () => {
+        // SPRINT 6.5 @Cline — Assistant Hub routing (WebUI lane): the fixed
+        // 4-pill overhaul maps historic integration ids onto hub views.
+        // Notes keeps its existing view; Tasks/Vault/LiveVoice open the new
+        // hub drawers. Unknown pills keep the old focus behaviour.
         if (isNotes) {
           actions.setView("note");
+        } else if (task.id === "integration_resend") {
+          actions.setView("tasks");
+        } else if (task.id === "integration_n8n") {
+          actions.setView("vault");
+          try {
+            const w = window as unknown as {
+              IslandBridge?: { openFilePicker?: () => unknown };
+            };
+            if (typeof w.IslandBridge?.openFilePicker === "function") {
+              w.IslandBridge.openFilePicker();
+            } else {
+              void Bridge.openFilePicker();
+            }
+          } catch {
+            /* picker is best-effort until OpenCode's Kotlin lane lands */
+          }
+        } else if (task.id === "integration_github") {
+          actions.setView("livevoice");
         } else {
           actions.setFocus(task.id);
         }
       },
     },
     canvas,
-    h("span", { class: "lbl", text: label }),
+    hubIcon,
+    h("span", { class: "lbl", text: hubPillLabel(task.id, label) }),
   );
   pill.style.borderColor = `${task.color}24`;
   pill.addEventListener("mouseenter", () => {
@@ -698,6 +744,10 @@ export function buildViews(
   map.set("finished", buildFinished(actions));
   map.set("confused", buildConfused());
   map.set("note", buildNotesView(actions));
+  // SPRINT 6.5 @Cline — Assistant Hub drawers (fixed 4-pill overhaul).
+  map.set("tasks", buildTasksView(actions));
+  map.set("vault", buildVaultView(actions));
+  map.set("livevoice", buildLiveVoiceView(actions));
   map.set("settings", buildSettings(actions));
   const promptView = buildPrompt(onChatHeightChange);
   map.set("prompt", promptView);

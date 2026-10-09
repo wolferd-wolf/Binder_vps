@@ -111,6 +111,14 @@ export const Bridge = {
   addNote: (text: string, isTask: boolean) => call<string>("add_note", { text, isTask }),
   deleteNote: (id: number) => call<boolean>("delete_note", { id }),
   toggleNote: (id: number) => call<boolean>("toggle_note", { id }),
+
+  // ── Assistant Hub (Sprint 6.5 @Cline) ───────────────────────────────────
+  // Desktop has no SAF picker / TaskStore / mic host: honest no-ops so the
+  // shared `src/` typechecks under both bridges. The Android twin overrides
+  // these with the real `CoucouAndroid` calls.
+  openFilePicker: () => Promise.resolve(null as void | null),
+  getTasksJson: () => call<string>("get_tasks_json"),
+  checkMicPermission: () => Promise.resolve(null as boolean | null),
 };
 
 export interface IntegrationUpdate {

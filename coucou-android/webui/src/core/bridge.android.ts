@@ -79,6 +79,10 @@ interface CoucouAndroidApi {
   addNote?(text: string, isTask: boolean): unknown;
   deleteNote?(id: number): unknown;
   toggleNote?(id: number): unknown;
+  openFilePicker?(): unknown;
+  getTasksJson?(): unknown;
+  checkMicPermission?(): unknown;
+  onFileSelected?(payload: string): void;
   invoke?(cmd: string, argsJson: string): unknown;
 }
 
@@ -299,6 +303,40 @@ export const Bridge = {
     void p.then(() => notifyNotesUpdated());
     return p;
   },
+
+  // ── Assistant Hub (Sprint 6.5 @Cline, WebUI side) ─────────────────────────
+  // All defensive: a missing Kotlin method resolves null instead of throwing,
+  // so the pills render in `npm run dev` and light up fully once OpenCode's
+  // lane (openFilePicker / getTasksJson / checkMicPermission) lands.
+  /** SAF file picker: taps straight through to Kotlin's named method. */
+  openFilePicker: () => {
+    try {
+      const api = getApi();
+      if (typeof api.openFilePicker === "function") {
+        const raw = api.openFilePicker();
+        void parseEnvelope(raw);
+      } else {
+        void rawInvoke("open_file_picker", {});
+      }
+    } catch (err) {
+      console.warn("[coucou] openFilePicker unavailable", err);
+    }
+    return Promise.resolve(null as void | null);
+  },
+  /** Task-filtered notes JSON (`TaskStore` rows with `isTask`). Falls back to getNotesJson. */
+  getTasksJson: () =>
+    call<string>("get_tasks_json", {}, () => {
+      const api = getApi();
+      if (typeof api.getTasksJson === "function") return api.getTasksJson() as string;
+      return api.getNotesJson?.() as string;
+    }),
+  /** True when RECORD_AUDIO is granted (or when no host can say otherwise). */
+  checkMicPermission: () =>
+    call<boolean>("check_mic_permission", {}, () => {
+      const api = getApi();
+      if (typeof api.checkMicPermission === "function") return api.checkMicPermission() as boolean;
+      return true;
+    }),
 };
 
 /** Files dragged onto the island. Android has no OLE drag-and-drop, so this is inert. */

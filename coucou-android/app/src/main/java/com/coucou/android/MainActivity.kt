@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -16,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.appcompat.app.AppCompatActivity
 import com.coucou.android.databinding.ActivityMainBinding
 import com.coucou.android.TaskStore
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
@@ -27,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     ) { result ->
         updateUiState()
     }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,6 +90,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun onNoteSelected(noteId: Long) {
         Toast.makeText(this, "Note: $noteId", Toast.LENGTH_SHORT).show()
+    }
+
+    private companion object {
+        private const val TAG = "MainActivity"
     }
 
     private fun hasOverlayPermission(): Boolean {

@@ -295,6 +295,7 @@ class OverlayService : Service() {
         islandListener = IslandListener()
         islandBridge = IslandBridgeHost(this, islandListener!!)
         registerScreenReceiver()
+        
     }
 
     /**

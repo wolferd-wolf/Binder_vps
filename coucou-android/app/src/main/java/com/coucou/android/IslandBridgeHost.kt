@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.util.Log
+import android.widget.Toast
 import android.webkit.JavascriptInterface
 import com.coucou.android.IslandBridgeCommands.BridgeAction
 import org.json.JSONArray
@@ -119,6 +120,46 @@ internal class IslandBridgeHost(
             )
         }
         return arr.toString()
+    }
+
+@JavascriptInterface
+    fun openFilePicker(): String {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("*/*"))
+        }
+        // Use request code 1001 which MainActivity's onActivityResult handles
+        if (context is android.app.Activity) {
+            (context as android.app.Activity).startActivityForResult(
+                Intent.createChooser(intent, "Select file"),
+                1001
+            )
+        } else {
+            Toast.makeText(context, "File picker not available", Toast.LENGTH_SHORT).show()
+        }
+        return IslandBridgeCommands.nullEnvelope()
+    }
+
+    @JavascriptInterface
+    fun getTasksJson(): String {
+        val all = TaskStore.create(context).getAllNotes()
+        val arr = JSONArray()
+        all.forEach {
+            arr.put(
+                JSONObject().apply {
+                    put("id", it.id)
+                    put("text", it.text)
+                    put("isTask", true)
+                    put("isDone", it.isDone)
+                }
+            )
+        }
+        return arr.toString()
+    }
+
+    @JavascriptInterface
+    fun checkMicPermission(): Boolean {
+        return context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
     }
 
     @JavascriptInterface
