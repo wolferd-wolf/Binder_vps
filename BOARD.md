@@ -1,74 +1,61 @@
 # AGENT TEAM BOARD (CONCURRENT MODE)
 
-## Active Sprint: SPRINT 6.4 — ORGANIC IDLE EYE DRIFT & WEBUI NOTES DRAWER SYNC
+## Active Sprint: SPRINT 6.5 — THE FULL ASSISTANT HUB OVERHAUL
+### (Tasks/Reminders, SAF File Vault, and Gemini Live 2-Way Voice Mode)
 
-### Issues Under Hotfix:
-1. **Floating Mochi Only Blinks (No Natural Glancing):** Mochi's eyes are locked straight ahead. We want calm, organic glances around at random intervals (3.0s to 6.5s), NOT rapid 1-second twitching!
-2. **Saved Notes Missing in Floating Overlay:** Notes appear in MainActivity, but opening the floating Notes drawer shows "Failed to load notes" or an empty list. The bridge retrieval between `TaskStore` and WebUI `views/notes.ts` is broken.
+### High-Level Goal:
+Transform the 4 Home pill rows into full daily mobile tools:
+1. 🟢 **Tasks / Reminders** (replaces Resend): interactive check-off list from `TaskStore`.
+2. 🟠 **Vault / File Drop** (replaces n8n): opens Android Storage Access Framework (SAF) file picker.
+3. 🟣 **Notes** (replaces Vercel): *Completed & synced.*
+4. 🔴 **Live Voice Mode** (replaces GitHub): Gemini Live-style 2-way conversational voice mode.
 
 ---
 
 ### Swimlanes & Assigned Tasks
 
-- **@OpenCode (Pane 1 — Random Glancing Physics & Bridge Serialization):**
-  - **Scope:** `coucou-android/app/src/main/java/com/coucou/android/CoucouCharacterEngine.kt`, `IslandBridgeHost.kt`
-  - **Tasks:**
-    1. **Organic Random Look-Around in `CoucouCharacterEngine.kt`:**
-       - Do NOT use a 1-second timer or constant jitter!
-       - Implement natural glance scheduling:
-         * Schedule next glance at a random interval between `3000ms` and `6500ms`.
-         * When glancing, pick a calm, subtle look offset (`x in [-0.25f, 0.25f], y in [-0.15f, 0.15f]`).
-         * Hold the glance for ~1200ms–1600ms, then smoothly spring back to center `(0f, 0f)`.
-         * Apply soft spring damping: `currentLookX += (targetLookX - currentLookX) * 0.06f`.
-    2. **Guarantee Notes Bridge Response (`IslandBridgeHost.kt`):**
-       - Expose both `@JavascriptInterface fun getNotesJson(): String` AND handle `"get_notes"` in `invoke()`:
-         ```kotlin
-         @JavascriptInterface
-         fun getNotesJson(): String {
-             val list = taskStore.getAll()
-             val arr = org.json.JSONArray()
-             list.forEach {
-                 arr.put(org.json.JSONObject().apply {
-                     put("id", it.id)
-                     put("text", it.text)
-                     put("isTask", it.isTask)
-                     put("isDone", it.isDone)
-                     put("createdAt", it.createdAt)
-                 })
-             }
-             return arr.toString()
-         }
-         ```
-       - Return a valid JSON array string `[]` if empty, never null or unhandled exception.
-  - **Handoff:** Notify @Cline via `./tell.sh opencode cline "glance physics and getNotesJson ready"`.
+- **@OpenCode (Pane 1 — Kotlin SAF Intent & Audio Permission Bridge ONLY):** ✅ **LANE DONE**
+  - **Delivered:**
+    1. `IslandBridgeHost.openFilePicker()` launching SAF file picker intent.
+    2. `IslandBridgeHost.getTasksJson()` querying and returning tasks JSON.
+    3. `IslandBridgeHost.checkMicPermission()` checking `RECORD_AUDIO` permission.
+  - **Verified:** JVM unit tests and Kotlin compilation (`compileDebugKotlin`) 100% green.
 
-- **@Cline (Pane 3 — WebUI Notes View Data Binding & Auto-Refresh):**
-  - **Scope:** `coucou-android/webui/src/views/notes.ts`, `coucou-android/webui/src/island/island.ts`
-  - **Tasks:**
-    1. **Fetch & Render Saved Notes in WebUI:**
-       - In `notes.ts`, on component mount/show:
-         * Call `window.IslandBridge?.getNotesJson?.()` or `window.CoucouNative?.invoke?.('get_notes')`.
-         * Parse JSON array safely (`try { JSON.parse(...) } catch { [] }`).
-         * Render each note item with its text and delete button.
-       - Ensure `window.CoucouAndroid.onNotesUpdated = () => loadNotes()` re-fetches the list immediately when a note is added via chat or input bar.
-    2. **Re-stage WebUI:**
-       - `cd /workspaces/Binder_vps/coucou-android/webui && npm run build && node ../tools/stage-coucou-web.mjs`.
-  - **Handoff:** Notify @Buffy & @AGY via `./tell.sh cline agy "webui notes sync staged"`.
+- **@Cline (Pane 3 — WebUI Home Pills, Tasks Drawer, Vault & Live Voice View ONLY):** ✅ **LANE DONE**
+  - **Delivered:**
+    1. 4 Home Pills overhaul: Tasks / Reminders, Vault / File Drop, Notes, Live Voice Mode.
+    2. Tasks checklist drawer with toggle/delete/add sync.
+    3. Vault picked-file chip preview handling `window.CoucouAndroid.onFileSelected`.
+    4. Live Voice 2-way room with Mochi listening/thinking/speaking reaction states.
+  - **Verified:** Build, typecheck, contract verification, and asset staging green.
 
-- **@Buffy (Pane 2 — Visual Polish & Notes Empty State):**
-  - **Scope:** `coucou-android/webui/src/style.css`
-  - **Tasks:**
-    1. Ensure the notes list container has smooth scrolling and clean padding.
-    2. Ensure empty state ("No saved notes yet") and list items match the `#141518` card aesthetic.
-  - **Handoff:** Notify @AGY via `./tell.sh buffy agy "styling verified"`.
+- **@Buffy (Pane 2 — Visual Styling, Waveforms & SVG Icons ONLY):** ✅ **LANE DONE**
+  - **Scope:** `coucou-android/webui/src/style.css`, SVG icons
+  - **Delivered (Sprint 6.5):**
+    1. **4 hub glyph paths** in `webui/src/views/icons.ts` (24×24 grid, fill-mode like the rest of ICONS — call with plain `svg(ICONS.x, n)`, no stroke opt):
+       - `ICONS.checklist` — two ticked rows + one open line (Tasks pill / drawer header)
+       - `ICONS.folder` — solid folder.fill (Vault pill)
+       - `ICONS.mic` — mic.fill, capsule + cradle + stand (Live Voice pill)
+       - `ICONS.waveform` — 5 symmetric soundwave bars, centered on x=12 (voice room accent)
+    2. **`@keyframes live-voice-pulse`** in `webui/src/style.css` (Sprint 6.5 section at file end):
+       - Rides on @Cline's EXISTING markup — `.livevoice-orb::before/::after` get two staggered rings (0s / 0.9s delay), expand 0.92→1.85 + fade. **No markup change needed.**
+       - Driven by the `data-live` attribute `hub-voice.ts` already toggles: `idle`=paused/dim, `listening`=fast red 1.2s, `thinking`=slow purple 2.4s ease-in-out, `speaking`=green 1.5s. Tint exposed as `--voice-ripple`.
+  - **Verified:** `npm run typecheck` + `npm run build` exit 0; `live-voice-pulse` + orb ring rules confirmed in `dist/assets/island-*.css`; all 4 glyph bboxes render inside the 24×24 viewBox (`node tools/verify-hub-icons.mjs`, 4/4 PASS).
+  - **Note for @Cline:** the 4 new icons are tree-shaken from the bundle until a view imports them — wire them into the pills/tiles and they ship on your next `npm run build && node ../tools/stage-coucou-web.mjs`.
+  - **Handoff:** Done — notified @Cline (consume the tokens) and @AGY (`voice waveform and icon tokens verified`).
 
-- **@AGY (Pane 0 — Build Gate & GitHub Release):**
-  - **Scope:** Build, verification & GitHub Release
-  - **Status:** COMPLETED & VERIFIED
-    * 105/105 JVM Unit tests green (`./gradlew testDebugUnitTest`).
-    * Assembly verified (`./gradlew assembleDebug`).
-    * Organic random idle glancing (3-6.5s interval, subtle offset, 1.2-1.6s hold, 0.06f soft spring damping) confirmed in `CoucouCharacterEngine.kt`.
-    * `IslandBridgeHost.kt` notes bridge returns JSON array directly for `getNotesJson()` and handles `get_notes` in `invoke()`.
-    * WebUI notes drawer synchronizes with `TaskStore`, supporting auto-refresh on updates and empty state fallback.
-    * Fresh debug APK copied to `apks/coucou-android-debug.apk`.
-    * Published GitHub Release: https://github.com/wolferd-wolf/Binder_vps/releases/tag/v20261009_082042
+- **@AGY (Pane 0 — Build Gate, Automated QA & GitHub Release ONLY):** ✅ **SPRINT 6.5 RELEASE PUBLISHED**
+  - **Scope:** Compilation & Release
+  - **Delivered:**
+    1. `testDebugUnitTest` 100% green (105 JVM tests passed).
+    2. `assembleDebug` clean build -> `coucou-android/app/build/outputs/apk/debug/app-debug.apk` (10 MB).
+    3. Headless Playwright verification pass (`scripts/verify-sprint65.mjs`) generating all 4 view screenshots:
+       - `sprint65_home_overview.png`
+       - `sprint65_tasks_drawer.png`
+       - `sprint65_vault_chip.png`
+       - `sprint65_live_voice.png`
+    4. APK pushed to repository at `apks/coucou-android-debug.apk`.
+    5. GitHub Release created:
+       - **Release Tag:** `v20261009_183259`
+       - **Release URL:** https://github.com/wolferd-wolf/Binder_vps/releases/tag/v20261009_183259
+
