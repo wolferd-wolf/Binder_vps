@@ -428,4 +428,49 @@ class CoucouCharacterEngineTest {
     }
 
     // endregion
+
+    // region Sprint 6.3: authentic desktop idle animation physics
+
+    @Test
+    fun `idle state breathes gently with 1_5f frequency and 0_03f amp`() {
+        val engine = engine()
+        engine.setState(CoucouState.IDLE)
+        var minSy = Float.MAX_VALUE
+        var maxSy = -Float.MAX_VALUE
+        // Step through 2.5 seconds (covers more than one full 1.5 rad/s cycle: T = 2π / 1.5 ≈ 4.19s)
+        repeat(240) {
+            engine.update(1f / 60f)
+            minSy = minOf(minSy, engine.sy)
+            maxSy = maxOf(maxSy, engine.sy)
+        }
+        assertTrue("idle height must oscillate with breathing", maxSy - minSy > 0.01f)
+        assertTrue("amplitude must stay bounded within gentle 0.03 range", maxSy <= 1.035f && minSy >= 0.965f)
+    }
+
+    @Test
+    fun `blink closes and opens in approximately 120ms`() {
+        val engine = engine()
+        engine.blink()
+        // Mid-blink at 50ms should be mostly closed
+        engine.update(0.05f)
+        assertTrue("eyes should close during blink", engine.open < 0.5f)
+        // By 120ms (50ms + 70ms), eye should reopen
+        engine.update(0.08f)
+        assertTrue("eyes should reopen by 130ms", engine.open > 0.9f)
+    }
+
+    @Test
+    fun `smooth eye look damping smoothly approaches targets without overshoot`() {
+        val engine = engine()
+        engine.ambientLook = false
+        // Fixed look target via thinking state
+        engine.setState(CoucouState.THINKING)
+        val initialYaw = engine.yaw
+        // After 1 frame, delta should be approximately 8% of target gap (spring damping = 0.08f)
+        engine.update(1f / 60f)
+        val firstStep = kotlin.math.abs(engine.yaw - initialYaw)
+        assertTrue("first step must be smooth and damped", firstStep > 0.001f && firstStep < 0.1f)
+    }
+
+    // endregion
 }

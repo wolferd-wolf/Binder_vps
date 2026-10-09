@@ -806,6 +806,9 @@ class OverlayService : Service() {
             Log.e(TAG, "Failed to update layout for collapsed bubble", e)
         }
         characterView?.setHostVisible(true)
+        if (characterView?.characterState == CoucouState.QUESTION) {
+            setCharacterState(CoucouState.IDLE)
+        }
         islandDescription = describeWindow(params)
     }
 
@@ -1324,7 +1327,7 @@ class OverlayService : Service() {
         mainHandler.postDelayed({
             runCatching {
                 if (characterView === character) {
-                    setCharacterState(if (isExpanded) CoucouState.QUESTION else CoucouState.IDLE)
+                    setCharacterState(CoucouState.IDLE)
                 }
             }
         }, CHARACTER_RESET_MS)

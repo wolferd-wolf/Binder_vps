@@ -268,6 +268,6 @@ class AppState {
     if (State.view === "chat") return "chat";
     return "prompt";
   }
-}
+}export const State = new AppState();
 
-export const State = new AppState();
+

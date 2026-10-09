@@ -89,11 +89,24 @@ class CoucouCharacterView @JvmOverloads constructor(
 
     // region public API
 
+    private val questionResetRunnable = Runnable {
+        if (characterState == CoucouState.QUESTION) {
+            setState(CoucouState.IDLE)
+        }
+    }
+
     /** The state currently on screen. */
     val characterState: CoucouState get() = engine.state
 
     /** Sets the character state; returns false when it was already showing [next]. */
-    fun setState(next: CoucouState, force: Boolean = false): Boolean = engine.setState(next, force)
+    fun setState(next: CoucouState, force: Boolean = false): Boolean {
+        val changed = engine.setState(next, force)
+        removeCallbacks(questionResetRunnable)
+        if (next == CoucouState.QUESTION) {
+            postDelayed(questionResetRunnable, 1200L)
+        }
+        return changed
+    }
 
     /** The "coucou" peek wave — plays when the bubble first appears. */
     fun greet() {
@@ -192,6 +205,7 @@ class CoucouCharacterView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         attached = false
+        removeCallbacks(questionResetRunnable)
         stopLoop()
         super.onDetachedFromWindow()
     }

@@ -179,7 +179,7 @@ class CoucouCharacterEngine(
     private var badgeToken = 0
     private var badgeKey = "none"
     private var greetToken = 0
-    private var nextBlink = 1.5f + random.nextFloat() * 2f
+    private var nextBlink = 3.5f + random.nextFloat() * 1.5f
     private var lastAmbient = 0f
     private var slotH = 0f
     private var slotHTarget = 0f
@@ -239,7 +239,10 @@ class CoucouCharacterEngine(
                 listOf(TweenKey(-0.2f, 150f, ::easeOut), TweenKey(0f, 300f, ::easeBack))
             )
             CoucouState.DIZZY -> doRoll(1300f, 2)
-            CoucouState.QUESTION -> blink()
+            CoucouState.QUESTION -> {
+                blink()
+                schedule(1.2f) { setState(CoucouState.IDLE) }
+            }
             CoucouState.RATELIMIT -> emit(ParticleType.SWEAT, 1)
             else -> if (prev != CoucouState.IDLE || next != CoucouState.IDLE) blink()
         }
@@ -296,7 +299,7 @@ class CoucouCharacterEngine(
         if (locks.contains(Prop.OPEN)) return
         anim(
             Prop.OPEN,
-            listOf(TweenKey(0.06f, 70f, ::easeInOut), TweenKey(1f, 130f, ::easeOut))
+            listOf(TweenKey(0.06f, 50f, ::easeInOut), TweenKey(1f, 70f, ::easeOut))
         )
     }
 
@@ -536,7 +539,7 @@ class CoucouCharacterEngine(
     val busy: Boolean
         get() = tweens.isNotEmpty() ||
             particles.isNotEmpty() ||
-            cfg.bounces || cfg.scans || cfg.breathes || cfg.zz || cfg.sweat ||
+            cfg.bounces || cfg.scans || cfg.breathes || (ambientLook && state == CoucouState.IDLE) || cfg.zz || cfg.sweat ||
             abs(tgYaw - yaw) > 0.002f ||
             abs(tgPitch - pitch) > 0.002f ||
             abs(tgTilt - tilt) > 0.002f ||
@@ -594,8 +597,8 @@ class CoucouCharacterEngine(
         }
         if (state == CoucouState.DIZZY) ty = sin(t * 9f) * 0.25f
 
-        tgYaw = ty
-        tgPitch = tp
+        tgYaw = ty.coerceIn(LOOK_MIN_X * 0.62f, LOOK_MAX_X * 0.62f)
+        tgPitch = tp.coerceIn(LOOK_MIN_Y * 0.5f, LOOK_MAX_Y * 0.5f)
         tgTilt = cfg.tilt
 
         if (t > waveStart && t < waveUntil) {
@@ -607,15 +610,16 @@ class CoucouCharacterEngine(
         val kGen = 1f - pow(0.0008f, step)
         if (!locks.contains(Prop.OY)) oy += (bounce - oy) * kGen
 
-        if (cfg.breathes) {
-            tgSy = 1f + sin(t * 1.8f) * BREATH_AMP
-            tgSx = 1f - sin(t * 1.8f) * BREATH_AMP * 0.57f
+        val breathes = cfg.breathes || (ambientLook && state == CoucouState.IDLE)
+        if (breathes) {
+            tgSy = 1f + sin(t * 1.5f) * BREATH_AMP
+            tgSx = 1f - sin(t * 1.5f) * BREATH_AMP * 0.57f
         } else {
             tgSy = 1f
             tgSx = 1f
         }
 
-        val kLook = 1f - pow(0.0025f, step)
+        val kLook = 0.08f
         if (!locks.contains(Prop.YAW)) yaw += (tgYaw - yaw) * kLook
         if (!locks.contains(Prop.PITCH)) pitch += (tgPitch - pitch) * kLook
         if (!locks.contains(Prop.TILT)) tilt += (tgTilt - tilt) * kGen
@@ -632,7 +636,7 @@ class CoucouCharacterEngine(
                 blink()
                 if (random.nextFloat() < 0.22f) schedule(0.23f) { blink() }
             }
-            nextBlink = t + 2.2f + random.nextFloat() * 3.2f
+            nextBlink = t + 3.5f + random.nextFloat() * 1.5f
         }
 
         if (eyeOverride != null && t > eyeOverrideUntil) {
@@ -704,8 +708,10 @@ class CoucouCharacterEngine(
         if (cfg.look != null || cfg.scans) return
         if (state == CoucouState.SLEEPING || state == CoucouState.DIZZY) return
         if (t <= nextLookAt) return
-        ambientLookX = LOOK_MIN_X + random.nextFloat() * (LOOK_MAX_X - LOOK_MIN_X)
-        ambientLookY = LOOK_MIN_Y + random.nextFloat() * (LOOK_MAX_Y - LOOK_MIN_Y)
+        val targetX = LOOK_MIN_X + random.nextFloat() * (LOOK_MAX_X - LOOK_MIN_X)
+        val targetY = LOOK_MIN_Y + random.nextFloat() * (LOOK_MAX_Y - LOOK_MIN_Y)
+        ambientLookX = ambientLookX + (targetX - ambientLookX) * 0.08f
+        ambientLookY = ambientLookY + (targetY - ambientLookY) * 0.08f
         nextLookAt = t + LOOK_FIRST_DELAY + random.nextFloat() * LOOK_DELAY_SPREAD
     }
 
@@ -862,7 +868,7 @@ class CoucouCharacterEngine(
 
         private const val OUTLINE_POINTS = 72
         private const val MAX_STEP = 0.1f
-        private const val BREATH_AMP = 0.035f
+        private const val BREATH_AMP = 0.03f
         private const val TWO_PI = 6.2831855f
         private const val OMEGA = 25.132742f // 2π / 0.25
         private const val ZETA = 0.6f

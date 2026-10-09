@@ -70,8 +70,17 @@ async function main() {
   island.launch();
 
   // Expose for testing and automation
-  (window as unknown as { __coucouIsland: Island; __coucouState: typeof State }).__coucouIsland = island;
-  (window as unknown as { __coucouIsland: Island; __coucouState: typeof State }).__coucouState = State;
+  const w = window as unknown as {
+    __coucouIsland: Island;
+    __coucouState: typeof State;
+    // SPRINT 6.3 @Cline — spec'd touch hook: chat touch listeners call
+    // `window.CoucouEngine?.setTargetLook?.(x, y)`; wire it to the live island
+    // so eyes track fingers even though the engine has no such method itself.
+    CoucouEngine?: { setTargetLook?: (x: number, y: number) => void };
+  };
+  w.__coucouIsland = island;
+  w.__coucouState = State;
+  w.CoucouEngine = { setTargetLook: (x, y) => island.setTargetLook(x, y) };
 
   // In a plain browser there is no wake strip behind the cursor: make the whole
   // page wake the island so the visuals can be checked with `npm run dev`.

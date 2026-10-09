@@ -912,6 +912,37 @@ input[type="range"]::-webkit-slider-thumb {
   50% { transform: scale(1.2); }
 }
 
+/* SPRINT 6.3 @Cline — pin the prompt bar: flex column takes the full height with
+   12px breathing room at the bottom, the log scrolls, and the bar never shrinks
+   or clips (input pill + buttons stay 100% visible as messages expand). */
+.chat-card,
+.chat-view {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+  padding-bottom: 12px !important;
+}
+
+.chat-body {
+  min-height: 0 !important;
+  padding-bottom: 12px !important;
+}
+
+.chat-log,
+.chat-messages {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+}
+
+.chat-bar,
+.chat-input-bar,
+.chat-form {
+  flex-shrink: 0 !important;
+  margin-top: auto !important;
+}
+
 .chat-bar {
   display: flex;
   align-items: center;

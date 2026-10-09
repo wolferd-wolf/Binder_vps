@@ -10,6 +10,26 @@ import type { ViewHost } from "./views";
 
 let nextId = 1;
 
+/** SPRINT 6.3 @Cline — touch tracking in chat: forward finger position to the
+ *  spec'd `window.CoucouEngine.setTargetLook` hook (wired to Island.onCursor in
+ *  main.ts), so Mochi's pupils smoothly watch the user's finger. Passive so
+ *  scrolling the log is never blocked. Attached once per page load. */
+let chatTouchWired = false;
+function ensureChatTouchTracking() {
+  if (chatTouchWired) return;
+  chatTouchWired = true;
+  const forward = (t: Touch) => {
+    (window as unknown as { CoucouEngine?: { setTargetLook?: (x: number, y: number) => void } })
+      .CoucouEngine?.setTargetLook?.(t.clientX, t.clientY);
+  };
+  window.addEventListener("touchstart", (e) => {
+    if (e.touches.length > 0) forward(e.touches[0]);
+  }, { passive: true });
+  window.addEventListener("touchmove", (e) => {
+    if (e.touches.length > 0) forward(e.touches[0]);
+  }, { passive: true });
+}
+
 function bubble(message: ChatMessage): HTMLElement {
   if (message.role === "user") {
     return h(
@@ -37,6 +57,7 @@ function contextChip(label: string): HTMLElement {
 }
 
 export function buildPrompt(onHeightChange: () => void): ViewHost {
+  ensureChatTouchTracking();
   const chipRow = h("div", { class: "chip-row" });
   const log = h("div", { class: "chat-log" });
   const input = h("input", {
@@ -89,6 +110,11 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       State.notify();
       onHeightChange();
       input.focus();
+      // SPRINT 6.3 @Buffy — chat finished: clear any transient '?' badge on the
+      // island Mochi so the bot returns to its normal idle look rather than staying
+      // on the question pose after the reply lands.
+      const coucouIsland = (window as unknown as { CoucouIsland?: { maybeClearQuestion?: () => void } }).CoucouIsland;
+      coucouIsland?.maybeClearQuestion?.();
     }
   }
 

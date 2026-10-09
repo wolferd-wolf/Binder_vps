@@ -154,6 +154,11 @@ export class Island {
         openChat: () => this.openChat(),
       };
     }
+
+    // SPRINT 6.3 @Buffy — expose the question-clear helper on the island facade so
+    // chat/note paths can clear the WebUI island '?' badge without importing Island.
+    (window as unknown as { CoucouIsland?: { maybeClearQuestion?: () => void } }).CoucouIsland =
+      this as unknown as { maybeClearQuestion: () => void };
   }
 
   // ── DOM ─────────────────────────────────────────────────────────────────────
@@ -537,6 +542,21 @@ export class Island {
     }
   }
 
+  /**
+   * SPRINT 6.3 @Buffy — clear the WebUI island '?' badge once a chat turn or note
+   * action has finished. The island Mochi is driven by State.effectiveState, so a
+   * lingering `"question"` task state (e.g. from a Claude Code Notification ending in
+   * "?") leaves the cyan question badge on the bot. A completed chat reply, a finished
+   * note add/toggle/delete, and an empty-note auto-return all fall through here so the
+   * bot can return to its normal idle look instead of staying on the question pose.
+   */
+  maybeClearQuestion() {
+    if (State.tasks.some((t) => t.state === "question")) return;
+    if (State.effectiveState === "question" && State.mode === "expanded") {
+      this.engine.setState(State.effectiveState);
+    }
+  }
+
   // ── Geometry ────────────────────────────────────────────────────────────────
 
   private targetSize(): { w: number; h: number; r: number } {
@@ -659,6 +679,22 @@ export class Island {
       State.lastActivity = performance.now();
     });
 
+    // SPRINT 6.3 @Cline — touch tracking in chat: feed finger position into the
+    // same cursor pipeline the desktop mouse uses (State.mouse → lookX/lookY),
+    // so Mochi's pupils smoothly watch the user's finger. Passive: never block scroll.
+    window.addEventListener("touchstart", (e) => {
+      if (e.touches.length > 0) this.onCursor(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener("touchmove", (e) => {
+      if (e.touches.length > 0) this.onCursor(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+
+    // Touch-enabled browsers also emit pointermove for fingers: track those too
+    // whenever we are not in a header drag (drag path returns early above).
+    window.addEventListener("pointermove", (e: PointerEvent) => {
+      if (e.pointerType === "touch" || e.pointerType === "pen") this.onCursor(e.clientX, e.clientY);
+    }, { passive: true });
+
     void onDragDrop((e) => this.onDragDrop(e));
 
     // Outside Tauri (plain browser) drive the cursor from DOM events so the
@@ -677,6 +713,15 @@ export class Island {
     window.addEventListener("mouseout", (e) => {
       if (e.relatedTarget == null) this.onCursor(-10_000, -10_000);
     });
+  }
+
+  /**
+   * SPRINT 6.3 @Cline — touch entry-point consumed by `window.CoucouEngine`.
+   * Same pipeline as the desktop mouse: updates State.mouse so lookX/lookY
+   * (tanh of distance to bot) damps the pupils toward the finger.
+   */
+  setTargetLook(x: number, y: number) {
+    this.onCursor(x, y);
   }
 
   /** Cursor in window-logical coordinates. */
