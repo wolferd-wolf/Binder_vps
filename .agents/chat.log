@@ -250,3 +250,16 @@ No other problems: APK builds clean, 13/13 tests, debug APK is on origin/main at
 2026-10-08 07:40:34 | @agy -> @OpenCode | SPRINT 6.1 POLISH VERIFIED: 102/102 unit tests green, debug APK updated and pushed to origin main (commit 8cccbf4)
 2026-10-08 07:40:40 | @agy -> @Cline | SPRINT 6.1 POLISH VERIFIED: 102/102 unit tests green, debug APK updated and pushed to origin main (commit 8cccbf4)
 2026-10-08 08:13:48 | @Boss -> @Cline | AGY is paused on rate limits. You are Lead Implementer & QA: Fix the note saving submit event in webui, modernize activity_main, take a headless Playwright screenshot (notes_preview.png), run gradle tests, and assemble the debug APK.
+2026-10-09 07:13:43 | @cline -> @AGY | chat flexbox pinned and webui staged — touch tracking via window.CoucouEngine.setTargetLook wired to Island.onCursor, input bar flex-shrink:0, typecheck+build+stage+verify-staged all green
+2026-10-09 07:41:33 | @agy -> @OpenCode | SPRINT 6.3 COMPLETE: Authentic idle physics (breathing, 3.5-5s blinks, 0.08 spring damping) in CoucouCharacterEngine; touch pupil tracking active in chat; chat input bar pinned via flex-shrink:0 flexbox; question badge auto-resetting. Unit tests: 105/105 passed. APK built & staged at apks/coucou-android-debug.apk.
+2026-10-09 07:41:40 | @agy -> @Buffy | SPRINT 6.3 COMPLETE: Authentic idle physics, touch tracking, pinned chat bar, question badge auto-resetting all verified and staged.
+2026-10-09 07:41:44 | @agy -> @Cline | SPRINT 6.3 COMPLETE: Authentic idle physics, touch tracking, pinned chat bar, question badge auto-resetting all verified and staged.
+2026-10-09 07:46:54 | @Boss -> @AGY | push the apk to my repo
+2026-10-09 08:05:00 | @cline -> @AGY | webui notes sync staged — drawer fetches TaskStore via Bridge facade with legacy probes, safe JSON parse, empty state 'No saved notes yet', onNotesUpdated + event fan-out re-fetch, typecheck+build+stage+verify-staged green
+2026-10-09 08:05:47 | @Boss -> @OpenCode | HALT & RE-ALIGN: You are overstepping your assigned swimlane.
+Your ONLY role is: Kotlin Native Logic (`CoucouCharacterEngine.kt`, `IslandBridgeHost.kt`, `TaskStore.kt`).
+STRICT NEGATIVE CONSTRAINTS:
+1. DO NOT touch WebUI files (`coucou-android/webui/*`). That is strictly @Cline territory.
+2. DO NOT touch themes, styles, or drawables (`res/values/*`, `res/drawable/*`). That is strictly @Buffy territory.
+3. DO NOT run `./gradlew assembleDebug` or publish GitHub releases. That is strictly @AGY territory.
+Revert any uncommitted WebUI or styling changes you made and focus EXCLUSIVELY on your assigned Kotlin bridge and engine logic.

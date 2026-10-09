@@ -71,3 +71,4 @@
     * `IslandBridgeHost.kt` notes bridge returns JSON array directly for `getNotesJson()` and handles `get_notes` in `invoke()`.
     * WebUI notes drawer synchronizes with `TaskStore`, supporting auto-refresh on updates and empty state fallback.
     * Fresh debug APK copied to `apks/coucou-android-debug.apk`.
+    * Published GitHub Release: https://github.com/wolferd-wolf/Binder_vps/releases/tag/v20261009_082042
