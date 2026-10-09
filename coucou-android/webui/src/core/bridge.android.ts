@@ -168,6 +168,21 @@ async function call<T>(cmd: string, args: JsonRecord = {}, named?: () => unknown
   }
 }
 
+/** SPRINT 6.4 @Cline — fan-out for in-page notes mutations. The drawer listens on
+ *  `coucou:notes-updated`, and a late-injected native host gets the same nudge
+ *  via `window.CoucouAndroid.onNotesUpdated` so MainActivity-side adds converge. */
+function notifyNotesUpdated() {
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("coucou:notes-updated"));
+      (window as unknown as { CoucouAndroid?: { onNotesUpdated?: () => void } })
+        .CoucouAndroid?.onNotesUpdated?.();
+    }
+  } catch {
+    /* listeners are best-effort; sync() re-fetch covers the rest */
+  }
+}
+
 /** Same as `call`, but surfaces the error so the UI can show what went wrong. */
 async function callOrThrow<T>(cmd: string, args: JsonRecord = {}, named?: () => unknown): Promise<T> {
   if (!IS_TAURI) throw new Error("not running inside Coucou");
@@ -266,15 +281,24 @@ export const Bridge = {
   /** Tray → Pause. Stops the integration pollers, not just the island. */
   setPaused: (paused: boolean) => call<void>("set_paused", { paused }),
 
-  // ── Notes & Tasks (Sprint 6.1) ────────────────────────────────────────────
+  // ── Notes & Tasks (Sprint 6.1; Sprint 6.4 syncs the drawer) ────────────────
   getNotesJson: () =>
     call<string>("get_notes_json", {}, () => getApi().getNotesJson?.() as string),
-  addNote: (text: string, isTask: boolean) =>
-    call<string>("add_note", { text, isTask }, () => getApi().addNote?.(text, isTask) as string),
-  deleteNote: (id: number) =>
-    call<boolean>("delete_note", { id }, () => getApi().deleteNote?.(id) as boolean),
-  toggleNote: (id: number) =>
-    call<boolean>("toggle_note", { id }, () => getApi().toggleNote?.(id) as boolean),
+  addNote: (text: string, isTask: boolean) => {
+    const p = call<string>("add_note", { text, isTask }, () => getApi().addNote?.(text, isTask) as string);
+    void p.then(() => notifyNotesUpdated());
+    return p;
+  },
+  deleteNote: (id: number) => {
+    const p = call<boolean>("delete_note", { id }, () => getApi().deleteNote?.(id) as boolean);
+    void p.then(() => notifyNotesUpdated());
+    return p;
+  },
+  toggleNote: (id: number) => {
+    const p = call<boolean>("toggle_note", { id }, () => getApi().toggleNote?.(id) as boolean);
+    void p.then(() => notifyNotesUpdated());
+    return p;
+  },
 };
 
 /** Files dragged onto the island. Android has no OLE drag-and-drop, so this is inert. */

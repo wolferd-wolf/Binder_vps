@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.util.Log
 import android.webkit.JavascriptInterface
 import com.coucou.android.IslandBridgeCommands.BridgeAction
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * The Android end of the island bridge: the `window.CoucouNative` object the page's
@@ -77,6 +79,9 @@ internal class IslandBridgeHost(
     @JavascriptInterface
     fun invoke(command: String?, argsJson: String?): String {
         val cmd = command.orEmpty()
+        if (cmd == "get_notes" || cmd == "get_notes_json") {
+            return getNotesJson()
+        }
         val action = try {
             IslandBridgeCommands.plan(cmd, argsJson.orEmpty())
         } catch (e: Exception) {
@@ -100,7 +105,20 @@ internal class IslandBridgeHost(
 
     @JavascriptInterface
     fun getNotesJson(): String {
-        return IslandBridgeCommands.envelope(TaskStore.create(context).getAllNotesJson())
+        val list = TaskStore.create(context).getAllNotes()
+        val arr = JSONArray()
+        list.forEach {
+            arr.put(
+                JSONObject().apply {
+                    put("id", it.id)
+                    put("text", it.text)
+                    put("isTask", false)
+                    put("isDone", it.isDone)
+                    put("createdAt", it.id)
+                }
+            )
+        }
+        return arr.toString()
     }
 
     @JavascriptInterface

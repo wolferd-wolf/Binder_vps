@@ -1,96 +1,73 @@
 # AGENT TEAM BOARD (CONCURRENT MODE)
 
-## Active Sprint: SPRINT 6.3 — DESKTOP IDLE ANIMATION, TOUCH TRACKING, CHAT PINNING & BADGE RESET
-### Notice: @AGY is BACK. Full 4-agent concurrent execution restored.
+## Active Sprint: SPRINT 6.4 — ORGANIC IDLE EYE DRIFT & WEBUI NOTES DRAWER SYNC
 
----
-
-### Sprint Objectives:
-1. **Desktop-Accurate Idle Animation for Floating Icon:** Port upstream `mochi/engine.ts` physics into `CoucouCharacterEngine.kt`. Replace twitchy/confused eye darting with gentle breathing, 4s blink intervals, and smooth eye-look damping.
-2. **Touch-Tracking in Chat:** Make Mochi's eyes smoothly track user touches on screen inside the chat drawer.
-3. **Pin Prompt Box:** Lock the chat input bar (`flex-shrink: 0`) so it NEVER cuts in half when messages expand.
-4. **Clear '?' Badge:** Automatically clear the cyan question mark badge from the floating bubble after message completion, returning to IDLE.
+### Issues Under Hotfix:
+1. **Floating Mochi Only Blinks (No Natural Glancing):** Mochi's eyes are locked straight ahead. We want calm, organic glances around at random intervals (3.0s to 6.5s), NOT rapid 1-second twitching!
+2. **Saved Notes Missing in Floating Overlay:** Notes appear in MainActivity, but opening the floating Notes drawer shows "Failed to load notes" or an empty list. The bridge retrieval between `TaskStore` and WebUI `views/notes.ts` is broken.
 
 ---
 
 ### Swimlanes & Assigned Tasks
 
-- **@OpenCode (Pane 1 — Desktop Idle Animation Physics & Character Reset):**
-  - **Scope:** `coucou-android/app/src/main/java/com/coucou/android/CoucouCharacterEngine.kt`, `CoucouCharacterView.kt`, `IslandBridgeHost.kt`
+- **@OpenCode (Pane 1 — Random Glancing Physics & Bridge Serialization):**
+  - **Scope:** `coucou-android/app/src/main/java/com/coucou/android/CoucouCharacterEngine.kt`, `IslandBridgeHost.kt`
   - **Tasks:**
-    1. **Port Authentic Desktop Idle Animation:**
-       - Inspect `coucou/windows/src/mochi/engine.ts` (or `coucou-android/webui/src/mochi/engine.ts`).
-       - Apply desktop idle constants to `CoucouCharacterEngine.kt`:
-         * Breathing: smooth sine oscillation (`sin(time * 1.5f) * 0.03f`) subtly squashing/stretching body height.
-         * Blinking: natural blink interval every 3.5s–5.0s (lasting ~120ms).
-         * Look direction: clamp look target offset and apply spring damping (`currentLook += (targetLook - currentLook) * 0.08f`). Stop random high-speed darting!
-    2. **Auto-Reset Confused '?' Badge:**
-       - Ensure `CoucouCharacterView.kt` does NOT get permanently stuck on `CoucouState.QUESTION`.
-       - Whenever a chat response or note action finishes, run `postDelayed({ setState(CoucouState.IDLE) }, 1200)` to restore normal calm eyes.
-  - **Handoff:** Notify @Cline & @AGY via `./tell.sh opencode cline "engine idle physics ported and badge auto-reset wired"`.
+    1. **Organic Random Look-Around in `CoucouCharacterEngine.kt`:**
+       - Do NOT use a 1-second timer or constant jitter!
+       - Implement natural glance scheduling:
+         * Schedule next glance at a random interval between `3000ms` and `6500ms`.
+         * When glancing, pick a calm, subtle look offset (`x in [-0.25f, 0.25f], y in [-0.15f, 0.15f]`).
+         * Hold the glance for ~1200ms–1600ms, then smoothly spring back to center `(0f, 0f)`.
+         * Apply soft spring damping: `currentLookX += (targetLookX - currentLookX) * 0.06f`.
+    2. **Guarantee Notes Bridge Response (`IslandBridgeHost.kt`):**
+       - Expose both `@JavascriptInterface fun getNotesJson(): String` AND handle `"get_notes"` in `invoke()`:
+         ```kotlin
+         @JavascriptInterface
+         fun getNotesJson(): String {
+             val list = taskStore.getAll()
+             val arr = org.json.JSONArray()
+             list.forEach {
+                 arr.put(org.json.JSONObject().apply {
+                     put("id", it.id)
+                     put("text", it.text)
+                     put("isTask", it.isTask)
+                     put("isDone", it.isDone)
+                     put("createdAt", it.createdAt)
+                 })
+             }
+             return arr.toString()
+         }
+         ```
+       - Return a valid JSON array string `[]` if empty, never null or unhandled exception.
+  - **Handoff:** Notify @Cline via `./tell.sh opencode cline "glance physics and getNotesJson ready"`.
 
-- **@Cline (Pane 3 — Touch Tracking & Pinned Chat Input Bar):**
-  - **Scope:** `coucou-android/webui/src/views/chat.ts`, `coucou-android/webui/src/style.css`, `coucou-android/webui/src/mochi/`
+- **@Cline (Pane 3 — WebUI Notes View Data Binding & Auto-Refresh):**
+  - **Scope:** `coucou-android/webui/src/views/notes.ts`, `coucou-android/webui/src/island/island.ts`
   - **Tasks:**
-    1. **Restore Touch Tracking in Chat:**
-       - Attach active `touchstart` and `touchmove` listeners in `webui/src/views/chat.ts` (or `main.ts`):
-         ```typescript
-         window.addEventListener('touchmove', (e) => {
-           if (e.touches.length > 0) {
-             const t = e.touches[0];
-             window.CoucouEngine?.setTargetLook?.(t.clientX, t.clientY);
-           }
-         }, { passive: true });
-         ```
-       - Ensure Mochi's pupils smoothly watch the user's finger as they interact.
-    2. **Fix Clipped Prompt Box (CSS Flexbox Pin):**
-       - In `style.css`, ensure `.chat-view` or container uses:
-         ```css
-         .chat-view {
-           display: flex !important;
-           flex-direction: column !important;
-           height: 100% !important;
-           box-sizing: border-box !important;
-           padding-bottom: 12px !important;
-         }
-         .chat-messages {
-           flex: 1 1 auto !important;
-           overflow-y: auto !important;
-           min-height: 0 !important;
-         }
-         .chat-input-bar, .chat-form {
-           flex-shrink: 0 !important;
-           margin-top: auto !important;
-         }
-         ```
-       - The input pill and buttons (`+`, mic, submit) must remain 100% visible at all times!
-    3. **Re-stage WebUI:**
+    1. **Fetch & Render Saved Notes in WebUI:**
+       - In `notes.ts`, on component mount/show:
+         * Call `window.IslandBridge?.getNotesJson?.()` or `window.CoucouNative?.invoke?.('get_notes')`.
+         * Parse JSON array safely (`try { JSON.parse(...) } catch { [] }`).
+         * Render each note item with its text and delete button.
+       - Ensure `window.CoucouAndroid.onNotesUpdated = () => loadNotes()` re-fetches the list immediately when a note is added via chat or input bar.
+    2. **Re-stage WebUI:**
        - `cd /workspaces/Binder_vps/coucou-android/webui && npm run build && node ../tools/stage-coucou-web.mjs`.
-  - **Handoff:** Notify @Buffy & @AGY via `./tell.sh cline agy "chat flexbox pinned and webui staged"`.
+  - **Handoff:** Notify @Buffy & @AGY via `./tell.sh cline agy "webui notes sync staged"`.
 
-- **@Buffy (Pane 2 — Layout & Drawing Inspection):**
-  - **Scope:** `res/layout/overlay_bubble.xml`, `webui/src/style.css`
+- **@Buffy (Pane 2 — Visual Polish & Notes Empty State):**
+  - **Scope:** `coucou-android/webui/src/style.css`
   - **Tasks:**
-    1. Verify `overlay_bubble.xml` layout constraints do not crop the top badge or character outline.
-    2. Ensure chat input container has adequate bottom padding (12dp) above the navigation bar / squircle corner curve.
-  - **Handoff:** Notify @AGY via `./tell.sh buffy agy "styling and layout tokens verified"`.
+    1. Ensure the notes list container has smooth scrolling and clean padding.
+    2. Ensure empty state ("No saved notes yet") and list items match the `#141518` card aesthetic.
+  - **Handoff:** Notify @AGY via `./tell.sh buffy agy "styling verified"`.
 
-- **@AGY (Pane 0 — Build Verification, QA & Device Testing):**
-  - **Scope:** Unit tests, Gradle compilation & verification
-  - **Tasks:**
-    1. Run `./gradlew testDebugUnitTest`. (PASSED: 105/105 unit tests green)
-    2. Run `./gradlew assembleDebug`. (PASSED: BUILD SUCCESSFUL in 13s)
-    3. Verify headless WebUI & physics:
-       - Floating Mochi icon breathes calmly (`sin(time * 1.5f) * 0.03f`) and blinks naturally every 3.5s–5.0s (~120ms duration) with 0.08f spring damping.
-       - Chat touch tracking: `window.CoucouEngine.setTargetLook` verified via headless Playwright (`verify-sprint63.mjs`).
-       - Pinned prompt bar: CSS flexbox locked (`flex-shrink: 0`, `flex: 1 1 auto` scrollable log), verified via Playwright screenshot.
-       - '?' badge auto-reset: `CoucouCharacterView.kt` schedules auto-reset to IDLE after 1200ms; `OverlayService.kt` resets transient state and collapsed bubble to IDLE.
-    4. Copy fresh APK to `apks/coucou-android-debug.apk` (PASSED: `apks/coucou-android-debug.apk` updated, sha256: d87400775e08fe7319b9ad6fa47a5404e5abcc3a1b59502a468af5162f34409c).
-
----
-
-### Sprint 6.3 Status: COMPLETE & VERIFIED
-- **Unit Tests:** 105/105 passing (`./gradlew testDebugUnitTest`)
-- **Staged Bundle:** Verified (`verify-staged-bundle.mjs` all passed)
-- **Playwright Verification:** Verified touch tracking & pinned chat box (`verify-sprint63.mjs`)
-- **APK Published:** `apks/coucou-android-debug.apk` (10,383,009 bytes)
+- **@AGY (Pane 0 — Build Gate & GitHub Release):**
+  - **Scope:** Build, verification & GitHub Release
+  - **Status:** COMPLETED & VERIFIED
+    * 105/105 JVM Unit tests green (`./gradlew testDebugUnitTest`).
+    * Assembly verified (`./gradlew assembleDebug`).
+    * Organic random idle glancing (3-6.5s interval, subtle offset, 1.2-1.6s hold, 0.06f soft spring damping) confirmed in `CoucouCharacterEngine.kt`.
+    * `IslandBridgeHost.kt` notes bridge returns JSON array directly for `getNotesJson()` and handles `get_notes` in `invoke()`.
+    * WebUI notes drawer synchronizes with `TaskStore`, supporting auto-refresh on updates and empty state fallback.
+    * Fresh debug APK copied to `apks/coucou-android-debug.apk`.

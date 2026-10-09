@@ -409,12 +409,74 @@ function buildConfused(): ViewHost {
   return { el: h("div", { class: "view" }, card("pink", body)), sync() {} };
 }
 
-// ── Note / Tasks Drawer (Sprint 6.1) ────────────────────────────────────────
+// ── Note / Tasks Drawer (Sprint 6.1; Sprint 6.4 syncs it with TaskStore) ──────
 
 interface NoteItem {
   id: number;
   text: string;
   isDone?: boolean;
+}
+
+interface RawNote {
+  id?: unknown;
+  text?: unknown;
+  isDone?: unknown;
+  isTask?: unknown;
+}
+
+/**
+ * SPRINT 6.4 @Cline — coerce one host payload into renderable notes.
+ * Accepts the Kotlin `[{id,text,isDone}]` array (or the `{ok,value}` envelope
+ * arriving un-unwrapped); returns null when the payload is unusable so the
+ * caller keeps the previous list instead of blanking it.
+ */
+function coerceNotes(arr: unknown[]): NoteItem[] {
+  const out: NoteItem[] = [];
+  for (const n of arr) {
+    const r = n as RawNote;
+    if (!r || typeof r !== "object") continue;
+    const id = Number(r.id);
+    const text = String(r.text ?? "");
+    if (!Number.isFinite(id) || !text) continue;
+    out.push({ id, text, isDone: r.isDone === true || r.isTask === true });
+  }
+  return out;
+}
+
+function parseNotesJson(raw: unknown): NoteItem[] | null {
+  try {
+    let text = raw as string;
+    if (typeof text === "string" && text.trimStart().startsWith("{")) {
+      const env = JSON.parse(text) as { ok?: boolean; value?: unknown };
+      if (env && typeof env === "object" && "value" in env) {
+        if (typeof env.value === "string") text = env.value;
+        else if (Array.isArray(env.value)) return coerceNotes(env.value);
+      }
+    }
+    if (typeof text !== "string") return null;
+    const parsed: unknown = JSON.parse(text);
+    if (!Array.isArray(parsed)) return null;
+    return coerceNotes(parsed);
+  } catch {
+    return null;
+  }
+}
+
+/** Spec'd fallback probes for hosts that predate the Sprint 3 REDO facade. */
+function probeLegacyNotesJson(): string | null {
+  try {
+    const w = window as unknown as {
+      IslandBridge?: { getNotesJson?: () => unknown };
+      CoucouNative?: { invoke?: (cmd: string, argsJson?: string) => unknown };
+    };
+    const direct = w.IslandBridge?.getNotesJson?.();
+    if (typeof direct === "string" && direct) return direct;
+    const viaInvoke = w.CoucouNative?.invoke?.("get_notes", "{}");
+    if (typeof viaInvoke === "string" && viaInvoke) return viaInvoke;
+  } catch {
+    /* host not ready — caller keeps the previous list */
+  }
+  return null;
 }
 
 function buildNotesView(actions: ViewActions): ViewHost {
@@ -446,69 +508,100 @@ function buildNotesView(actions: ViewActions): ViewHost {
 
   const el = h("div", { class: "view" }, card(null, h("div", { class: "stack", style: "padding:8px 12px;height:100%;display:flex;flex-direction:column;" }, header, drawer)));
 
-  const refreshNotes = async () => {
-    try {
-      const raw = await Bridge.getNotesJson();
-      clear(listEl);
-      if (!raw) {
-        listEl.append(h("div", { class: "note-empty", text: "No notes yet. Type 'note ...' in chat or add one here." }));
-        return;
-      }
-      const notes: NoteItem[] = JSON.parse(raw);
-      if (!Array.isArray(notes) || notes.length === 0) {
-        listEl.append(h("div", { class: "note-empty", text: "No notes yet. Type 'note ...' in chat or add one here." }));
-        return;
-      }
-      for (const item of notes) {
-        const row = h(
-          "div",
-          { class: `note-row${item.isDone ? " done" : ""}` },
-          h(
-            "button",
-            {
-              class: `note-check${item.isDone ? " on" : ""}`,
-              onclick: async () => {
-                await Bridge.toggleNote(item.id);
-                void refreshNotes();
-              },
-            },
-            item.isDone ? svg(ICONS.check, 12, { stroke: 3 }) : h("span", {}),
-          ),
-          h("span", { class: "note-text", text: item.text }),
-          h(
-            "button",
-            {
-              class: "note-del",
-              onclick: async () => {
-                await Bridge.deleteNote(item.id);
-                void refreshNotes();
-              },
-            },
-            svg(ICONS.trash, 12),
-          ),
-        );
-        listEl.append(row);
-      }
-    } catch {
-      clear(listEl);
-      listEl.append(h("div", { class: "note-empty", text: "Failed to load notes." }));
+  function renderNotes(notes: NoteItem[]) {
+    clear(listEl);
+    if (notes.length === 0) {
+      listEl.append(h("div", { class: "note-empty", text: "No saved notes yet" }));
+      return;
     }
+    for (const item of notes) {
+      const row = h(
+        "div",
+        { class: `note-row${item.isDone ? " done" : ""}` },
+        h(
+          "button",
+          {
+            class: `note-check${item.isDone ? " on" : ""}`,
+            onclick: async () => {
+              await Bridge.toggleNote(item.id);
+              void refreshNotes();
+            },
+          },
+          item.isDone ? svg(ICONS.check, 12, { stroke: 3 }) : h("span", {}),
+        ),
+        h("span", { class: "note-text", text: item.text }),
+        h(
+          "button",
+          {
+            class: "note-del",
+            onclick: async () => {
+              await Bridge.deleteNote(item.id);
+              void refreshNotes();
+            },
+          },
+          svg(ICONS.trash, 12),
+        ),
+      );
+      listEl.append(row);
+    }
+  }
+
+  function renderEmpty(hint: string) {
+    clear(listEl);
+    listEl.append(h("div", { class: "note-empty", text: hint }));
+  }
+
+  // SPRINT 6.4 @Cline — mount/show fetch: Bridge facade first (named method or
+  // CoucouNative.invoke), then the spec'd legacy probes. A failed load keeps
+  // the previous list so a transient host hiccup never blanks the drawer.
+  const refreshNotes = async () => {
+    let parsed: NoteItem[] | null = null;
+    try {
+      parsed = parseNotesJson(await Bridge.getNotesJson());
+    } catch {
+      parsed = null;
+    }
+    if (parsed == null) parsed = parseNotesJson(probeLegacyNotesJson());
+    if (parsed == null) return; // keep previous list; host not ready yet
+    renderNotes(parsed);
   };
 
   if (typeof window !== "undefined") {
-    const coucou = (window as unknown as { CoucouAndroid?: { onNotesUpdated?: () => void } }).CoucouAndroid;
-    if (coucou) {
-      const prev = coucou.onNotesUpdated;
-      coucou.onNotesUpdated = () => {
+    // SPRINT 6.4 @Cline — immediate re-fetch when a note lands via chat or the
+    // input bar. Tolerates the host object arriving after this view is built.
+    const w = window as unknown as {
+      CoucouAndroid?: { onNotesUpdated?: () => void };
+    };
+    const hookRefresh = () => {
+      const host = w.CoucouAndroid;
+      if (!host || (host as { __notesHooked?: boolean }).__notesHooked) return;
+      (host as { __notesHooked?: boolean }).__notesHooked = true;
+      const prev = host.onNotesUpdated;
+      host.onNotesUpdated = () => {
         if (typeof prev === "function") prev();
         void refreshNotes();
       };
-    }
+    };
+    hookRefresh();
+    window.addEventListener("coucou:notes-updated", () => void refreshNotes());
+    // Poll-once for a late-injected host (first show wins, then self-cancels).
+    const t = window.setInterval(() => {
+      if (w.CoucouAndroid) {
+        hookRefresh();
+        window.clearInterval(t);
+      }
+    }, 500);
+    window.setTimeout(() => window.clearInterval(t), 10_000);
+    // First paint: preserve @Buffy's card aesthetic until the host answers.
+    renderEmpty("No saved notes yet");
+    void refreshNotes();
   }
 
   return {
     el,
     sync() {
+      // Re-fetch every time the drawer becomes visible — the "show" half of
+      // mount/show, so notes added in MainActivity appear on next open.
       void refreshNotes();
     },
   };

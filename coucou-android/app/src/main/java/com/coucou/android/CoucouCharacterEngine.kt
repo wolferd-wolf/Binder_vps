@@ -197,11 +197,13 @@ class CoucouCharacterEngine(
     private var tgSy = 1f
     private var tgSx = 1f
 
-    // Ambient look-around, a port of upstream's `miniLookTarget` (the menu-bar mini bots,
-    // which are the closest upstream analogue of our always-on-screen bubble).
+    // Ambient look-around: calm, organic glances around at random intervals (3.0s to 6.5s)
     private var ambientLookX = 0f
     private var ambientLookY = 0f
-    private var nextLookAt = LOOK_FIRST_DELAY + random.nextFloat() * LOOK_DELAY_SPREAD
+    private var targetLookX = 0f
+    private var targetLookY = 0f
+    private var glanceUntil = 0f
+    private var nextLookAt = 2.5f + random.nextFloat() * 2.0f
     private var lookOverrideUntil = 0f
     private var lastInputAt = 0f
 
@@ -707,12 +709,23 @@ class CoucouCharacterEngine(
         if (lookOverride || !ambientLook) return
         if (cfg.look != null || cfg.scans) return
         if (state == CoucouState.SLEEPING || state == CoucouState.DIZZY) return
-        if (t <= nextLookAt) return
-        val targetX = LOOK_MIN_X + random.nextFloat() * (LOOK_MAX_X - LOOK_MIN_X)
-        val targetY = LOOK_MIN_Y + random.nextFloat() * (LOOK_MAX_Y - LOOK_MIN_Y)
-        ambientLookX = ambientLookX + (targetX - ambientLookX) * 0.08f
-        ambientLookY = ambientLookY + (targetY - ambientLookY) * 0.08f
-        nextLookAt = t + LOOK_FIRST_DELAY + random.nextFloat() * LOOK_DELAY_SPREAD
+
+        if (t > nextLookAt) {
+            // Schedule next glance at random interval between 3000ms and 6500ms
+            targetLookX = (random.nextFloat() - 0.5f) * 0.5f // [-0.25f, 0.25f]
+            targetLookY = (random.nextFloat() - 0.5f) * 0.3f // [-0.15f, 0.15f]
+            glanceUntil = t + 1.2f + random.nextFloat() * 0.4f // Hold for ~1200ms–1600ms
+            nextLookAt = t + 3.0f + random.nextFloat() * 3.5f // 3000ms–6500ms
+        } else if (glanceUntil > 0f && t > glanceUntil) {
+            // Smoothly spring back to center (0f, 0f)
+            targetLookX = 0f
+            targetLookY = 0f
+            glanceUntil = 0f
+        }
+
+        // Apply soft spring damping: currentLook += (targetLook - currentLook) * 0.06f
+        ambientLookX += (targetLookX - ambientLookX) * 0.06f
+        ambientLookY += (targetLookY - ambientLookY) * 0.06f
     }
 
     private fun runScheduled() {
