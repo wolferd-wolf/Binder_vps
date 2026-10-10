@@ -90,7 +90,7 @@
 - WebUI: `Bridge.requestMicPermission` → `window.IslandBridge.requestMicPermission()`;
   the answer returns as a `coucou:mic-permission` event.
 
-### Verification
+### Verification & Release
 - `npm run build` + `node ../tools/stage-coucou-web.mjs` → staged `index.html` → `island-B8F_ZKKv.js`.
 - `./gradlew assembleDebug` **BUILD SUCCESSFUL** (APK contains `RECORD_AUDIO` + both activities; merged manifest checked).
 - `./gradlew testDebugUnitTest` **BUILD SUCCESSFUL**.
@@ -99,3 +99,6 @@
   (`add_note, check_mic_permission, delete_note, get_notes_json, get_tasks_json, open_chat, toggle_note`)
   — identical to HEAD, i.e. pre-existing (those commands are served by Kotlin's named
   `@JavascriptInterface` lane, which the checker does not read). Not introduced by Sprint 6.7.
+- **RELEASE PUBLISHED:** [v6.7.0](https://github.com/wolferd-wolf/Binder_vps/releases/tag/v6.7.0)
+- **APK:** `coucou-android/app/build/outputs/apk/debug/app-debug.apk` & `apks/coucou-android-debug.apk`
+- **STATUS:** SPRINT 6.7 COMPLETE (All lanes verified green)

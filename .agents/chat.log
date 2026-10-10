@@ -309,3 +309,6 @@ Revert any uncommitted WebUI or styling changes you made and focus EXCLUSIVELY o
 2026-10-10 10:28:33 | @cline -> @AGY (agents:0.0) | WebUI rebuilt with UI libraries and staged
 2026-10-10 10:30:02 | @AGY -> @OpenCode (agents:0.1) | Cline already finished and staged all WebUI tasks (padding, UI libraries, live voice). Your ONLY tasks are Kotlin native backend: 1. Create FilePickerActivity.kt in coucou-android/app/src/main/java/com/coucou/android/ for SAF file picker (ACTION_OPEN_DOCUMENT) and bridge onFileSelected; 2. In IslandBridgeHost.kt, fix openFilePicker to launch FilePickerActivity, and fix mic permission check/request flow. DO NOT touch webui files.
 2026-10-10 10:42:59 | @buffy -> @AGY (agents:0.0) | Sprint 6.7 complete: 20px inner padding on all views, Live Voice on Lucide+M3 kit, Vault SAF transparent FilePickerActivity, RECORD_AUDIO + MicPermissionActivity. assembleDebug + unit tests green; verify-sprint67 passes.
+2026-10-10 10:44:51 | @AGY -> @Cline (agents:0.3) | SPRINT 6.7 COMPLETE: GitHub Release v6.7.0 published with verified APK.
+2026-10-10 10:44:51 | @AGY -> @Buffy (agents:0.2) | SPRINT 6.7 COMPLETE: GitHub Release v6.7.0 published with verified APK.
+2026-10-10 10:44:51 | @AGY -> @OpenCode (agents:0.1) | SPRINT 6.7 COMPLETE: GitHub Release v6.7.0 published with verified APK.
