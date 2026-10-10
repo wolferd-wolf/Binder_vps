@@ -258,7 +258,10 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
           : task.id === "integration_notes"
             ? svg(ICONS.note, 13)
             : null;
-  if (hubIcon) hubIcon.style.flex = "0 0 auto";
+  // SPRINT 6.6 @Buffy — the secondary indicator sits on the pill's far-right
+  // edge (`.pill > svg { margin-left: auto }` in style.css); only the mini
+  // Mochi stays left. The class is the styling hook for that rule.
+  if (hubIcon) hubIcon.classList.add("pill-icon");
   const pill = h(
     "div",
     {
@@ -294,8 +297,8 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
       },
     },
     canvas,
-    hubIcon,
     h("span", { class: "lbl", text: hubPillLabel(task.id, label) }),
+    hubIcon,
   );
   pill.style.borderColor = `${task.color}24`;
   pill.addEventListener("mouseenter", () => {
@@ -318,6 +321,9 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
     const badge = h("div", { class: "pill-badge" }, inner);
     badge.style.boxShadow = `0 0 4px ${colors[task.pillBadge]}99`;
     pill.append(badge);
+    // The badge owns the trailing corner: step the icon left of it so both
+    // indicators stay on the far right without overlapping.
+    if (hubIcon) hubIcon.style.marginRight = "20px";
   }
   return pill;
 }

@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import android.webkit.JavascriptInterface
@@ -83,6 +85,9 @@ internal class IslandBridgeHost(
         if (cmd == "get_notes" || cmd == "get_notes_json") {
             return getNotesJson()
         }
+        if (cmd == "open_app_settings" || cmd == "openAppSettings") {
+            return openAppSettings()
+        }
         val action = try {
             IslandBridgeCommands.plan(cmd, argsJson.orEmpty())
         } catch (e: Exception) {
@@ -160,6 +165,27 @@ internal class IslandBridgeHost(
     @JavascriptInterface
     fun checkMicPermission(): Boolean {
         return context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    }
+
+    /**
+     * Sprint 6.6: 1-tap mic permission hook for the Live Voice screen.
+     * Called from WebUI "Allow Microphone" / "Settings" buttons via
+     * `window.CoucouNative.openAppSettings()` (or CoucouAndroid alias).
+     * Opens this app's system details page so the user can grant RECORD_AUDIO.
+     */
+    @JavascriptInterface
+    fun openAppSettings(): String {
+        return try {
+            val intent = Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", context.packageName, null)
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            IslandBridgeCommands.nullEnvelope()
+        } catch (e: Exception) {
+            Log.w(TAG, "openAppSettings failed", e)
+            IslandBridgeCommands.errorEnvelope("Unable to open app settings.")
+        }
     }
 
     @JavascriptInterface

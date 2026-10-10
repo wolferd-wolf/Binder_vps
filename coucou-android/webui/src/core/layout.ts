@@ -181,31 +181,47 @@ export function getWakeStripWidth(): number {
 // Re-export for convenience (used by island.ts panelSize getter)
 export { getPanelWidth as panelWidth, getCompactWidth as compactWidth, getExpandedWidth as expandedWidth, getWakeStripWidth as wakeStripWidth };
 
+// SPRINT 6.6 @Buffy — one panel size for every view (Board issue #2).
+//
+// On Android the overlay window **is** the rect the page pushes (see
+// `IslandBridgeCommands.windowBounds`), so any height difference between two views is
+// a visible window resize — the shrink + black letterbox @Boss saw when opening
+// Tasks/Vault from Chat. Every panel view is therefore pinned to [PANEL_CONTENT_H],
+// the Chat panel height (`dp(270)` in OverlayService.expandToAssistantView), and
+// islandSize() reports it verbatim: switching tabs changes the rect by 0px.
+//
+// The two exceptions are canvas-owned, not tabs:
+//  - upload/uploading/choose stay 176 because `#upload-layer` is a fixed-height
+//    canvas anchored to the island's top edge (USC geometry from the Swift engine).
+//  - greeting stays 175: it is the native intro overlay's fixed canvas.
+export const PANEL_CONTENT_H = 270;
+
 export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
-  overview: { height: 264, botX: 65, botY: 84, botDiameter: 58, agentMode: "pills" },
-  empty: { height: 160, botX: 70, botY: null, botDiameter: 62, agentMode: "none" },
-  approval: { height: 160, botX: 62, botY: null, botDiameter: 56, agentMode: "column" },
-  question: { height: 160, botX: 62, botY: null, botDiameter: 56, agentMode: "column" },
-  error: { height: 160, botX: 62, botY: null, botDiameter: 58, agentMode: "column" },
-  finished: { height: 160, botX: 62, botY: null, botDiameter: 58, agentMode: "column" },
-  confused: { height: 160, botX: 76, botY: null, botDiameter: 66, agentMode: "column" },
+  overview: { height: PANEL_CONTENT_H, botX: 65, botY: 84, botDiameter: 58, agentMode: "pills" },
+  empty: { height: PANEL_CONTENT_H, botX: 70, botY: null, botDiameter: 62, agentMode: "none" },
+  approval: { height: PANEL_CONTENT_H, botX: 62, botY: null, botDiameter: 56, agentMode: "column" },
+  question: { height: PANEL_CONTENT_H, botX: 62, botY: null, botDiameter: 56, agentMode: "column" },
+  error: { height: PANEL_CONTENT_H, botX: 62, botY: null, botDiameter: 58, agentMode: "column" },
+  finished: { height: PANEL_CONTENT_H, botX: 62, botY: null, botDiameter: 58, agentMode: "column" },
+  confused: { height: PANEL_CONTENT_H, botX: 76, botY: null, botDiameter: 66, agentMode: "column" },
   upload: { height: 176, botX: 85, botY: 104, botDiameter: 62, agentMode: "column" },
   // botY 103 = bar top (42 + 58) + 3, so the dot really rides the bar. The Swift
   // layout says 118 while its own comment says 103; the comment matches the spec.
   uploading: { height: 176, botX: 46, botY: 103, botDiameter: 20, agentMode: "none" },
   choose: { height: 176, botX: 60, botY: 101, botDiameter: 52, agentMode: "column" },
-  mail: { height: 240, botX: 56, botY: null, botDiameter: 46, agentMode: "column" },
-  prompt: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
-  chat: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
-  searching: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
-  result: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
-  note: { height: 264, botX: 60, botY: null, botDiameter: 0, agentMode: "column" },
+  mail: { height: PANEL_CONTENT_H, botX: 56, botY: null, botDiameter: 46, agentMode: "column" },
+  prompt: { height: PANEL_CONTENT_H, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
+  chat: { height: PANEL_CONTENT_H, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
+  searching: { height: PANEL_CONTENT_H, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
+  result: { height: PANEL_CONTENT_H, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
+  note: { height: PANEL_CONTENT_H, botX: 60, botY: null, botDiameter: 0, agentMode: "column" },
   // SPRINT 6.5 @Cline — Assistant Hub drawers share the notes geometry so the
-  // island never resizes mid-handoff between the four pills.
-  tasks: { height: 264, botX: 60, botY: null, botDiameter: 0, agentMode: "column" },
-  vault: { height: 264, botX: 60, botY: null, botDiameter: 0, agentMode: "column" },
-  livevoice: { height: 264, botX: 65, botY: 60, botDiameter: 58, agentMode: "none" },
-  settings: { height: 160, botX: 54, botY: null, botDiameter: 46, agentMode: "none" },
+  // island never resizes mid-handoff between the four pills. SPRINT 6.6 pins
+  // that shared height to the Chat panel on top of it.
+  tasks: { height: PANEL_CONTENT_H, botX: 60, botY: null, botDiameter: 0, agentMode: "column" },
+  vault: { height: PANEL_CONTENT_H, botX: 60, botY: null, botDiameter: 0, agentMode: "column" },
+  livevoice: { height: PANEL_CONTENT_H, botX: 65, botY: 60, botDiameter: 58, agentMode: "none" },
+  settings: { height: PANEL_CONTENT_H, botX: 54, botY: null, botDiameter: 46, agentMode: "none" },
   greeting: { height: 175, botX: 180, botY: 85, botDiameter: 0, agentMode: "none" },
 };
 
@@ -213,7 +229,12 @@ export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
 // dropped the whole sequence — Mochi included — is drawn by src/upload, which
 // owns its own constants (USC) straight from UploadSequenceEngine.swift.
 
-/** Chat view grows with the conversation — IslandContainer.chatPromptHeight. */
+/**
+ * The Chat view's own content height (grows with the conversation, capped at 300).
+ *
+ * SPRINT 6.6: the *island/window* no longer follows this — see [PANEL_CONTENT_H] —
+ * it remains the chat card's inner content reference (island.chatHeight).
+ */
 export function chatPromptHeight(messageCount: number): number {
   return Math.min(300, 240 + messageCount * 40);
 }
@@ -221,7 +242,7 @@ export function chatPromptHeight(messageCount: number): number {
 export function islandSize(
   mode: IslandMode,
   view: IslandViewName,
-  chatCount = 0,
+  _chatCount = 0,
 ): { w: number; h: number } {
   switch (mode) {
     case "hidden":
@@ -234,10 +255,9 @@ export function islandSize(
       if (view === "greeting") {
         return { w: 360, h: 175 };
       }
-      // For overview view: height matches content space (~264px) so nothing is cut off or overlaps
-      const isOverview = view === "overview";
-      const h = isOverview ? 264 : (view === "prompt" || view === "chat" ? chatPromptHeight(chatCount) : VIEW_LAYOUTS[view].height);
-      return { w: getExpandedWidth(), h };
+      // SPRINT 6.6 @Buffy — identical size for every panel view: the Chat panel
+      // dimensions (expanded width × PANEL_CONTENT_H), no per-view shrink.
+      return { w: getExpandedWidth(), h: VIEW_LAYOUTS[view].height };
     }
   }
 }

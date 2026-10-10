@@ -55,5 +55,16 @@ export const ICONS = {
   // waveform: symmetric soundwave bars (Live Voice room accent)
   waveform:
     "M1.7 9.6h2.2v4.8H1.7zM6.3 6.6h2.2v10.8H6.3zM10.9 3.6h2.2v16.8h-2.2zM15.5 6.6h2.2v10.8h-2.2zM20.1 9.6h2.2v4.8h-2.2z",
+  // ── SPRINT 6.6 @Buffy — Lucide/Feather outline glyphs ─────────────────────
+  // Render with the stroke option: `svg(ICONS.micLine, 14, { stroke: 2 })`.
+  // mic (Lucide): capsule + cradle + stand — Live Voice room header.
+  micLine:
+    "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3",
+  // mic-off (Lucide): slashed mic — microphone permission card.
+  micOff:
+    "m2 2 20 20M18.89 13.23A7.12 7.12 0 0 0 19 12v-2M5 10v2a7 7 0 0 0 12 5M15 9.34V5a3 3 0 0 0-5.68-1.33M9 9v3a3 3 0 0 0 5.12 2.12M12 19v3M8 22h8",
+  // sliders-horizontal (Lucide): settings glyph for the voice controls.
+  sliders:
+    "M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4",
 } as const;
 

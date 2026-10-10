@@ -591,20 +591,28 @@ body {
 
 .pill .mini {
   margin-left: 7px;
+  flex: 0 0 auto;
 }
 
+/* SPRINT 6.6 @Cline — pill layout: left Mochi circle, center title, far-right icon. */
 .pill .lbl {
-  position: absolute;
-  left: 0;
-  right: 0;
-  text-align: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
   font: 600 10px var(--font);
   color: var(--dim-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 0 6px;
+  padding: 0 4px 0 6px;
   pointer-events: none;
+}
+
+.pill > svg,
+.pill .pill-icon {
+  margin-left: auto !important;
+  margin-right: 8px;
+  flex: 0 0 auto;
 }
 
 .pill:hover {
@@ -1881,4 +1889,211 @@ input[type="range"]::-webkit-slider-thumb {
     transform: scale(1.85);
     opacity: 0;
   }
+}
+
+/* ── SPRINT 6.6 @Cline — Uniform full-size panel dimensions ────────────────
+ * Kill the shrinking bug: every subview fills the container exactly like the
+ * Chat panel (360px × 270px footprint) with no black letterboxing. Scrollable
+ * lists flex to fill the card. Voice visuals stay in @Buffy's lane. */
+.subview-container,
+.tasks-view,
+.vault-view,
+.notes-view,
+.chat-view,
+.voice-view {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 270px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+}
+
+.hub-list,
+.chat-log,
+.chat-messages,
+.notes-list,
+.vault-list {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
+/* ── SPRINT 6.6 @Buffy — Live Voice polish ─────────────────────────────────
+ * Audio-orb surface + glow, gradient wave bars, sleek pill controls and the
+ * M3 microphone-permission card. hub.css owns the room's layout and loads
+ * later in the bundle, so every rule here is scoped `.livevoice-room *` to
+ * out-specify it regardless of CSS order. */
+
+/* Orb: luminous gradient surface + the BOARD glow token. */
+.livevoice-room .livevoice-orb {
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 44%),
+    radial-gradient(circle at 50% 66%, #ff8d97 0%, #f4505e 56%, #c93643 100%);
+  box-shadow:
+    0 0 24px rgba(239, 68, 68, 0.35),
+    0 10px 26px rgba(0, 0, 0, 0.4);
+}
+
+/* Wave strip: rounded gradient bars with a soft red bloom (JS drives height). */
+.livevoice-room .livevoice-waves {
+  gap: 4px;
+}
+
+.livevoice-room .livevoice-waves i {
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff9aa3 0%, #f4505e 100%);
+  box-shadow: 0 0 6px rgba(244, 80, 94, 0.45);
+  opacity: 1;
+}
+
+/* Controls: one full-width pill + a circular settings button. */
+.livevoice-room .livevoice-controls {
+  width: 100%;
+  padding: 0 40px;
+  gap: 8px;
+  align-items: center;
+}
+
+.livevoice-room .livevoice-controls .hub-btn {
+  min-height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+  color: var(--ink);
+  font: 600 12.5px var(--font);
+  letter-spacing: 0.02em;
+  transition: background 0.16s, border-color 0.16s, color 0.16s, transform 0.12s;
+}
+
+/* A running session reads as a red Stop pill. */
+.livevoice-room[data-live="listening"] .livevoice-controls .hub-btn,
+.livevoice-room[data-live="thinking"] .livevoice-controls .hub-btn,
+.livevoice-room[data-live="speaking"] .livevoice-controls .hub-btn {
+  background: linear-gradient(180deg, rgba(244, 80, 94, 0.3), rgba(244, 80, 94, 0.14));
+  border-color: rgba(244, 80, 94, 0.65);
+  color: var(--red-text);
+}
+
+.livevoice-room .voice-icon-btn {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--dim-2);
+  cursor: default;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.16s, color 0.16s, transform 0.12s;
+}
+
+.livevoice-room .voice-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+}
+
+.livevoice-room .voice-icon-btn:active {
+  transform: scale(0.94);
+}
+
+/* Microphone-permission card: replaces the voice chrome while blocked so the
+ * M3 [ Allow Microphone ] action is the only thing to look at. */
+.livevoice-room .livevoice-perm {
+  display: none;
+}
+
+.livevoice-room.perm {
+  overflow-y: auto;
+}
+
+.livevoice-room.perm .livevoice-perm {
+  display: block;
+  width: min(264px, 100%);
+}
+
+.livevoice-room.perm .livevoice-orb,
+.livevoice-room.perm .livevoice-state,
+.livevoice-room.perm .livevoice-waves,
+.livevoice-room.perm .livevoice-accent,
+.livevoice-room.perm .livevoice-caption {
+  display: none;
+}
+
+.perm-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 18px 13px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.025) 100%);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+.livevoice-perm svg {
+  color: var(--red-text);
+}
+
+.perm-title {
+  font: 600 13px var(--font);
+  color: var(--ink);
+}
+
+.perm-sub {
+  font: 400 11.5px/1.45 var(--font);
+  color: var(--dim);
+  text-align: center;
+  max-width: 204px;
+}
+
+.perm-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* M3 filled button — the one-tap route to RECORD_AUDIO settings. */
+.m3-btn {
+  min-height: 36px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--red);
+  color: #fff;
+  font: 600 12.5px var(--font);
+  letter-spacing: 0.02em;
+  box-shadow: 0 6px 16px rgba(244, 80, 94, 0.35);
+  cursor: default;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: filter 0.16s, transform 0.12s;
+}
+
+.m3-btn:hover {
+  filter: brightness(1.07);
+}
+
+.m3-btn:active {
+  transform: scale(0.97);
+}
+
+.perm-link {
+  border: 0;
+  background: none;
+  color: var(--dim-2);
+  font: 600 11.5px var(--font);
+  padding: 6px 8px;
+  cursor: default;
+  transition: color 0.15s;
+}
+
+.perm-link:hover {
+  color: var(--ink);
 }

@@ -106,8 +106,11 @@ async function toggle(ctx: LiveCtx): Promise<void> {
       ctx.started = false;
       ctx.startBtn.textContent = "Start";
       setPhase(ctx, "idle", "Mic blocked");
+      // SPRINT 6.6 @Buffy — sleek permission card instead of a bare caption.
+      ctx.room.classList.add("perm");
       return;
     }
+    ctx.room.classList.remove("perm");
     ctx.silenceSince = Date.now();
     ctx.heardSince = Date.now();
     setPhase(ctx, "listening", "Listening…");
@@ -151,18 +154,87 @@ function stop(ctx: LiveCtx): void {
 export function buildLiveVoiceView(_actions: HubActions) {
   const ctx = createShell(setPhase, think, toggle);
   const orb = h("div", { class: "livevoice-orb" });
-  // SPRINT 6.5 @Buffy glyphs (fill-mode, plain svg() call, no stroke opt):
-  // mic crowns the room header, waveform accents the wave strip.
+  // SPRINT 6.6 @Buffy — Lucide outline glyphs: mic crowns the header, a
+  // sliders glyph opens app settings, mic-off fronts the permission card.
   const header = h(
     "div",
     { class: "hub-title", style: "align-self:center" },
-    svg(ICONS.mic, 13),
+    svg(ICONS.micLine, 13, { stroke: 2 }),
     h("span", { text: "Live Voice Mode" }),
   );
   const waveAccent = svg(ICONS.waveform, 13);
+  waveAccent.classList.add("livevoice-accent");
   waveAccent.style.opacity = "0.7";
-  ctx.room.append(header, orb, ctx.stateLabel, ctx.waves, waveAccent, ctx.caption);
-  ctx.room.append(h("div", { class: "livevoice-controls" }, ctx.startBtn));
+  const permCard = h(
+    "div",
+    { class: "livevoice-perm" },
+    h(
+      "div",
+      { class: "perm-panel" },
+      svg(ICONS.micOff, 20, { stroke: 1.8 }),
+      h("div", { class: "perm-title", text: "Microphone blocked" }),
+      h("div", {
+        class: "perm-sub",
+        text: "Allow microphone access so Mochi can hear you.",
+      }),
+      h(
+        "div",
+        { class: "perm-actions" },
+        h("button", {
+          class: "m3-btn",
+          text: "Allow Microphone",
+          onclick: () => openAppSettings(),
+        }),
+        h(
+          "button",
+          { class: "perm-link", text: "Not now", onclick: () => ctx.room.classList.remove("perm") },
+        ),
+      ),
+    ),
+  );
+  const settingsBtn = h(
+    "button",
+    {
+      class: "voice-icon-btn",
+      title: "Microphone settings",
+      onclick: () => openAppSettings(),
+    },
+    svg(ICONS.sliders, 15, { stroke: 2 }),
+  );
+  ctx.room.append(header, orb, ctx.stateLabel, ctx.waves, waveAccent, ctx.caption, permCard);
+  ctx.room.append(h("div", { class: "livevoice-controls" }, ctx.startBtn, settingsBtn));
   const el = h("div", { class: "view" }, h("div", { class: "card" }, ctx.room));
   return { el, sync() {} };
+}
+
+/**
+ * SPRINT 6.6 @Buffy — 1-tap route into this app's system details page so the
+ * user can grant RECORD_AUDIO. OpenCode's Kotlin lane exposes it as
+ * `window.CoucouNative.openAppSettings()` (JavascriptInterface); the generic
+ * `open_app_settings` command reaches the same handler through any facade.
+ */
+function openAppSettings(): void {
+  try {
+    const w = window as unknown as {
+      CoucouAndroid?: {
+        openAppSettings?: () => unknown;
+        invoke?: (cmd: string, argsJson: string) => unknown;
+      };
+      CoucouNative?: {
+        openAppSettings?: () => unknown;
+        invoke?: (cmd: string, argsJson: string) => unknown;
+      };
+    };
+    if (typeof w.CoucouAndroid?.openAppSettings === "function") {
+      w.CoucouAndroid.openAppSettings();
+      return;
+    }
+    if (typeof w.CoucouNative?.openAppSettings === "function") {
+      w.CoucouNative.openAppSettings();
+      return;
+    }
+    (w.CoucouAndroid ?? w.CoucouNative)?.invoke?.("open_app_settings", "{}");
+  } catch {
+    /* best-effort: the card stays up so the user can retry */
+  }
 }
