@@ -38,6 +38,29 @@ async function run() {
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(800);
 
+  // Synthetic dispatch clicks (the Sprint 6.5 QA pattern): the preview boots
+  // into the greeting overlay, so Playwright actionability clicks on covered
+  // elements would time out even though the handlers are wired.
+  const tap = (sel) =>
+    page.evaluate((s) => {
+      const el = document.querySelector(s);
+      if (!el) throw new Error(`no element for selector: ${s}`);
+      el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }, sel);
+  const tapPill = (label) =>
+    page.evaluate((l) => {
+      const el = [...document.querySelectorAll(".pill")].find((p) =>
+        (p.textContent ?? "").includes(l),
+      );
+      if (!el) throw new Error(`pill not found in DOM: ${l}`);
+      el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }, label);
+
+  // Land on overview first: greeting owns the island at boot, and the pills
+  // are built by buildOverview().sync() once it becomes the active view.
+  await tap('button[title="Overview"]');
+  await page.waitForTimeout(1200);
+
   // ── 1. Pill secondary icons sit on the far-right edge ─────────────────────
   console.log("Checking pill icon alignment (far right)...");
   const pills = await page.evaluate(() => {
@@ -77,14 +100,13 @@ async function run() {
       return { w: Math.round(r.width), h: Math.round(r.height) };
     });
 
-  const pillClick = (label) => page.locator(`.pill:has-text("${label}")`).first().click();
   const tabs = [
-    { name: "overview", go: async () => page.click('button[title="Overview"]') },
-    { name: "tasks", go: async () => pillClick("Tasks / Reminders") },
-    { name: "vault", go: async () => pillClick("Vault / File Drop") },
-    { name: "notes", go: async () => pillClick("Notes") },
-    { name: "livevoice", go: async () => pillClick("Live Voice Mode") },
-    { name: "chat", go: async () => page.click('button[title="Chat"]') },
+    { name: "overview", go: async () => tap('button[title="Overview"]') },
+    { name: "tasks", go: async () => tapPill("Tasks / Reminders") },
+    { name: "vault", go: async () => tapPill("Vault / File Drop") },
+    { name: "notes", go: async () => tapPill("Notes") },
+    { name: "livevoice", go: async () => tapPill("Live Voice Mode") },
+    { name: "chat", go: async () => tap('button[title="Chat"]') },
   ];
   const rects = {};
   for (const t of tabs) {
@@ -108,16 +130,16 @@ async function run() {
 
   // ── 3. Live Voice: modern chrome + Allow Microphone card ─────────────────
   console.log("Checking Live Voice room...");
-  await page.click('button[title="Overview"]');
+  await tap('button[title="Overview"]');
   await page.waitForTimeout(700);
-  await pillClick("Live Voice Mode");
+  await tapPill("Live Voice Mode");
   await page.waitForTimeout(700);
   const voice = await page.evaluate(() => ({
     room: !!document.querySelector(".livevoice-room"),
     orb: !!document.querySelector(".livevoice-orb"),
     orbGlow: getComputedStyle(document.querySelector(".livevoice-orb")).boxShadow,
     waveBars: document.querySelectorAll(".livevoice-waves i").length,
-    headerStroke: !!document.querySelector('.hub-title svg path[stroke]'),
+    headerStroke: !!document.querySelector('.livevoice-room .hub-title svg path[stroke]'),
     settingsBtn: !!document.querySelector(".voice-icon-btn"),
     startText: document.querySelector(".livevoice-controls .hub-btn")?.textContent?.trim(),
   }));
@@ -129,7 +151,7 @@ async function run() {
   await page.screenshot({ path: resolve(SHOTS, "sprint66_live_voice.png") });
 
   console.log("Checking microphone-blocked permission card...");
-  // Headless Chromium denies getUserMedia → ensureMic() must fail → card shows.
+  // Denial is forced by the init script; the marker intercepts openAppSettings.
   await page.evaluate(() => {
     window.__openAppSettingsCalled = 0;
     window.CoucouAndroid = window.CoucouAndroid || {};
@@ -137,7 +159,7 @@ async function run() {
       window.__openAppSettingsCalled += 1;
     };
   });
-  await page.click(".livevoice-controls .hub-btn"); // Start
+  await tap(".livevoice-controls .hub-btn"); // Start
   await page.waitForSelector(".livevoice-room.perm", { timeout: 5000 });
   const perm = await page.evaluate(() => {
     const room = document.querySelector(".livevoice-room");
@@ -158,12 +180,12 @@ async function run() {
   if (!perm.orbHidden) fail("orb should hide while the permission card is up");
   await page.screenshot({ path: resolve(SHOTS, "sprint66_voice_blocked.png") });
 
-  await page.click(".m3-btn"); // Allow Microphone
+  await tap(".m3-btn"); // Allow Microphone
   const opened = await page.evaluate(() => window.__openAppSettingsCalled);
   if (opened !== 1) fail(`Allow Microphone should call openAppSettings once, got ${opened}`);
   console.log("✓ [ Allow Microphone ] routes to openAppSettings()");
 
-  await page.click(".perm-link"); // Not now
+  await tap(".perm-link"); // Not now
   await page.waitForTimeout(200);
   const dismissed = await page.evaluate(
     () => !document.querySelector(".livevoice-room").classList.contains("perm"),
