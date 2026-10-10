@@ -1,61 +1,76 @@
 # AGENT TEAM BOARD (CONCURRENT MODE)
 
-## Active Sprint: SPRINT 6.5 — THE FULL ASSISTANT HUB OVERHAUL
-### (Tasks/Reminders, SAF File Vault, and Gemini Live 2-Way Voice Mode)
+## Active Sprint: SPRINT 6.6 — PILL ICON ALIGNMENT, UNIFORM PANEL DIMENSIONS & POLISHED LIVE VOICE UI
 
-### High-Level Goal:
-Transform the 4 Home pill rows into full daily mobile tools:
-1. 🟢 **Tasks / Reminders** (replaces Resend): interactive check-off list from `TaskStore`.
-2. 🟠 **Vault / File Drop** (replaces n8n): opens Android Storage Access Framework (SAF) file picker.
-3. 🟣 **Notes** (replaces Vercel): *Completed & synced.*
-4. 🔴 **Live Voice Mode** (replaces GitHub): Gemini Live-style 2-way conversational voice mode.
+### Issues Diagnosed from Device Screenshots:
+1. **Cluttered Pill Icons:** In the 4 Home rows (Tasks, Vault, Notes, Voice), the secondary icons are stuck right next to the left Mochi face. Move secondary icons/badges to the FAR RIGHT edge of each pill!
+2. **Inconsistent Panel Dimensions:** Opening Tasks or Vault causes the inner view to shrink down with excess black background letterboxing. All subviews must maintain the EXACT same full dimensions as the Chat panel (360px x 270px).
+3. **Voice UI Polish:** Replace the dated Voice screen with clean, modern UI patterns (Lucide/Feather vector glyphs, smooth waveform ripples, and sleek pill buttons).
 
 ---
 
 ### Swimlanes & Assigned Tasks
 
-- **@OpenCode (Pane 1 — Kotlin SAF Intent & Audio Permission Bridge ONLY):** ✅ **LANE DONE**
-  - **Delivered:**
-    1. `IslandBridgeHost.openFilePicker()` launching SAF file picker intent.
-    2. `IslandBridgeHost.getTasksJson()` querying and returning tasks JSON.
-    3. `IslandBridgeHost.checkMicPermission()` checking `RECORD_AUDIO` permission.
-  - **Verified:** JVM unit tests and Kotlin compilation (`compileDebugKotlin`) 100% green.
+- **@Cline (Pane 3 — WebUI Layout Dimensions & Pill Alignment ONLY):**
+  - **Scope:** `coucou-android/webui/src/views/`, `coucou-android/webui/src/style.css`
+  - **Tasks:**
+    1. **Move Pill Icons to Far Right:**
+       - In `overview.ts` and `style.css`:
+         * Left: Only the colored Mochi mascot circle.
+         * Center: Clean row title (`Tasks / Reminders`, `Vault / File Drop`, `Notes`, `Live Voice Mode`).
+         * Far Right: Secondary indicator icon or count badge (`margin-left: auto;`).
+    2. **Uniform Full-Size Panel Dimensions (Kill the Shrinking Bug):**
+       - In `style.css`, force every subview (`.chat-view`, `.tasks-view`, `.notes-view`, `.vault-view`, `.voice-view`) to fill the container:
+         ```css
+         .subview-container, .tasks-view, .vault-view, .notes-view, .chat-view, .voice-view {
+           width: 100% !important;
+           height: 100% !important;
+           min-height: 270px !important;
+           display: flex !important;
+           flex-direction: column !important;
+           box-sizing: border-box !important;
+         }
+         ```
+       - Ensure scrollable lists have `flex: 1 1 auto; overflow-y: auto;` so they fill the card without leaving black empty space.
+    3. **Re-stage WebUI:**
+       - `cd /workspaces/Binder_vps/coucou-android/webui && npm run build && node ../tools/stage-coucou-web.mjs`.
+  - **Handoff:** Notify @Buffy and @AGY via `./tell.sh cline buffy "dimensions and pill alignment fixed"`.
 
-- **@Cline (Pane 3 — WebUI Home Pills, Tasks Drawer, Vault & Live Voice View ONLY):** ✅ **LANE DONE**
-  - **Delivered:**
-    1. 4 Home Pills overhaul: Tasks / Reminders, Vault / File Drop, Notes, Live Voice Mode.
-    2. Tasks checklist drawer with toggle/delete/add sync.
-    3. Vault picked-file chip preview handling `window.CoucouAndroid.onFileSelected`.
-    4. Live Voice 2-way room with Mochi listening/thinking/speaking reaction states.
-  - **Verified:** Build, typecheck, contract verification, and asset staging green.
+- **@Buffy (Pane 2 — Live Voice Design Upgrade & Vector Tokens ONLY):**
+  - **Scope:** `coucou-android/webui/src/style.css`, `webui/src/views/voice.ts`
+  - **Tasks:**
+    1. **Modern Live Voice Visuals (Lucide/Radix Style):**
+       - Replace the raw red circle with an elegant audio orb:
+         * Glowing gradient surface with subtle pulsing rings (`box-shadow: 0 0 24px rgba(239, 68, 68, 0.35)`).
+       - Replace crude dot equalizer with clean CSS wave bars or SVG soundwave glyph.
+       - Use clean Lucide-style SVG icons for Mic, Mic-Off, and Settings.
+       - If mic is blocked, show a sleek rounded card with an M3-styled button: `[ Allow Microphone ]`.
+  - **Handoff:** Notify @AGY via `./tell.sh buffy agy "voice UI tokens modernized"`.
 
-- **@Buffy (Pane 2 — Visual Styling, Waveforms & SVG Icons ONLY):** ✅ **LANE DONE**
-  - **Scope:** `coucou-android/webui/src/style.css`, SVG icons
-  - **Delivered (Sprint 6.5):**
-    1. **4 hub glyph paths** in `webui/src/views/icons.ts` (24×24 grid, fill-mode like the rest of ICONS — call with plain `svg(ICONS.x, n)`, no stroke opt):
-       - `ICONS.checklist` — two ticked rows + one open line (Tasks pill / drawer header)
-       - `ICONS.folder` — solid folder.fill (Vault pill)
-       - `ICONS.mic` — mic.fill, capsule + cradle + stand (Live Voice pill)
-       - `ICONS.waveform` — 5 symmetric soundwave bars, centered on x=12 (voice room accent)
-    2. **`@keyframes live-voice-pulse`** in `webui/src/style.css` (Sprint 6.5 section at file end):
-       - Rides on @Cline's EXISTING markup — `.livevoice-orb::before/::after` get two staggered rings (0s / 0.9s delay), expand 0.92→1.85 + fade. **No markup change needed.**
-       - Driven by the `data-live` attribute `hub-voice.ts` already toggles: `idle`=paused/dim, `listening`=fast red 1.2s, `thinking`=slow purple 2.4s ease-in-out, `speaking`=green 1.5s. Tint exposed as `--voice-ripple`.
-  - **Verified:** `npm run typecheck` + `npm run build` exit 0; `live-voice-pulse` + orb ring rules confirmed in `dist/assets/island-*.css`; all 4 glyph bboxes render inside the 24×24 viewBox (`node tools/verify-hub-icons.mjs`, 4/4 PASS).
-  - **Note for @Cline:** the 4 new icons are tree-shaken from the bundle until a view imports them — wire them into the pills/tiles and they ship on your next `npm run build && node ../tools/stage-coucou-web.mjs`.
-  - **Handoff:** Done — notified @Cline (consume the tokens) and @AGY (`voice waveform and icon tokens verified`).
+- **@OpenCode (Pane 1 — Mic Permission Intent Hook ONLY):**
+  - **Scope:** `coucou-android/app/src/main/java/com/coucou/android/IslandBridgeHost.kt`
+  - **Tasks:**
+    1. When the WebUI's "Allow Microphone" or "Settings" button is tapped, wire `@JavascriptInterface fun openAppSettings()`:
+       - Dispatches `Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)` with `package:com.coucou.android` so the user can grant microphone permissions with 1 tap.
+  - **Handoff:** Notify @AGY via `./tell.sh opencode agy "app settings intent ready"`.
 
-- **@AGY (Pane 0 — Build Gate, Automated QA & GitHub Release ONLY):** ✅ **SPRINT 6.5 RELEASE PUBLISHED**
+- **@AGY (Pane 0 — Build Gate, Automated QA & GitHub Release ONLY):**
   - **Scope:** Compilation & Release
-  - **Delivered:**
-    1. `testDebugUnitTest` 100% green (105 JVM tests passed).
-    2. `assembleDebug` clean build -> `coucou-android/app/build/outputs/apk/debug/app-debug.apk` (10 MB).
-    3. Headless Playwright verification pass (`scripts/verify-sprint65.mjs`) generating all 4 view screenshots:
-       - `sprint65_home_overview.png`
-       - `sprint65_tasks_drawer.png`
-       - `sprint65_vault_chip.png`
-       - `sprint65_live_voice.png`
-    4. APK pushed to repository at `apks/coucou-android-debug.apk`.
-    5. GitHub Release created:
-       - **Release Tag:** `v20261009_183259`
-       - **Release URL:** https://github.com/wolferd-wolf/Binder_vps/releases/tag/v20261009_183259
-
+  - **Tasks:**
+    1. Run `./gradlew assembleDebug`.
+    2. Verify:
+       - Home overview: secondary icons sit cleanly on the far right edge of each pill.
+       - Tapping Tasks, Notes, Vault, or Chat: window maintains consistent dimensions across all tabs without shrinking or black voids.
+       - Live Voice view looks sleek and modern.
+    3. Publish release to GitHub:
+       ```bash
+       TAG="v$(date +%Y%m%d_%H%M%S)"
+       gh release create "$TAG" app/build/outputs/apk/debug/app-debug.apk \
+         --title "Coucou Android $TAG" \
+         --notes "Sprint 6.6: Right-aligned pill icons, uniform panel dimensions across all tabs, and modern Live Voice UI overhaul." \
+         --latest
+       ```
+    4. Post the release URL and update `BOARD.md`.
+       - **RELEASE PUBLISHED:** [v20261010_051648](https://github.com/wolferd-wolf/Binder_vps/releases/tag/v20261010_051648)
+       - **APK:** `coucou-android/app/build/outputs/apk/debug/app-debug.apk` & `apks/coucou-android-debug.apk`
+       - **STATUS:** SPRINT 6.6 COMPLETE (All lanes verified green)
