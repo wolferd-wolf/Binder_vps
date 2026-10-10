@@ -82,7 +82,10 @@ interface CoucouAndroidApi {
   openFilePicker?(): unknown;
   getTasksJson?(): unknown;
   checkMicPermission?(): unknown;
+  /** SPRINT 6.7: transparent-activity RECORD_AUDIO runtime prompt. */
+  requestMicPermission?(): unknown;
   onFileSelected?(payload: string): void;
+  onMicPermission?(granted: boolean): void;
   invoke?(cmd: string, argsJson: string): unknown;
 }
 
@@ -337,6 +340,25 @@ export const Bridge = {
       if (typeof api.checkMicPermission === "function") return api.checkMicPermission() as boolean;
       return true;
     }),
+  /**
+   * SPRINT 6.7 — Live Voice permission hook, in the same named-method lane as
+   * `openFilePicker`. Kotlin's transparent `MicPermissionActivity` shows Android's own
+   * RECORD_AUDIO prompt; the answer comes back as a `coucou:mic-permission` event.
+   * Returns a resolved promise because the dialog is answered asynchronously.
+   */
+  requestMicPermission: () => {
+    try {
+      const api = getApi();
+      if (typeof api.requestMicPermission === "function") {
+        void parseEnvelope(api.requestMicPermission());
+      } else {
+        void rawInvoke("request_mic_permission", {});
+      }
+    } catch (err) {
+      console.warn("[coucou] requestMicPermission unavailable", err);
+    }
+    return Promise.resolve(null as boolean | null);
+  },
 };
 
 /** Files dragged onto the island. Android has no OLE drag-and-drop, so this is inert. */

@@ -163,6 +163,24 @@ class OverlayService : Service() {
         const val CHANNEL_ID = "coucou_overlay_channel"
         const val NOTIFICATION_ID = 1001
 
+        /**
+         * SPRINT 6.7 — the transparent file/mic activities are the ones that hold the
+         * `Activity` context, but the island's WebView belongs to this service, so they
+         * route their results back through this reference. Null while stopped.
+         */
+        @Volatile
+        private var instance: OverlayService? = null
+
+        /** Delivers a picked document to the page (`window.CoucouAndroid.onFileSelected`). */
+        internal fun deliverFileSelection(json: String) {
+            instance?.pushFileSelection(json)
+        }
+
+        /** Delivers the RECORD_AUDIO prompt's answer to the page. */
+        internal fun deliverMicPermission(granted: Boolean) {
+            instance?.pushMicPermission(granted)
+        }
+
         const val ACTION_START = "com.coucou.android.ACTION_START"
         const val ACTION_STOP = "com.coucou.android.ACTION_STOP"
         const val ACTION_EXPAND = "com.coucou.android.ACTION_EXPAND"
@@ -294,6 +312,7 @@ class OverlayService : Service() {
         soundPlayer = SoundPlayer(this).also { it.preloadAvailable() }
         islandListener = IslandListener()
         islandBridge = IslandBridgeHost(this, islandListener!!)
+        instance = this
         registerScreenReceiver()
         
     }
@@ -397,6 +416,20 @@ class OverlayService : Service() {
         override fun onQuitRequested() {
             mainHandler.post { stopOverlayService() }
         }
+
+        override fun onMicPermissionResult(granted: Boolean) {
+            pushMicPermission(granted)
+        }
+    }
+
+    /** Pushes the SAF picker's JSON result into the island WebView. */
+    private fun pushFileSelection(json: String) {
+        island?.deliverFileSelection(json)
+    }
+
+    /** Reports the RECORD_AUDIO prompt's answer back to the Live Voice view. */
+    private fun pushMicPermission(granted: Boolean) {
+        island?.deliverMicPermission(granted)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -1671,6 +1704,7 @@ class OverlayService : Service() {
     override fun onDestroy() {
         // Always tear the window down, otherwise a killed service leaves the bubble
         // stuck on screen with no way to interact with it.
+        instance = null
         hideKeyboard()
         removeOverlay()
         releaseOverlayParts()

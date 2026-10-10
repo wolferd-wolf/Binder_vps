@@ -119,6 +119,8 @@ export const Bridge = {
   openFilePicker: () => Promise.resolve(null as void | null),
   getTasksJson: () => call<string>("get_tasks_json"),
   checkMicPermission: () => Promise.resolve(null as boolean | null),
+  /** Android-only: transparent-activity RECORD_AUDIO prompt. Desktop has no host. */
+  requestMicPermission: () => Promise.resolve(null as boolean | null),
 };
 
 export interface IntegrationUpdate {

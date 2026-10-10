@@ -22,6 +22,7 @@ declare global {
   interface Window {
     IslandBridge?: {
       openFilePicker?: () => unknown;
+      requestMicPermission?: () => unknown;
       getTasksJson?: () => unknown;
       toggleNote?: (id: number) => unknown;
     };

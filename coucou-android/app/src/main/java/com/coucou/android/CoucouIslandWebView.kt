@@ -145,6 +145,44 @@ internal class CoucouIslandWebView private constructor(
     }
 
     /**
+     * SPRINT 6.7 — hands the SAF picker's result to the page as
+     * `window.CoucouAndroid.onFileSelected(json)` (the BOARD contract), falling back to a
+     * `coucou:file-selected` window event. Both paths reach the Vault view, and the event
+     * fallback covers the case where the JS alias could not be attached to the injected
+     * object.
+     */
+    fun deliverFileSelection(json: String) {
+        val payload = Json.quote(json)
+        runCatching {
+            view.evaluateJavascript(
+                "(function(){var p=$payload;" +
+                    "try{if(window.CoucouAndroid&&" +
+                    "typeof window.CoucouAndroid.onFileSelected==='function'){" +
+                    "window.CoucouAndroid.onFileSelected(p);return;}}catch(e){}" +
+                    "try{window.dispatchEvent(new CustomEvent('coucou:file-selected'," +
+                    "{detail:p}));}catch(e){}})()",
+                null
+            )
+        }
+    }
+
+    /** SPRINT 6.7 — reports the RECORD_AUDIO prompt's answer to the Live Voice view. */
+    fun deliverMicPermission(granted: Boolean) {
+        val flag = if (granted) "true" else "false"
+        runCatching {
+            view.evaluateJavascript(
+                "(function(){" +
+                    "try{if(window.CoucouAndroid&&" +
+                    "typeof window.CoucouAndroid.onMicPermission==='function')" +
+                    "{window.CoucouAndroid.onMicPermission($flag);}}catch(e){}" +
+                    "try{window.dispatchEvent(new CustomEvent('coucou:mic-permission'," +
+                    "{detail:$flag}));}catch(e){}})()",
+                null
+            )
+        }
+    }
+
+    /**
      * Opens the island straight on the prompt view, which is where a tap on the collapsed
      * rectangle is meant to land.
      *

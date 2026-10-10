@@ -92,7 +92,8 @@ export function buildTasksView(_actions: HubActions) {
     void submit();
   });
   window.addEventListener("coucou:notes-updated", () => void refresh());
-  const el = h("div", { class: "view" },
+  // SPRINT 6.7 @Cline — tasks-view root carries the 16/20 corner-inset gutter.
+  const el = h("div", { class: "view tasks-view" },
     h("div", { class: "card" },
       h("div", { class: "hub-card" },
         h("div", { class: "hub-title" }, svg(ICONS.checklist, 13), h("span", { text: "Tasks / Reminders" })),

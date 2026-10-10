@@ -31,11 +31,24 @@ function installHubAliases(): void {
     if (typeof bridge["toggleNote"] !== "function") {
       bridge["toggleNote"] = (id: number) => Bridge.toggleNote(Number(id));
     }
+    // SPRINT 6.7 — Live Voice mic hook. Kotlin exposes the named
+    // `requestMicPermission` method (transparent activity → native prompt);
+    // this alias covers the dev/desktop path.
+    if (typeof bridge["requestMicPermission"] !== "function") {
+      bridge["requestMicPermission"] = () => Bridge.requestMicPermission();
+    }
     if (!w.CoucouAndroid) w.CoucouAndroid = {};
     const android = w.CoucouAndroid;
     if (typeof android["onFileSelected"] !== "function") {
       android["onFileSelected"] = (payload: string) => {
         handlePickedFile(payload);
+      };
+    }
+    // SPRINT 6.7 — Kotlin's answer to the RECORD_AUDIO prompt lands here and is
+    // re-broadcast as a window event the Live Voice view listens for.
+    if (typeof android["onMicPermission"] !== "function") {
+      android["onMicPermission"] = (granted: boolean) => {
+        window.dispatchEvent(new CustomEvent("coucou:mic-permission", { detail: !!granted }));
       };
     }
   } catch {

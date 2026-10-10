@@ -1,10 +1,12 @@
-// SPRINT 6.5 @Cline — Live Voice room part 2: VAD loop + speak/think + view.
-import { h, svg } from "./dom";
-import { ICONS } from "./icons";
+// SPRINT 6.7 @Cline — Live Voice room rebuilt on the UI-kit adapter (BOARD.md).
+// Live Voice visuals stay in the room markup; the pulsing ripple keyframes
+// remain @Buffy's lane in style.css.
+import { h } from "./dom";
 import { Bridge } from "../core/bridge";
 import { Sound } from "../core/sound";
 import type { HubActions } from "./hub-common";
-import { createShell, ensureMic, type LiveCtx, type LivePhase } from "./hub-voice-mic";
+import { createShell, ensureMic, syncStartLabel, type LiveCtx, type LivePhase } from "./hub-voice-mic";
+import { lucide, m3AvatarOrb, m3Button, m3Card, m3IconButton, m3TonalButton } from "./ui-kit";
 
 function setPhase(ctx: LiveCtx, next: LivePhase, label?: string): void {
   ctx.phase = next;
@@ -99,12 +101,12 @@ async function toggle(ctx: LiveCtx): Promise<void> {
   if (!ctx.started) {
     ctx.started = true;
     ctx.stopping = false;
-    ctx.startBtn.textContent = "Stop";
+    syncStartLabel(ctx, "Stop");
     setPhase(ctx, "idle", "Starting mic…");
     const ok = await ensureMic(ctx);
     if (!ok) {
       ctx.started = false;
-      ctx.startBtn.textContent = "Start";
+      syncStartLabel(ctx, "Start");
       setPhase(ctx, "idle", "Mic blocked");
       // SPRINT 6.6 @Buffy — sleek permission card instead of a bare caption.
       ctx.room.classList.add("perm");
@@ -128,7 +130,7 @@ async function toggle(ctx: LiveCtx): Promise<void> {
 function stop(ctx: LiveCtx): void {
   ctx.stopping = true;
   ctx.started = false;
-  ctx.startBtn.textContent = "Start";
+  syncStartLabel(ctx, "Start");
   window.cancelAnimationFrame(ctx.raf);
   try {
     ctx.recognition?.stop?.();
@@ -153,58 +155,103 @@ function stop(ctx: LiveCtx): void {
 
 export function buildLiveVoiceView(_actions: HubActions) {
   const ctx = createShell(setPhase, think, toggle);
-  const orb = h("div", { class: "livevoice-orb" });
-  // SPRINT 6.6 @Buffy — Lucide outline glyphs: mic crowns the header, a
-  // sliders glyph opens app settings, mic-off fronts the permission card.
+  // SPRINT 6.7 — `requestMicPermission` shows Android's native prompt from a
+  // transparent activity; the user's answer arrives back here as a window event
+  // (Kotlin re-broadcasts it after `onRequestPermissionsResult`).
+  window.addEventListener("coucou:mic-permission", (e: Event) => {
+    const detail = (e as CustomEvent<boolean | string>).detail;
+    const granted = detail === true || detail === "true";
+    if (granted) {
+      ctx.room.classList.remove("perm");
+      if (!ctx.started) setPhase(ctx, "idle", "Mic allowed — tap Start");
+    } else {
+      ctx.room.classList.add("perm");
+      setPhase(ctx, "idle", "Mic blocked");
+    }
+  });
+  // Lucide icon kit (ISC): `mic` crowns the header, `audio-waveform` accents
+  // the VAD bars, `mic-off` fronts the permission card, `sliders-horizontal`
+  // opens mic settings — no hand-rolled glyph primitives.
+  const avatar = m3AvatarOrb();
   const header = h(
     "div",
     { class: "hub-title", style: "align-self:center" },
-    svg(ICONS.micLine, 13, { stroke: 2 }),
+    lucide("mic", 14),
     h("span", { text: "Live Voice Mode" }),
   );
-  const waveAccent = svg(ICONS.waveform, 13);
+  const waveAccent = lucide("waveform", 14);
   waveAccent.classList.add("livevoice-accent");
   waveAccent.style.opacity = "0.7";
+  const allowBtn = m3Button("Allow Microphone", { onClick: () => requestMicAccess(ctx) });
+  const laterBtn = m3TonalButton("Not now", { onClick: () => ctx.room.classList.remove("perm") });
+  const micIcon = lucide("micOff", 20, 1.8);
   const permCard = h(
     "div",
     { class: "livevoice-perm" },
-    h(
-      "div",
-      { class: "perm-panel" },
-      svg(ICONS.micOff, 20, { stroke: 1.8 }),
+    m3Card(
+      micIcon,
       h("div", { class: "perm-title", text: "Microphone blocked" }),
       h("div", {
         class: "perm-sub",
         text: "Allow microphone access so Mochi can hear you.",
       }),
-      h(
-        "div",
-        { class: "perm-actions" },
-        h("button", {
-          class: "m3-btn",
-          text: "Allow Microphone",
-          onclick: () => openAppSettings(),
-        }),
-        h(
-          "button",
-          { class: "perm-link", text: "Not now", onclick: () => ctx.room.classList.remove("perm") },
-        ),
-      ),
+      h("div", { class: "perm-actions" }, allowBtn, laterBtn),
     ),
   );
-  const settingsBtn = h(
-    "button",
-    {
-      class: "voice-icon-btn",
-      title: "Microphone settings",
-      onclick: () => openAppSettings(),
+  // Material 3 icon button: sliders glyph routes to app settings.
+  const settingsBtn = m3IconButton("sliders", {
+    title: "Microphone settings",
+    size: 16,
+    onClick: () => openAppSettings(),
+  });
+  // Material 3 filled Start/Stop: fires the BOARD-mandated IslandBridge mic
+  // permission request first, then runs the existing VAD toggle.
+  const startBtn = m3Button("Start", {
+    title: "Start Live Voice",
+    onClick: () => {
+      requestMicAccess(ctx, true);
+      void toggle(ctx);
     },
-    svg(ICONS.sliders, 15, { stroke: 2 }),
-  );
-  ctx.room.append(header, orb, ctx.stateLabel, ctx.waves, waveAccent, ctx.caption, permCard);
-  ctx.room.append(h("div", { class: "livevoice-controls" }, ctx.startBtn, settingsBtn));
-  const el = h("div", { class: "view" }, h("div", { class: "card" }, ctx.room));
+  });
+  ctx.startBtn.replaceWith(startBtn);
+  ctx.startBtn = startBtn;
+  // "Choose file" (BOARD.md): straight to the SAF transparent activity via
+  // `window.IslandBridge?.openFilePicker`, Bridge fallback otherwise.
+  const fileBtn = m3TonalButton("Choose file", {
+    title: "Choose file",
+    onClick: () => {
+      try {
+        if (typeof window.IslandBridge?.openFilePicker === "function") {
+          window.IslandBridge.openFilePicker();
+        } else {
+          void Bridge.openFilePicker();
+        }
+        Sound.play("blip");
+      } catch { /* picker is best-effort until Kotlin lands */ }
+    },
+  });
+  ctx.room.append(header, avatar, ctx.stateLabel, ctx.waves, waveAccent, ctx.caption, permCard);
+  ctx.room.append(h("div", { class: "livevoice-controls" }, ctx.startBtn, fileBtn, settingsBtn));
+  // SPRINT 6.7: voice-view root carries the 16/20 corner-inset gutter.
+  const el = h("div", { class: "view voice-view" }, h("div", { class: "card" }, ctx.room));
   return { el, sync() {} };
+}
+
+/**
+ * SPRINT 6.7 @Cline — BOARD-mandated mic wiring: "Start" / "Allow Access"
+ * fires `window.IslandBridge?.requestMicPermission?.()` so OpenCode's
+ * transparent-activity lane shows the native RECORD_AUDIO prompt (not raw
+ * settings). Falls back to the Bridge check + settings route otherwise.
+ */
+function requestMicAccess(ctx: LiveCtx, silent = false): void {
+  try {
+    if (typeof window.IslandBridge?.requestMicPermission === "function") {
+      window.IslandBridge.requestMicPermission();
+      if (!silent) ctx.room.classList.remove("perm");
+      return;
+    }
+  } catch { /* fall through to the settings route */ }
+  if (!silent) openAppSettings();
 }
 
 /**

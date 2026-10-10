@@ -140,8 +140,10 @@ async function run() {
     orbGlow: getComputedStyle(document.querySelector(".livevoice-orb")).boxShadow,
     waveBars: document.querySelectorAll(".livevoice-waves i").length,
     headerStroke: !!document.querySelector('.livevoice-room .hub-title svg path[stroke]'),
-    settingsBtn: !!document.querySelector(".voice-icon-btn"),
-    startText: document.querySelector(".livevoice-controls .hub-btn")?.textContent?.trim(),
+    // SPRINT 6.7: the room's chrome moved to the UI kit — the settings glyph is an
+    // M3 icon button and Start is the M3 filled button. Same contract, new classes.
+    settingsBtn: !!document.querySelector(".livevoice-controls .m3-icon-btn"),
+    startText: document.querySelector(".livevoice-controls .m3-btn--filled")?.textContent?.trim(),
   }));
   console.log(JSON.stringify(voice, null, 2));
   if (!voice.room || !voice.orb || !voice.settingsBtn) fail("voice room chrome missing");
@@ -151,20 +153,30 @@ async function run() {
   await page.screenshot({ path: resolve(SHOTS, "sprint66_live_voice.png") });
 
   console.log("Checking microphone-blocked permission card...");
-  // Denial is forced by the init script; the marker intercepts openAppSettings.
+  // SPRINT 6.7 (BOARD.md): the mic hook now shows Android's native RECORD_AUDIO
+  // prompt through the transparent activity — `IslandBridge.requestMicPermission()` —
+  // and only falls back to app settings when no host provides it. Intercept both and
+  // prove the native path wins.
   await page.evaluate(() => {
     window.__openAppSettingsCalled = 0;
+    window.__requestMicPermissionCalled = 0;
     window.CoucouAndroid = window.CoucouAndroid || {};
     window.CoucouAndroid.openAppSettings = () => {
       window.__openAppSettingsCalled += 1;
     };
+    window.IslandBridge = window.IslandBridge || {};
+    window.IslandBridge.requestMicPermission = () => {
+      window.__requestMicPermissionCalled += 1;
+    };
   });
-  await tap(".livevoice-controls .hub-btn"); // Start
+  await tap(".livevoice-controls .m3-btn--filled"); // Start
   await page.waitForSelector(".livevoice-room.perm", { timeout: 5000 });
+  const startCalls = await page.evaluate(() => window.__requestMicPermissionCalled);
+  if (startCalls !== 1)
+    fail(`Start should call requestMicPermission once, got ${startCalls}`);
   const perm = await page.evaluate(() => {
-    const room = document.querySelector(".livevoice-room");
-    const panel = document.querySelector(".perm-panel");
-    const allow = document.querySelector(".m3-btn");
+    const panel = document.querySelector(".livevoice-perm .m3-card");
+    const allow = document.querySelector(".perm-actions .m3-btn--filled");
     return {
       visible: panel && getComputedStyle(panel.parentElement).display !== "none",
       title: document.querySelector(".perm-title")?.textContent ?? "",
@@ -180,12 +192,19 @@ async function run() {
   if (!perm.orbHidden) fail("orb should hide while the permission card is up");
   await page.screenshot({ path: resolve(SHOTS, "sprint66_voice_blocked.png") });
 
-  await tap(".m3-btn"); // Allow Microphone
-  const opened = await page.evaluate(() => window.__openAppSettingsCalled);
-  if (opened !== 1) fail(`Allow Microphone should call openAppSettings once, got ${opened}`);
-  console.log("✓ [ Allow Microphone ] routes to openAppSettings()");
+  await tap(".perm-actions .m3-btn--filled"); // Allow Microphone
+  const mic = await page.evaluate(() => ({
+    asked: window.__requestMicPermissionCalled,
+    settings: window.__openAppSettingsCalled,
+  }));
+  // Start already asked once; Allow Microphone asks again (the user tapped it).
+  if (mic.asked !== 2)
+    fail(`Start + Allow Microphone should call requestMicPermission twice, got ${mic.asked}`);
+  if (mic.settings !== 0)
+    fail(`native prompt path must not open raw settings (got ${mic.settings})`);
+  console.log("✓ [ Allow Microphone ] routes to IslandBridge.requestMicPermission()");
 
-  await tap(".perm-link"); // Not now
+  await tap(".perm-actions .m3-btn--tonal"); // Not now
   await page.waitForTimeout(200);
   const dismissed = await page.evaluate(
     () => !document.querySelector(".livevoice-room").classList.contains("perm"),

@@ -51,7 +51,8 @@ export function buildVaultView(_actions: HubActions) {
     }
   });
   const btn = h("button", { class: "hub-btn", text: "Choose file", onclick: pick });
-  const el = h("div", { class: "view" },
+  // SPRINT 6.7 @Cline — vault-view root carries the 16/20 corner-inset gutter.
+  const el = h("div", { class: "view vault-view" },
     h("div", { class: "card" },
       h("div", { class: "hub-card" },
         h("div", { class: "hub-title" }, svg(ICONS.folder, 13), h("span", { text: "Vault / File Drop" })),

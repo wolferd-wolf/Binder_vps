@@ -71,7 +71,8 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
 
   const el = h(
     "div",
-    { class: "view" },
+    // SPRINT 6.7 @Cline — chat-view root carries the 16/20 corner-inset gutter.
+    { class: "view chat-view" },
     h("div", { class: "card wash chat-card" }, h("div", { class: "chat-body" }, chipRow, log, bar)),
   );
   (el.querySelector(".card") as HTMLElement).style.setProperty("--wash", "rgba(99,102,241,0.5)");

@@ -59,6 +59,26 @@ export function createShell(
   return ctx;
 }
 
+/**
+ * SPRINT 6.7 @Cline — keeps the Start/Stop label in sync after hub-voice.ts
+ * swaps the shell button for the Material 3 filled button. `toggle`/`stop`
+ * mutate `ctx.startBtn.textContent`; if the shell node was replaced, the
+ * lookup finds the live node so the label never sticks on "Start".
+ */
+export function syncStartLabel(ctx: LiveCtx, label: string): void {
+  try {
+    if (!ctx.startBtn.isConnected) {
+      const live = ctx.room.querySelector(".livevoice-controls .m3-btn--filled") as HTMLElement | null;
+      if (live) ctx.startBtn = live;
+    }
+    ctx.startBtn.textContent = label;
+  } catch {
+    try {
+      ctx.startBtn.textContent = label;
+    } catch { /* label is cosmetic */ }
+  }
+}
+
 export async function ensureMic(ctx: LiveCtx): Promise<boolean> {
   try {
     const granted = await Bridge.checkMicPermission();

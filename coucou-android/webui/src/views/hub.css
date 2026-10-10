@@ -1,6 +1,12 @@
 /* SPRINT 6.5 @Cline — Assistant Hub scoped styles (WebUI lane only).
  * Kept in this file (not style.css) so @Buffy's styling lane stays untouched.
- * Class prefix `hub-` / `livevoice-` guarantees no collisions. */
+ * Class prefix `hub-` / `livevoice-` guarantees no collisions.
+ *
+ * SPRINT 6.7 @Cline — Corner-inset padding: the outer squircle clips any icon
+ * or title that sits flush against the card edge (Tasks ✓=, Vault folder,
+ * Live Voice mic). Every hub container now carries a 16px/20px inner gutter
+ * so header chrome sits comfortably inside the rounded curve. See BOARD.md.
+ */
 
 .hub-card {
   display: flex;
@@ -8,7 +14,9 @@
   gap: 6px;
   height: 100%;
   min-height: 0;
-  padding: 2px;
+  /* SPRINT 6.7: 20px L/R inner padding — icons/text never touch the squircle. */
+  padding: 16px 20px !important;
+  box-sizing: border-box !important;
 }
 
 .hub-title {
@@ -68,6 +76,46 @@
   font: 400 11.5px var(--font);
   color: var(--dim);
   text-align: center;
+}
+
+/* ── SPRINT 6.7 @Cline — Corner-inset gutter (BOARD.md) ───────────────────
+ * Device screenshots show header chrome clamped to the outer squircle in
+ * Tasks / Vault / Notes / Chat / Voice. Every view container now carries a
+ * 16px vertical / 20px horizontal inner gutter so icons + titles sit well
+ * inside the 20px rounded curve. `!important` wins over the legacy 2px rule.
+ */
+.tasks-view,
+.vault-view,
+.notes-view,
+.chat-view,
+.voice-view,
+.hub-card,
+.livevoice-room,
+.chat-card,
+.hub-list {
+  box-sizing: border-box !important;
+}
+
+.tasks-view,
+.vault-view,
+.notes-view,
+.chat-view,
+.voice-view {
+  padding: 16px 20px !important;
+  box-sizing: border-box !important;
+}
+
+/* Header rows sit one extra step inside the gutter so the ✓= / folder / mic
+ * glyph plus title text never kiss the squircle edge. */
+.hub-card .hub-title,
+.livevoice-room .hub-title,
+.tasks-view .hub-title,
+.vault-view .hub-title,
+.notes-view .hub-title,
+.chat-view .hub-title,
+.voice-view .hub-title {
+  margin: 0 !important;
+  padding: 2px 4px 8px 4px !important;
 }
 
 .hub-actions {
@@ -223,4 +271,94 @@
   display: flex;
   gap: 8px;
   z-index: 1;
+}
+
+/* ── SPRINT 6.7 @Cline — Material 3 component kit (BOARD.md) ───────────────
+ * Famous-library rebuild: Lucide stroke icons (`lucide-*` classes via the
+ * ui-kit adapter) + M3 buttons / card / avatar tokens. Vendored offline so
+ * the WebView bundle has no new npm dependency.
+ */
+.lucide {
+  flex: 0 0 auto;
+  vertical-align: -2px;
+}
+
+.m3-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: 20px;
+  min-height: 36px;
+  padding: 0 18px;
+  font: 600 12.5px var(--font);
+  letter-spacing: 0.01em;
+  cursor: default;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s, box-shadow 0.15s, background 0.15s;
+}
+
+.m3-btn--filled {
+  background: #f4505e;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(244, 80, 94, 0.4);
+}
+
+.m3-btn--filled:active {
+  transform: scale(0.97);
+}
+
+.m3-btn--tonal {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.m3-btn--tonal:active {
+  transform: scale(0.97);
+}
+
+.m3-icon-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--dim);
+  cursor: default;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.m3-card {
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.m3-card--elevated {
+  background: rgba(20, 21, 24, 0.92);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.m3-avatar {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: rgba(244, 80, 94, 0.1);
+  border: 1px solid rgba(244, 80, 94, 0.25);
+}
+
+/* M3 permission card keeps the legacy show/hide contract. */
+.livevoice-perm .m3-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 20px;
 }

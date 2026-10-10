@@ -7,8 +7,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import android.util.Log
-import android.widget.Toast
 import android.webkit.JavascriptInterface
+import androidx.core.content.ContextCompat
 import com.coucou.android.IslandBridgeCommands.BridgeAction
 import org.json.JSONArray
 import org.json.JSONObject
@@ -73,6 +73,13 @@ internal class IslandBridgeHost(
 
         /** Stop the overlay service. */
         fun onQuitRequested()
+
+        /**
+         * SPRINT 6.7: the user answered the RECORD_AUDIO runtime prompt (or it was
+         * already granted). Forwarded to the page so Live Voice can leave the
+         * permission card up to date without polling.
+         */
+        fun onMicPermissionResult(granted: Boolean)
     }
 
     /**
@@ -127,22 +134,26 @@ internal class IslandBridgeHost(
         return arr.toString()
     }
 
-@JavascriptInterface
+    /**
+     * SPRINT 6.7 — Vault "Choose file".
+     *
+     * [context] is the overlay [OverlayService], which can neither receive
+     * `onActivityResult` nor run the SAF picker itself, so the picker now lives in the
+     * transparent [FilePickerActivity]. A Service must start that activity with
+     * `FLAG_ACTIVITY_NEW_TASK`; the result comes back through
+     * `window.CoucouAndroid.onFileSelected(json)`.
+     */
+    @JavascriptInterface
     fun openFilePicker(): String {
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("*/*"))
+        return try {
+            val intent = Intent(context, FilePickerActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            IslandBridgeCommands.nullEnvelope()
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not launch the file picker", e)
+            IslandBridgeCommands.errorEnvelope("Unable to open the file picker.")
         }
-        // Use request code 1001 which MainActivity's onActivityResult handles
-        if (context is android.app.Activity) {
-            (context as android.app.Activity).startActivityForResult(
-                Intent.createChooser(intent, "Select file"),
-                1001
-            )
-        } else {
-            Toast.makeText(context, "File picker not available", Toast.LENGTH_SHORT).show()
-        }
-        return IslandBridgeCommands.nullEnvelope()
     }
 
     @JavascriptInterface
@@ -162,9 +173,35 @@ internal class IslandBridgeHost(
         return arr.toString()
     }
 
+    /** True when RECORD_AUDIO is granted. Pure read — the request lives in [requestMicPermission]. */
     @JavascriptInterface
-    fun checkMicPermission(): Boolean {
-        return context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    fun checkMicPermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+
+    /**
+     * SPRINT 6.7 — Live Voice "Start" / "Allow Microphone".
+     *
+     * Already granted: reports it straight away. Otherwise launches the transparent
+     * [MicPermissionActivity] (with `FLAG_ACTIVITY_NEW_TASK`, since the caller is a
+     * Service) so Android draws its own runtime-permission dialog. The answer reaches
+     * the page as a `coucou:mic-permission` event rather than the raw settings screen.
+     */
+    @JavascriptInterface
+    fun requestMicPermission(): String {
+        return try {
+            if (checkMicPermission()) {
+                listener.onMicPermissionResult(true)
+                return IslandBridgeCommands.envelope("true")
+            }
+            val intent = Intent(context, MicPermissionActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            IslandBridgeCommands.nullEnvelope()
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not request RECORD_AUDIO", e)
+            IslandBridgeCommands.errorEnvelope("Unable to request microphone permission.")
+        }
     }
 
     /**

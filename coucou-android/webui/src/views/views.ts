@@ -558,7 +558,7 @@ function buildNotesView(actions: ViewActions): ViewHost {
     h("span", { style: "font:600 12px var(--font);color:var(--ink);", text: "Notes & Tasks" }),
   );
 
-  const el = h("div", { class: "view" }, card(null, h("div", { class: "stack", style: "padding:8px 12px;height:100%;display:flex;flex-direction:column;" }, header, drawer)));
+  const el = h("div", { class: "view notes-view" }, card(null, h("div", { class: "stack", style: "padding:8px 12px;height:100%;display:flex;flex-direction:column;box-sizing:border-box;" }, header, drawer)));
 
   function renderNotes(notes: NoteItem[]) {
     clear(listEl);
