@@ -71,6 +71,6 @@
          --latest
        ```
     4. Post the release URL and update `BOARD.md`.
-       - **RELEASE PUBLISHED:** [v20261010_051648](https://github.com/wolferd-wolf/Binder_vps/releases/tag/v20261010_051648)
+       - **RELEASE PUBLISHED:** [v6.6.0](https://github.com/wolferd-wolf/Binder_vps/releases/tag/v6.6.0) (also [v20261010_051648](https://github.com/wolferd-wolf/Binder_vps/releases/tag/v20261010_051648))
        - **APK:** `coucou-android/app/build/outputs/apk/debug/app-debug.apk` & `apks/coucou-android-debug.apk`
        - **STATUS:** SPRINT 6.6 COMPLETE (All lanes verified green)
