@@ -165,6 +165,128 @@
         delete inFlightConnMints[cacheKey];
       }
     }
+    // Gateway REST proxy: intercepts calls to http://127.0.0.1:9119/api/* and delegates to Kotlin native bridge
+    (function () {
+      if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
+      var origFetch = window.fetch.bind(window);
+
+      function isGatewayApiUrl(urlStr) {
+        try {
+          var u = new URL(urlStr, window.location.href);
+          var hostOk = (u.hostname === '127.0.0.1' || u.hostname === 'localhost') && (u.port === '9119');
+          var pathOk = u.pathname.indexOf('/api/') === 0 || u.pathname === '/api';
+          return u.protocol === 'http:' && hostOk && pathOk;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function bridgedFetch(input, init) {
+        init = init || {};
+        var urlStr = typeof input === 'string' ? input : (input && input.url ? input.url : String(input || ''));
+
+        // Pass non-gateway requests (including app assets http://127.0.0.1/assets/...) directly to original fetch
+        if (!isGatewayApiUrl(urlStr)) {
+          return origFetch(input, init);
+        }
+
+        if (!window.HermesAndroid || typeof window.HermesAndroid.proxyHttpRequest !== 'function') {
+          console.warn('[HermesWS] [' + getIsoTime() + '] Native proxyHttpRequest not available, falling back to origFetch');
+          return origFetch(input, init);
+        }
+
+        return new Promise(function (resolve, reject) {
+          try {
+            var fullUrl = new URL(urlStr, window.location.href).href;
+            var method = (init.method || (input && input.method) || 'GET').toUpperCase();
+
+            var headersObj = {};
+            var rawHeaders = init.headers || (input && input.headers);
+            if (rawHeaders) {
+              if (typeof rawHeaders.forEach === 'function') {
+                rawHeaders.forEach(function (val, key) { headersObj[key] = val; });
+              } else if (Array.isArray(rawHeaders)) {
+                for (var i = 0; i < rawHeaders.length; i++) {
+                  headersObj[rawHeaders[i][0]] = rawHeaders[i][1];
+                }
+              } else if (typeof rawHeaders === 'object') {
+                for (var k in rawHeaders) {
+                  if (Object.prototype.hasOwnProperty.call(rawHeaders, k)) {
+                    headersObj[k] = rawHeaders[k];
+                  }
+                }
+              }
+            }
+
+            var bodyVal = init.body !== undefined ? init.body : (input && input.body);
+            var bodyStr = null;
+            var isBase64 = false;
+
+            if (bodyVal !== null && bodyVal !== undefined) {
+              if (typeof bodyVal === 'string') {
+                bodyStr = bodyVal;
+              } else if (bodyVal instanceof ArrayBuffer || (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView && ArrayBuffer.isView(bodyVal))) {
+                var bytes = bodyVal instanceof ArrayBuffer ? new Uint8Array(bodyVal) : new Uint8Array(bodyVal.buffer, bodyVal.byteOffset, bodyVal.byteLength);
+                var binStr = '';
+                for (var j = 0; j < bytes.length; j++) {
+                  binStr += String.fromCharCode(bytes[j]);
+                }
+                bodyStr = btoa(binStr);
+                isBase64 = true;
+              } else {
+                try {
+                  bodyStr = JSON.stringify(bodyVal);
+                } catch (e) {
+                  bodyStr = String(bodyVal);
+                }
+              }
+            }
+
+            var reqPayload = JSON.stringify({
+              method: method,
+              url: fullUrl,
+              headers: headersObj,
+              body: bodyStr,
+              isBase64: isBase64
+            });
+
+            var rawRes = window.HermesAndroid.proxyHttpRequest(reqPayload);
+            var resJson = JSON.parse(rawRes);
+
+            if (resJson.status === 0) {
+              return reject(new TypeError('NetworkError: ' + (resJson.error || 'Gateway unreachable')));
+            }
+
+            var respHeaders = new Headers(resJson.headers || {});
+            var respBody;
+            if (resJson.isBase64) {
+              var dec = atob(resJson.body || '');
+              var decLen = dec.length;
+              var decBytes = new Uint8Array(decLen);
+              for (var b = 0; b < decLen; b++) {
+                decBytes[b] = dec.charCodeAt(b);
+              }
+              respBody = decBytes;
+            } else {
+              respBody = resJson.body || '';
+            }
+
+            var response = new Response(respBody, {
+              status: resJson.status,
+              statusText: resJson.statusText || '',
+              headers: respHeaders
+            });
+
+            resolve(response);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      }
+
+      window.fetch = bridgedFetch;
+    })();
+
     var noop = function () {};
     var noopUnsub = function () { return undefined; };
 
@@ -203,13 +325,19 @@
       api: function (r) {
         var g = gw(); var path = (r && r.path) || '/';
         if (path.charAt(0) !== '/') path = '/' + path;
-        return fetch(g + path, { method: (r && r.method) || 'GET',
+        var fullUrl = g + path;
+        return window.fetch(fullUrl, {
+          method: (r && r.method) || 'GET',
           headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-          body: r && r.body !== undefined && r.method !== 'GET' ? JSON.stringify(r.body) : undefined })
-          .then(function (res) {
-            if (!res.ok) throw new Error('Hermes gateway ' + res.status);
-            return res.json();
-          });
+          body: r && r.body !== undefined && r.method !== 'GET' ? JSON.stringify(r.body) : undefined
+        }).then(function (res) {
+          if (!res.ok) {
+            return res.text().then(function (text) {
+              throw new Error('Hermes gateway ' + res.status + ': ' + text);
+            });
+          }
+          return res.json();
+        });
       },
       notify: function () { return Promise.resolve(true); },
       claimStartupLatency: function () { return Promise.resolve(null); },

@@ -114,5 +114,22 @@ class HermesNativeBridgeTest {
         val token = HermesNativeBridge.parseSessionToken(html)
         assertEquals(null, token)
     }
+
+    @Test
+    fun testAllowedProxyTargetAcceptsGatewayApi() {
+        assertTrue(HermesNativeBridge.isAllowedProxyTarget(java.net.URL("http://127.0.0.1:9119/api/sessions")))
+        assertTrue(HermesNativeBridge.isAllowedProxyTarget(java.net.URL("http://127.0.0.1:9119/api/config?profile=default")))
+        assertTrue(HermesNativeBridge.isAllowedProxyTarget(java.net.URL("http://localhost:9119/api/status")))
+    }
+
+    @Test
+    fun testAllowedProxyTargetRejectsNonApiOrForeignHosts() {
+        org.junit.Assert.assertFalse(HermesNativeBridge.isAllowedProxyTarget(java.net.URL("http://127.0.0.1:9119/")))
+        org.junit.Assert.assertFalse(HermesNativeBridge.isAllowedProxyTarget(java.net.URL("http://127.0.0.1/assets/hermes/index.html")))
+        org.junit.Assert.assertFalse(HermesNativeBridge.isAllowedProxyTarget(java.net.URL("http://10.0.2.2:9119/api/sessions")))
+        org.junit.Assert.assertFalse(HermesNativeBridge.isAllowedProxyTarget(java.net.URL("http://evil.com:9119/api/sessions")))
+        org.junit.Assert.assertFalse(HermesNativeBridge.isAllowedProxyTarget(java.net.URL("https://127.0.0.1:9119/api/sessions")))
+        org.junit.Assert.assertFalse(HermesNativeBridge.isAllowedProxyTarget(java.net.URL("http://127.0.0.1:8080/api/sessions")))
+    }
 }
 
