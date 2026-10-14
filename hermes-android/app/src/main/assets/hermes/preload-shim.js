@@ -38,44 +38,132 @@
       }
     }
 
+    var wsForCounter = 0;
+    var connCounter = 0;
+    var wsDialCounter = 0;
+    var wsCloseCounter = 0;
+    var sessionCreateCounter = 0;
+
+    // Cache per gateway URL + profile
+    var wsForCache = {};
+    var connCache = {};
+    var inFlightMints = {};
+    var inFlightConnMints = {};
+
+    function getIsoTime() {
+      try { return new Date().toISOString(); } catch (e) { return String(Date.now()); }
+    }
+
+    function invalidateConnectionCache(reason) {
+      var hadEntries = Object.keys(wsForCache).length > 0 || Object.keys(connCache).length > 0;
+      console.log('[HermesWS] [' + getIsoTime() + '] Invalidate connection cache (reason="' + reason + '", hadEntries=' + hadEntries + ')');
+      wsForCache = {};
+      connCache = {};
+      inFlightMints = {};
+      inFlightConnMints = {};
+    }
+
+    try {
+      window.__hermesInvalidateConnectionCache = invalidateConnectionCache;
+    } catch (e) {}
+
     async function wsFor(profile) {
-      var tokenOrError = fetchTokenNative();
-      if (!tokenOrError || tokenOrError.indexOf('ERROR:') === 0) {
-        var err = tokenOrError ? tokenOrError.replace(/^ERROR:\s*/, '') : 'Session token is empty';
-        console.error('[HermesWS] Native session token error:', err);
-        return { ok: false, error: err };
-      }
+      wsForCounter++;
       var g = gw();
-      var ws = g.indexOf('https://') === 0 ? 'wss://' + g.slice(8) : g.replace(/^http:\/\//, 'ws://');
       var p = (profile || '').trim ? (profile || '').trim() : '';
-      var wsUrl = ws + '/api/ws?token=' + encodeURIComponent(tokenOrError) + (p ? '&profile=' + encodeURIComponent(p) : '');
-      var masked = tokenOrError.length > 4 ? tokenOrError.substring(0, 4) + '...' : '****';
-      var origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'unknown';
-      console.log('[HermesWS] Minted gateway WebSocket URL (origin=' + origin + '): ' + ws + '/api/ws?token=' + masked + (p ? '&profile=' + encodeURIComponent(p) : ''));
-      return { ok: true, wsUrl: wsUrl, token: tokenOrError };
+      var cacheKey = g + '::' + p;
+
+      // 1. Cache hit: return same object reference
+      if (wsForCache[cacheKey]) {
+        console.log('[HermesWS] [' + getIsoTime() + '] wsFor() call #' + wsForCounter + ' [cache hit]: profile="' + (p || 'default') + '"');
+        return wsForCache[cacheKey];
+      }
+
+      // 2. In-flight deduping: share in-flight promise
+      if (inFlightMints[cacheKey]) {
+        console.log('[HermesWS] [' + getIsoTime() + '] wsFor() call #' + wsForCounter + ' [in-flight deduped]: profile="' + (p || 'default') + '"');
+        return await inFlightMints[cacheKey];
+      }
+
+      console.log('[HermesWS] [' + getIsoTime() + '] wsFor() call #' + wsForCounter + ' [cache miss]: profile="' + (p || 'default') + '"');
+
+      var mintPromise = (async function () {
+        var tokenOrError = fetchTokenNative();
+        if (!tokenOrError || tokenOrError.indexOf('ERROR:') === 0) {
+          var err = tokenOrError ? tokenOrError.replace(/^ERROR:\s*/, '') : 'Session token is empty';
+          console.error('[HermesWS] [' + getIsoTime() + '] Native session token error on wsFor() #' + wsForCounter + ':', err);
+          invalidateConnectionCache('native-token-error');
+          return { ok: false, error: err };
+        }
+        var ws = g.indexOf('https://') === 0 ? 'wss://' + g.slice(8) : g.replace(/^http:\/\//, 'ws://');
+        var wsUrl = ws + '/api/ws?token=' + encodeURIComponent(tokenOrError) + (p ? '&profile=' + encodeURIComponent(p) : '');
+        var masked = tokenOrError.length > 4 ? tokenOrError.substring(0, 4) + '...' : '****';
+        var origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'unknown';
+        console.log('[HermesWS] [' + getIsoTime() + '] Minted gateway WebSocket URL (origin=' + origin + '): ' + ws + '/api/ws?token=' + masked + (p ? '&profile=' + encodeURIComponent(p) : ''));
+        var result = { ok: true, wsUrl: wsUrl, token: tokenOrError };
+        wsForCache[cacheKey] = result;
+        return result;
+      })();
+
+      inFlightMints[cacheKey] = mintPromise;
+      try {
+        return await mintPromise;
+      } finally {
+        delete inFlightMints[cacheKey];
+      }
     }
 
     async function conn(profile) {
-      var w = await wsFor(profile);
+      connCounter++;
       var g = gw();
-      var c = {
-        baseUrl: g,
-        isFullscreen: false,
-        isMaximized: false,
-        mode: 'local',
-        source: 'local',
-        token: w.ok ? (w.token || '') : '',
-        wsUrl: w.ok ? w.wsUrl : '',
-        error: w.ok ? undefined : w.error,
-        logs: [],
-        connectionId: 'local',
-        windowButtonPosition: null,
-        nativeOverlayWidth: 0,
-        customWindowControls: false,
-        registryScoped: false
-      };
-      if (profile) { c.profile = profile; c.sharedPrimary = true; }
-      return c;
+      var p = (profile || '').trim ? (profile || '').trim() : '';
+      var cacheKey = g + '::' + p;
+
+      // 1. Cache hit: return same object reference
+      if (connCache[cacheKey]) {
+        console.log('[HermesWS] [' + getIsoTime() + '] conn() call #' + connCounter + ' [cache hit]: profile="' + (p || 'default') + '"');
+        return connCache[cacheKey];
+      }
+
+      // 2. In-flight deduping: share in-flight promise
+      if (inFlightConnMints[cacheKey]) {
+        console.log('[HermesWS] [' + getIsoTime() + '] conn() call #' + connCounter + ' [in-flight deduped]: profile="' + (p || 'default') + '"');
+        return await inFlightConnMints[cacheKey];
+      }
+
+      console.log('[HermesWS] [' + getIsoTime() + '] conn() call #' + connCounter + ' [cache miss]: profile="' + (p || 'default') + '"');
+      var connPromise = (async function () {
+        var w = await wsFor(profile);
+        var c = {
+          baseUrl: g,
+          isFullscreen: false,
+          isMaximized: false,
+          mode: 'local',
+          source: 'local',
+          token: w.ok ? (w.token || '') : '',
+          wsUrl: w.ok ? w.wsUrl : '',
+          error: w.ok ? undefined : w.error,
+          logs: [],
+          connectionId: 'local',
+          windowButtonPosition: null,
+          nativeOverlayWidth: 0,
+          customWindowControls: false,
+          registryScoped: false
+        };
+        if (p) { c.profile = p; c.sharedPrimary = true; }
+
+        if (w.ok) {
+          connCache[cacheKey] = c;
+        }
+        return c;
+      })();
+
+      inFlightConnMints[cacheKey] = connPromise;
+      try {
+        return await connPromise;
+      } finally {
+        delete inFlightConnMints[cacheKey];
+      }
     }
     var noop = function () {};
     var noopUnsub = function () { return undefined; };
@@ -101,8 +189,14 @@
           return { connectionId: 'local', mode: 'local', primary: true, profile: profile, targetProfile: profile };
         }));
       },
-      getEmbedHostOrigin: function () { return Promise.resolve(gw()); },
-      revalidateConnection: function () { return Promise.resolve({ ok: true, rebuilt: false }); },
+      revalidateConnection: function () {
+        invalidateConnectionCache('revalidate-connection');
+        return Promise.resolve({ ok: true, rebuilt: false });
+      },
+      invalidateConnectionCache: function (r) {
+        invalidateConnectionCache(r || 'stub-call');
+        return Promise.resolve(true);
+      },
       touchBackend: function () { return Promise.resolve({ ok: true }); },
       getPoolLimits: function () { return Promise.resolve({ maxBackends: 1, idleMs: 0 }); },
       setPoolLimits: function (l) { return Promise.resolve({ ok: true, limits: l || {} }); },
@@ -294,25 +388,57 @@
       Object.defineProperty(window, 'api', { value: proxyStub, writable: false, configurable: false });
     } catch (e) { window.api = proxyStub; }
 
-    // Temporary diagnostic logger: log final WebSocket URL (token masked to 4 chars) and close/error codes
+    // Temporary diagnostic logger: log final WebSocket URL (token masked to 4 chars), dial count, session.create send count, and close/error codes
     (function () {
       if (typeof window === 'undefined' || !window.WebSocket) return;
       var OrigWebSocket = window.WebSocket;
+      var OrigSend = OrigWebSocket.prototype.send;
       function LoggedWebSocket(url, protocols) {
+        wsDialCounter++;
+        var currentDialId = wsDialCounter;
         var strUrl = String(url || '');
         var masked = strUrl.replace(/([?&](?:token|ticket)=)([^&]{1,4})[^&]*/g, '$1$2...');
         var origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'unknown';
-        console.log('[HermesWS] WebSocket dial (origin=' + origin + '): ' + masked);
+        console.log('[HermesWS] [' + getIsoTime() + '] WebSocket dial #' + currentDialId + ' (origin=' + origin + '): ' + masked);
         var ws = protocols !== undefined ? new OrigWebSocket(url, protocols) : new OrigWebSocket(url);
-        ws.addEventListener('close', function (event) {
-          console.warn('[HermesWS] WebSocket closed: code=' + event.code + ', reason="' + event.reason + '", wasClean=' + event.wasClean + ' on ' + masked);
+        ws._dialId = currentDialId;
+        ws._maskedUrl = masked;
+        var hasOpened = false;
+
+        ws.addEventListener('open', function () {
+          hasOpened = true;
+          console.log('[HermesWS] [' + getIsoTime() + '] WebSocket opened on dial #' + currentDialId + ' (' + masked + ')');
         });
+
+        ws.addEventListener('close', function (event) {
+          wsCloseCounter++;
+          console.warn('[HermesWS] [' + getIsoTime() + '] WebSocket close #' + wsCloseCounter + ' on dial #' + currentDialId + ': code=' + event.code + ', reason="' + event.reason + '", wasClean=' + event.wasClean + ' on ' + masked);
+          if (event.code === 4401 || event.code === 4403) {
+            invalidateConnectionCache('auth-close-' + event.code);
+          } else if (!hasOpened) {
+            invalidateConnectionCache('close-before-open-' + event.code);
+          }
+        });
+
         ws.addEventListener('error', function () {
-          console.error('[HermesWS] WebSocket error before/during connection on ' + masked);
+          console.error('[HermesWS] [' + getIsoTime() + '] WebSocket error before/during connection on dial #' + currentDialId + ' (' + masked + ')');
+          if (!hasOpened) {
+            invalidateConnectionCache('dial-error-before-open');
+          }
         });
         return ws;
       }
       LoggedWebSocket.prototype = OrigWebSocket.prototype;
+      LoggedWebSocket.prototype.send = function (data) {
+        try {
+          if (typeof data === 'string' && data.indexOf('"session.create"') !== -1) {
+            sessionCreateCounter++;
+            var dialNum = this._dialId || '?';
+            console.log('[HermesWS] [' + getIsoTime() + '] session.create send #' + sessionCreateCounter + ' on dial #' + dialNum + ': ' + data);
+          }
+        } catch (e) {}
+        return OrigSend.apply(this, arguments);
+      };
       LoggedWebSocket.CONNECTING = OrigWebSocket.CONNECTING;
       LoggedWebSocket.OPEN = OrigWebSocket.OPEN;
       LoggedWebSocket.CLOSING = OrigWebSocket.CLOSING;

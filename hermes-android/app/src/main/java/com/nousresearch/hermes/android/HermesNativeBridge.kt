@@ -109,9 +109,12 @@ class HermesNativeBridge(
     fun fetchSessionToken(): String {
         return try {
             val future = executor.submit(Callable { doFetchSessionToken() })
-            future.get(3500, TimeUnit.MILLISECONDS)
-        } catch (e: TimeoutException) {
-            "ERROR: Timed out fetching session token from ${getGatewayUrl()}"
+            try {
+                future.get(2800, TimeUnit.MILLISECONDS)
+            } catch (te: TimeoutException) {
+                future.cancel(true)
+                "ERROR: Timed out fetching session token from ${getGatewayUrl()}"
+            }
         } catch (e: ExecutionException) {
             "ERROR: ${e.cause?.message ?: e.message}"
         } catch (e: Throwable) {
@@ -142,8 +145,8 @@ class HermesNativeBridge(
             val url = URL(targetUrl)
             connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 3000
-                readTimeout = 3000
+                connectTimeout = 2500
+                readTimeout = 2500
                 instanceFollowRedirects = true
                 setRequestProperty("Accept", "text/html,application/xhtml+xml,*/*")
                 setRequestProperty("User-Agent", "HermesAndroid/1.0")
