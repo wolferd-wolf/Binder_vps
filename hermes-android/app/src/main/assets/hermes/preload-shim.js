@@ -50,7 +50,8 @@
       var p = (profile || '').trim ? (profile || '').trim() : '';
       var wsUrl = ws + '/api/ws?token=' + encodeURIComponent(tokenOrError) + (p ? '&profile=' + encodeURIComponent(p) : '');
       var masked = tokenOrError.length > 4 ? tokenOrError.substring(0, 4) + '...' : '****';
-      console.log('[HermesWS] Minted gateway WebSocket URL: ' + ws + '/api/ws?token=' + masked + (p ? '&profile=' + encodeURIComponent(p) : ''));
+      var origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'unknown';
+      console.log('[HermesWS] Minted gateway WebSocket URL (origin=' + origin + '): ' + ws + '/api/ws?token=' + masked + (p ? '&profile=' + encodeURIComponent(p) : ''));
       return { ok: true, wsUrl: wsUrl, token: tokenOrError };
     }
 
@@ -300,7 +301,8 @@
       function LoggedWebSocket(url, protocols) {
         var strUrl = String(url || '');
         var masked = strUrl.replace(/([?&](?:token|ticket)=)([^&]{1,4})[^&]*/g, '$1$2...');
-        console.log('[HermesWS] WebSocket dial: ' + masked);
+        var origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'unknown';
+        console.log('[HermesWS] WebSocket dial (origin=' + origin + '): ' + masked);
         var ws = protocols !== undefined ? new OrigWebSocket(url, protocols) : new OrigWebSocket(url);
         ws.addEventListener('close', function (event) {
           console.warn('[HermesWS] WebSocket closed: code=' + event.code + ', reason="' + event.reason + '", wasClean=' + event.wasClean + ' on ' + masked);

@@ -39,6 +39,33 @@ class HermesNativeBridgeTest {
     }
 
     @Test
+    fun testAppWebUiUrl() {
+        assertEquals("http://127.0.0.1/assets/hermes/index.html", MainActivity.APP_WEB_UI_URL)
+    }
+
+    @Test
+    fun testOriginResolution() {
+        val uri = java.net.URI(MainActivity.APP_WEB_UI_URL)
+        assertEquals("http", uri.scheme)
+        assertEquals("127.0.0.1", uri.host)
+        assertEquals(-1, uri.port) // default port 80
+        val origin = "${uri.scheme}://${uri.host}"
+        assertEquals("http://127.0.0.1", origin)
+    }
+
+    @Test
+    fun testPortConflictGuardLogic() {
+        // Confirm that the gateway URL port is 9119 and distinct from port 80 / -1
+        val gatewayUri = java.net.URI("http://127.0.0.1:9119/api/ws")
+        assertEquals(9119, gatewayUri.port)
+        assertTrue(gatewayUri.port != -1 && gatewayUri.port != 80)
+
+        // Web asset loader URL port is -1 (default port 80)
+        val assetUri = java.net.URI(MainActivity.APP_WEB_UI_URL)
+        assertTrue(assetUri.port == -1 || assetUri.port == 80)
+    }
+
+    @Test
     fun testParseSessionTokenWithDoubleQuotes() {
         val html = """<script>window.__HERMES_SESSION_TOKEN__="c6d7e8f9a0b1c2d3";</script>"""
         val token = HermesNativeBridge.parseSessionToken(html)

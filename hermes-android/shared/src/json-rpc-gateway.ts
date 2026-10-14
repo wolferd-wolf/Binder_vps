@@ -210,7 +210,8 @@ export class JsonRpcGatewayClient {
     this.setState('connecting')
 
     const maskedWsUrl = wsUrl.replace(/([?&](?:token|ticket)=)([^&]{1,4})[^&]*/g, '$1$2...')
-    console.log('[gateway] Connecting to WebSocket URL:', maskedWsUrl)
+    const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'unknown'
+    console.log(`[gateway] Connecting to WebSocket URL (origin=${origin}):`, maskedWsUrl)
 
     const socket = this.options.socketFactory?.(wsUrl) ?? new WebSocket(wsUrl)
     const transport = socketTransport(socket)

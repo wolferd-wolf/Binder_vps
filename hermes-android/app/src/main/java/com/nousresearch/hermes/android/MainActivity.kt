@@ -325,10 +325,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    companion object {
+        const val APP_WEB_UI_URL = "http://127.0.0.1/assets/hermes/index.html"
+    }
+
     private fun loadAppWebUi() {
         runOnUiThread {
             webView.setBackgroundColor(Color.parseColor("#0A0A0A"))
-            webView.loadUrl("file:///android_asset/hermes/index.html")
+            webView.loadUrl(APP_WEB_UI_URL)
         }
     }
 }
