@@ -22,19 +22,38 @@ class HermesWebViewClient(
 
     private val assetLoader127 = WebViewAssetLoader.Builder()
         .setDomain("127.0.0.1")
+        .setHttpAllowed(true)
         .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
         .build()
 
     private val assetLoaderLocalhost = WebViewAssetLoader.Builder()
         .setDomain("localhost")
+        .setHttpAllowed(true)
         .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
         .build()
+
+    @Deprecated("Deprecated in Java")
+    override fun shouldInterceptRequest(
+        view: WebView?,
+        url: String?
+    ): WebResourceResponse? {
+        if (url == null) return null
+        return try {
+            interceptUri(Uri.parse(url))
+        } catch (_: Throwable) {
+            null
+        }
+    }
 
     override fun shouldInterceptRequest(
         view: WebView?,
         request: WebResourceRequest?
     ): WebResourceResponse? {
         val url = request?.url ?: return null
+        return interceptUri(url)
+    }
+
+    fun interceptUri(url: Uri): WebResourceResponse? {
         val scheme = url.scheme?.lowercase() ?: ""
         val host = url.host?.lowercase() ?: ""
         val port = url.port
