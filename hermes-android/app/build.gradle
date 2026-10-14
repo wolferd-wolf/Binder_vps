@@ -1,0 +1,57 @@
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'com.nousresearch.hermes.android'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.nousresearch.hermes.android'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        def buildTime = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss 'UTC'").format(new java.util.Date())
+        def gitCommit = "git rev-parse --short HEAD".execute([], project.rootDir).text.trim() ?: "unknown"
+        buildConfigField "String", "BUILD_TIME", "\"${buildTime}\""
+        buildConfigField "String", "GIT_COMMIT", "\"${gitCommit}\""
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            debuggable true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    buildFeatures {
+        viewBinding true
+        buildConfig true
+    }
+}
+
+dependencies {
+    implementation "androidx.core:core-ktx:1.18.0"
+    implementation "androidx.appcompat:appcompat:1.7.1"
+    implementation "com.google.android.material:material:1.13.0"
+    implementation "androidx.activity:activity-ktx:1.13.0"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.10.0"
+    implementation "androidx.webkit:webkit:1.12.0"
+
+    testImplementation 'junit:junit:4.13.2'
+}

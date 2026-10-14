@@ -1,0 +1,1 @@
+export{t as GatewaySettings}from"./gateway-settings-Bdquu1b9.js";

@@ -1,0 +1,1 @@
+export{S as openUpdatesWindow}from"./updates-D4GZwa_C.js";

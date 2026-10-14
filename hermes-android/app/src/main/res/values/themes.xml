@@ -1,0 +1,42 @@
+<resources>
+    <!-- Force dark mode: no white flash on startup -->
+    <style name="Theme.Hermes" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Core window tokens: eliminate white startup flash -->
+        <item name="android:windowBackground">@color/hermes_bg</item>
+        <item name="android:statusBarColor">@color/hermes_bg</item>
+        <item name="android:navigationBarColor">@color/hermes_bg</item>
+
+        <!-- Force dark status/nav bar icons (white text on dark bg) -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+
+        <!-- Theme.Material3 color tokens -->
+        <item name="colorPrimary">@color/hermes_primary</item>
+        <item name="colorOnPrimary">@color/hermes_on_primary</item>
+        <item name="colorPrimaryContainer">@color/hermes_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/hermes_on_primary_container</item>
+        <item name="colorSecondary">@color/hermes_secondary</item>
+        <item name="colorOnSecondary">@color/hermes_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/hermes_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/hermes_on_secondary_container</item>
+        <item name="colorTertiary">@color/hermes_tertiary</item>
+        <item name="colorOnTertiary">@color/hermes_on_tertiary</item>
+        <item name="colorTertiaryContainer">@color/hermes_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/hermes_on_tertiary_container</item>
+        <item name="colorError">@color/hermes_error</item>
+        <item name="colorOnError">@color/hermes_on_error</item>
+        <item name="colorErrorContainer">@color/hermes_error_container</item>
+        <item name="colorOnErrorContainer">@color/hermes_on_error_container</item>
+        <item name="colorSurface">@color/hermes_surface</item>
+        <item name="colorOnSurface">@color/hermes_on_surface</item>
+        <item name="colorSurfaceVariant">@color/hermes_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/hermes_on_surface_variant</item>
+        <item name="colorOutline">@color/hermes_outline</item>
+        <item name="colorOutlineVariant">@color/hermes_outline_variant</item>
+        <item name="android:colorBackground">@color/hermes_bg</item>
+        <item name="colorOnBackground">@color/hermes_on_background</item>
+        <item name="android:textColorPrimary">@color/hermes_text</item>
+        <item name="android:textColorSecondary">@color/hermes_text_muted</item>
+        <item name="android:windowSplashScreenBackground">@color/hermes_bg</item>
+    </style>
+</resources>

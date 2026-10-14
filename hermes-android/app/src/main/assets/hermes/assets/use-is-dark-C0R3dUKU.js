@@ -1,0 +1,1 @@
+import{o as e}from"./rolldown-runtime-C_s2cVnS.js";import{n as t}from"./jsx-runtime-CH01HHz1.js";import{n}from"./use-theme-epoch-BfL28nfL.js";var r=e(t(),1),i=()=>typeof document<`u`&&document.documentElement.classList.contains(`dark`);function a(){let e=n(),[t,a]=(0,r.useState)(i);return(0,r.useEffect)(()=>a(i()),[e]),t}export{a as t};

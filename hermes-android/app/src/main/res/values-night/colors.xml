@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Night-mode override: same pure dark tokens as base. DayNight theme picks
+         this folder when the system is in night mode. Kept identical so toggling
+         Dark Mode in-app does not shift the palette — the app is always dark. -->
+    <color name="hermes_bg">#0A0A0A</color>
+    <color name="hermes_on_background">#EDEDED</color>
+
+    <color name="hermes_surface">#121212</color>
+    <color name="hermes_surface_variant">#1E1E1E</color>
+    <color name="hermes_on_surface">#EDEDED</color>
+    <color name="hermes_on_surface_variant">#8A8F98</color>
+
+    <color name="hermes_primary">#FF7043</color>
+    <color name="hermes_on_primary">#FFFFFF</color>
+    <color name="hermes_primary_container">#3A1E14</color>
+    <color name="hermes_on_primary_container">#FF7043</color>
+
+    <color name="hermes_secondary">#7B8794</color>
+    <color name="hermes_on_secondary">#1A1A1A</color>
+    <color name="hermes_secondary_container">#3A3F47</color>
+    <color name="hermes_on_secondary_container">#E3E6EA</color>
+
+    <color name="hermes_tertiary">#FF7043</color>
+    <color name="hermes_on_tertiary">#FFFFFF</color>
+    <color name="hermes_tertiary_container">#3A1E14</color>
+    <color name="hermes_on_tertiary_container">#FF7043</color>
+
+    <color name="hermes_error">#FF5252</color>
+    <color name="hermes_on_error">#FFFFFF</color>
+    <color name="hermes_error_container">#490000</color>
+    <color name="hermes_on_error_container">#FF8A80</color>
+
+    <color name="hermes_outline">#494949</color>
+    <color name="hermes_outline_variant">#2A2A2A</color>
+
+    <color name="hermes_text">#EDEDED</color>
+    <color name="hermes_text_muted">#8A8F98</color>
+</resources>

@@ -1,0 +1,1 @@
+export{t as default}from"./angular-html-BKvrIgo0.js";

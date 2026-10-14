@@ -1,104 +1,51 @@
-# AGENT TEAM BOARD (CONCURRENT MODE)
+# AGENT TEAM BOARD (CONCURRENT MODE — 3-AGENT POD: @AGY, @Cline, @Buffy)
+### Notice: @OpenCode is OFFLINE/EXCLUDED. Do NOT message or wait for @OpenCode.
 
-## Active Sprint: SPRINT 6.7 — CORNER INSET PADDING, UI LIBRARIES FOR VOICE, SAF FILE PICKER & RECORD_AUDIO PERMISSION
+## Active Project: HERMES-ANDROID — Standalone Hermes Desktop APK Wrapper
+**Project Root:** `/workspaces/Binder_vps/hermes-android`
+**Upstream Reference:** `https://github.com/NousResearch/hermes-agent.git` (`apps/desktop`)
 
-### Issues Diagnosed from Device Screenshots:
-1. **Corner Clamping:** In Tasks, Vault, Notes, and all sub-panels, the header icons and titles are clipped right against the outer rounded corners. Must add generous inner padding (20px left/right).
-2. **Live Voice Mode:** Must be built using famous UI libraries/component frameworks (e.g., Lucide icons, standard Radix/Tailwind component kits) rather than raw hand-rolled CSS primitives.
-3. **Vault "Choose File" Dead Click:** Tapping "Choose file" fails because a background Service cannot directly handle `startActivityForResult`. Must use a transparent Activity or foreground activity intent with `FLAG_ACTIVITY_NEW_TASK`.
-4. **Mic Opens Settings with No Permission Listed:** `RECORD_AUDIO` is missing from `AndroidManifest.xml`. Add the manifest declaration and proper runtime permission handling.
-
----
-
-### Swimlanes & Assigned Tasks
-
-- **@AGY (Pane 0 — Manifest Permissions & Build Gate):**
-  - **Scope:** `coucou-android/app/src/main/AndroidManifest.xml`, compilation, QA
-  - **Tasks:**
-    1. In `AndroidManifest.xml`, ensure the following permissions exist:
-       ```xml
-       <uses-permission android:name="android.permission.RECORD_AUDIO" />
-       ```
-    2. Register transparent `FilePickerActivity` in the manifest if required by OpenCode.
-    3. Run `./gradlew assembleDebug` after OpenCode, Cline, and Buffy complete their handoffs.
-    4. Verify on device/emulator and publish GitHub release via `gh release create`.
-
-- **@OpenCode (Pane 1 — Native File Picker & Audio Permission Flow):**
-  - **Scope:** `coucou-android/app/src/main/java/com/coucou/android/*`
-  - **Strict Constraint:** DO NOT touch HTML/CSS/WebUI files!
-  - **Tasks:**
-    1. **Fix SAF File Picker (`ACTION_OPEN_DOCUMENT`):**
-       - Services cannot receive `onActivityResult`. Implement `FilePickerActivity.kt` (a transparent `Theme.Translucent.NoTitleBar` activity) OR launch from `MainActivity` with `FLAG_ACTIVITY_NEW_TASK`.
-       - When "Choose file" is pressed, fire the intent, retrieve the document's `name`, `size`, `mimeType`, and `uri`, and notify:
-         `window.CoucouAndroid.onFileSelected(json)`.
-    2. **Fix Microphone Runtime Permission:**
-       - Ensure `checkMicPermission()` checks `ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)`.
-       - If not granted, launch the permission request via activity context so Android shows the native runtime permission prompt dialog, NOT raw settings.
-  - **Handoff:** Notify @Cline via `./tell.sh opencode cline "file picker and mic permission bridge ready"`.
-
-- **@Cline (Pane 3 — Corner Insets & UI Library Integration):**
-  - **Scope:** `coucou-android/webui/src/*`
-  - **Strict Constraint:** DO NOT touch Kotlin files!
-  - **Tasks:**
-    1. **Push Header Icons & Text Inward (Fix Corner Clamping):**
-       - Across ALL views (`.tasks-view`, `.vault-view`, `.notes-view`, `.chat-view`, `.voice-view`):
-         * Apply container padding: `padding: 16px 20px !important; box-sizing: border-box !important;`
-         * Ensure header icon (`✓=`, folder, mic) and title text sit comfortably away from the outer squircle curve.
-    2. **Live Voice Mode Overhaul with UI Libraries:**
-       - Rebuild the Live Voice view using famous UI libraries/component kits (use Lucide / Feather icon packages and established UI component standards).
-       - Wire "Choose file" click to `window.IslandBridge?.openFilePicker?.()`.
-       - Wire "Start" / "Allow Access" click to `window.IslandBridge?.requestMicPermission?.()`.
-    3. **Re-stage WebUI:**
-       - `cd /workspaces/Binder_vps/coucou-android/webui && npm run build && node ../tools/stage-coucou-web.mjs`.
-  - **Handoff:** Notify @Buffy and @AGY via `./tell.sh cline agy "WebUI rebuilt with UI libraries and staged"`.
-
-- **@Buffy (Pane 2 — Visual Padding & Styling Review):**
-  - **Scope:** `coucou-android/webui/src/style.css`, layout drawables
-  - **Tasks:**
-    1. Audit padding and spacing tokens across all panels to guarantee no text or icons touch the outer container borders.
-  - **Handoff:** Notify @AGY via `./tell.sh buffy agy "styling audit complete"`.
+### Architecture & Context
+We are packaging the official **Hermes Desktop UI** (`apps/desktop` Vite + React frontend) into a native Android WebView APK so it runs on Android without Electron or PRoot overhead:
+1. **Frontend Bundle:** Clone `NousResearch/hermes-agent`, build the React/Vite desktop frontend (`apps/desktop`), shim any Electron IPC calls for browser/Android WebView compatibility, and stage the production `dist/` assets into `app/src/main/assets/hermes/`.
+2. **Backend Connection:** The app connects directly to the local Hermes engine running natively in Termux on `http://127.0.0.1:9119` (and WebSocket `ws://127.0.0.1:9119`), with a configurable gateway URL fallback.
+3. **Native Android Wrapper:** A full-screen, hardware-accelerated Chromium `WebView` APK with edge-to-edge dark styling (`#0a0a0a`), DOM storage enabled, file attachment support (`Intent.ACTION_OPEN_DOCUMENT`), and local loopback cleartext traffic enabled.
 
 ---
 
-## SPRINT 6.7 — STATUS: COMPLETE
+### Swimlanes & Assigned Roles (Strict Scope Boundaries)
 
-### 1. Corner inset (20px inner padding)
-- `style.css` + `views/hub.css`: `padding: 16px 20px !important; box-sizing: border-box !important`
-  on `.tasks-view`, `.vault-view`, `.notes-view`, `.chat-view`, `.voice-view` (+ `.hub-card`).
-- Header rows carry a further `2px 4px 8px` inset, so ✓= / folder / mic glyphs sit inside the curve.
-- **Measured:** every view reports 20/20px padding L/R; icon inset 45px (tasks/vault), 101px (voice).
-  See `webui/scripts/verify-sprint67.mjs`.
+- **@AGY (Pane 0 — Lead Architect, Kotlin Native WebView Engine, QA & Release):**
+  - **Scope:** `/workspaces/Binder_vps/hermes-android` project skeleton, `AndroidManifest.xml`, `build.gradle.kts`, and ALL Kotlin files (`app/src/main/java/com/nousresearch/hermes/android/*`).
+  - **Tasks:**
+    1. Initialize the Android project structure (`com.nousresearch.hermes.android`) and set `/workspaces/Binder_vps/.agents/ACTIVE_PROJECT` to `hermes-android`.
+    2. Configure `AndroidManifest.xml` with `INTERNET` permission and `android:usesCleartextTraffic="true"` (required for local `http://127.0.0.1:9119` and `ws://127.0.0.1:9119`).
+    3. Build `MainActivity.kt`, `HermesWebViewClient.kt`, and `HermesNativeBridge.kt` (`@JavascriptInterface` exposed as `window.HermesAndroid`):
+       - Full-screen hardware-accelerated `WebView` (`domStorageEnabled = true`, `javaScriptEnabled = true`, `allowFileAccess = true`).
+       - Gateway URL management (default `http://127.0.0.1:9119`), health-check ping to verify if Termux `hermes` daemon is reachable, and a clean retry/host-config overlay if `127.0.0.1:9119` isn't live yet.
+       - Native file picker (`Intent.ACTION_OPEN_DOCUMENT`) bridged for file uploads.
+    4. Delegate swimlanes to **@Cline** and **@Buffy** ONLY using `./tell.sh agy cline "<msg>"` and `./tell.sh agy buffy "<msg>"`. (Do NOT contact @OpenCode).
+    5. **Headless QA & Release Gate:** [COMPLETED]
+       - [x] Verify UI rendering using headless Playwright screenshot (`screenshots/hermes-staged-webui.png`) — verified UI layout and Electron shims without ADB/emulator.
+       - [x] Run `./gradlew testDebugUnitTest` (PASSED: `HermesNativeBridgeUnitTest`, `HermesConfigUnitTest`).
+       - [x] Run `./gradlew assembleDebug` (PASSED: `app-debug.apk` compiled).
+       - [x] Copy APK to `/workspaces/Binder_vps/apks/hermes-desktop-debug.apk`.
+       - [x] Publish GitHub Release via `gh release create` (`v1.0.0-hermes`).
 
-### 2. Live Voice rebuilt on UI libraries
-- New WebUI kit adapter `webui/src/views/ui-kit.ts`: Lucide stroke icons (`lucide-*`) +
-  Material 3 components (`m3-btn--filled` / `m3-btn--tonal` / `m3-icon-btn` / `m3-card` / `m3-avatar`).
-  Vendored (no new npm dep) so the WebView bundle stays offline.
-- Verified: 4 Lucide glyphs in the room, M3 filled/tonal/icon buttons, M3 permission card.
+- **@Cline (Pane 3 — Upstream Desktop UI Build & Electron IPC Shim ONLY):**
+  - **Scope:** `/workspaces/Binder_vps/hermes-android/webui/` & staging script.
+  - **Strict Constraint:** Do NOT touch Kotlin files or Gradle scripts.
+  - **Tasks:**
+    1. Shallow-clone `https://github.com/NousResearch/hermes-agent.git` into a temp directory and copy/extract the desktop frontend (`apps/desktop`) into `/workspaces/Binder_vps/hermes-android/webui/`.
+    2. Create an `electron-shim.ts` / `preload-shim.js` injected into `index.html` that intercepts any `window.electron` or desktop IPC calls and routes them cleanly to the local REST/WebSocket gateway (`http://127.0.0.1:9119`) and `window.HermesAndroid`.
+    3. Build the production web bundle (`npm install && npm run build`) and stage the compiled assets into `hermes-android/app/src/main/assets/hermes/`.
+  - **Handoff:** Notify @AGY via `./tell.sh cline agy "Hermes Desktop WebUI shimmed, built, and staged into assets"`.
 
-### 3. Vault SAF picker via transparent activity
-- `FilePickerActivity.kt` (translucent, no UI) launches `ACTION_OPEN_DOCUMENT`, resolves
-  name/size/mimeType/uri, and delivers `window.CoucouAndroid.onFileSelected(json)`
-  (with a `coucou:file-selected` event fallback) through `OverlayService`.
-- `IslandBridgeHost.openFilePicker()` no longer requires an Activity context: it starts the
-  transparent activity with `FLAG_ACTIVITY_NEW_TASK` (Services cannot receive `onActivityResult`).
-
-### 4. RECORD_AUDIO + native runtime prompt
-- `AndroidManifest.xml`: `<uses-permission android:name="android.permission.RECORD_AUDIO" />`.
-- `MicPermissionActivity.kt` (translucent) shows Android's own runtime prompt;
-  `IslandBridgeHost.requestMicPermission()` launches it and `checkMicPermission()` reads via
-  `ContextCompat` — no more drop into raw app settings.
-- WebUI: `Bridge.requestMicPermission` → `window.IslandBridge.requestMicPermission()`;
-  the answer returns as a `coucou:mic-permission` event.
-
-### Verification & Release
-- `npm run build` + `node ../tools/stage-coucou-web.mjs` → staged `index.html` → `island-B8F_ZKKv.js`.
-- `./gradlew assembleDebug` **BUILD SUCCESSFUL** (APK contains `RECORD_AUDIO` + both activities; merged manifest checked).
-- `./gradlew testDebugUnitTest` **BUILD SUCCESSFUL**.
-- `verify-sprint63/65/66/67.mjs` all **PASS**; `verify:android` + `verify:staged` **PASS**.
-- `verify:bridge` (bridge-contract) still reports 7 unaccounted commands
-  (`add_note, check_mic_permission, delete_note, get_notes_json, get_tasks_json, open_chat, toggle_note`)
-  — identical to HEAD, i.e. pre-existing (those commands are served by Kotlin's named
-  `@JavascriptInterface` lane, which the checker does not read). Not introduced by Sprint 6.7.
-- **RELEASE PUBLISHED:** [v6.7.0](https://github.com/wolferd-wolf/Binder_vps/releases/tag/v6.7.0)
-- **APK:** `coucou-android/app/build/outputs/apk/debug/app-debug.apk` & `apks/coucou-android-debug.apk`
-- **STATUS:** SPRINT 6.7 COMPLETE (All lanes verified green)
+- **@Buffy (Pane 2 — Theme Tokens, Splash, Icons & Viewport Polish ONLY):**
+  - **Scope:** `hermes-android/app/src/main/res/*` and mobile viewport CSS overrides.
+  - **Strict Constraint:** Do NOT touch Kotlin files.
+  - **Tasks:**
+    1. Configure native dark mode theme (`#0a0a0a` status bar and navigation bar, `Theme.Material3.DayNight.NoActionBar`) in `res/values/themes.xml` and `colors.xml` so there are zero white flashes on startup.
+    2. Extract the official Hermes icon/logo from the upstream repo and generate Android launcher icons (`mipmap-*` / `drawable`).
+    3. Add touch/viewport CSS polish (preventing accidental pinch-zoom, smooth mobile keyboard viewport resizing, and collapsible sidebar ergonomics on mobile screens while preserving the desktop layout).
+  - **Handoff:** Notify @AGY via `./tell.sh buffy agy "Dark theme tokens, icons, and viewport CSS ready"`.
