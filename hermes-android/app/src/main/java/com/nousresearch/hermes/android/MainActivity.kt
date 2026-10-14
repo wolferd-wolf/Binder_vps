@@ -192,6 +192,10 @@ class MainActivity : ComponentActivity() {
         settings.domStorageEnabled = true
         settings.databaseEnabled = true
         settings.allowFileAccess = true
+        @Suppress("DEPRECATION")
+        settings.allowFileAccessFromFileURLs = true
+        @Suppress("DEPRECATION")
+        settings.allowUniversalAccessFromFileURLs = true
         settings.allowContentAccess = true
         settings.mediaPlaybackRequiresUserGesture = false
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
@@ -319,70 +323,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun loadAppWebUi() {
-        val assetPath = "hermes/index.html"
-        val hasAsset = try {
-            val files = assets.list("hermes")
-            files != null && files.contains("index.html")
-        } catch (e: IOException) {
-            false
-        }
-
-        if (hasAsset) {
-            webView.loadUrl("file:///android_asset/$assetPath")
-        } else {
-            // Development fallback placeholder
-            val fallbackHtml = """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                    <style>
-                        body {
-                            background-color: #0A0A0A;
-                            color: #FFFFFF;
-                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            height: 100vh;
-                            margin: 0;
-                            padding: 24px;
-                            box-sizing: border-box;
-                            text-align: center;
-                        }
-                        h1 { font-size: 24px; margin-bottom: 8px; color: #FF7043; }
-                        p { font-size: 14px; color: #8A8F98; line-height: 1.5; max-width: 400px; }
-                        .badge {
-                            background-color: #1A1A1A;
-                            border: 1px solid #333;
-                            padding: 6px 12px;
-                            border-radius: 16px;
-                            font-size: 12px;
-                            margin-top: 16px;
-                            color: #A0A0A0;
-                        }
-                        button {
-                            margin-top: 24px;
-                            padding: 10px 20px;
-                            background: #FF7043;
-                            color: #FFF;
-                            border: none;
-                            border-radius: 8px;
-                            font-size: 14px;
-                            cursor: pointer;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <h1>Hermes Desktop</h1>
-                    <p>WebUI bundle is staging or waiting for local gateway.</p>
-                    <div class="badge">Gateway: ${nativeBridge.getGatewayUrl()}</div>
-                    <button onclick="if(window.HermesAndroid) window.HermesAndroid.showGatewayOverlay()">Gateway Settings</button>
-                </body>
-                </html>
-            """.trimIndent()
-            webView.loadDataWithBaseURL("http://127.0.0.1:9119", fallbackHtml, "text/html", "UTF-8", null)
+        runOnUiThread {
+            webView.setBackgroundColor(Color.parseColor("#0A0A0A"))
+            webView.loadUrl("file:///android_asset/hermes/index.html")
         }
     }
 }
