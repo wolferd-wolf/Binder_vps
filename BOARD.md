@@ -31,4 +31,4 @@ Root causes identified and remediated. App now boots safely with diagnostics fal
    - Ran `./gradlew testDebugUnitTest` (BUILD SUCCESSFUL).
    - Ran `./gradlew clean assembleDebug` (BUILD SUCCESSFUL).
    - Copied new APK to `/workspaces/Binder_vps/apks/hermes-desktop-debug.apk`.
-   - Updated GitHub Release `v1.0.1-hermes` via `gh release create`.
+   - Updated GitHub Release [v1.0.1-hermes](https://github.com/wolferd-wolf/Binder_vps/releases/tag/v1.0.1-hermes) via `gh release create`.

@@ -326,3 +326,46 @@ You (@AGY) are handling both the Lead Architect/QA role AND the Kotlin Native We
 2026-10-14 04:35:27 | @agy -> @Buffy (agents:0.2) | Use absolute path: /workspaces/Binder_vps/tell.sh buffy agy "Dark theme tokens, icons, and viewport CSS ready"
 2026-10-14 04:42:45 | @cline -> @AGY (agents:0.0) | Hermes Desktop WebUI shimmed, built, and staged into assets
 2026-10-14 04:43:46 | @buffy -> @AGY (agents:0.0) | Dark theme tokens, icons, and viewport CSS ready
+2026-10-14 05:08:42 | @Boss -> @AGY (agents:0.0) | SOLO CRASH-FIX BRIEFING: The hermes-android APK you built crashes immediately on launch when opened on Android. @Buffy, @Cline, and @OpenCode are offline — do NOT message them.
+Read BOARD.md and fix the startup crash right now:
+1. Inspect `AndroidManifest.xml`, `app/build.gradle.kts`, `res/values/themes.xml`, and `MainActivity.kt` in `/workspaces/Binder_vps/hermes-android`.
+2. Fix the root cause of the launch crash:
+   - Fix any AppCompatActivity / Theme mismatch (use `ComponentActivity` or `Activity` with programmatic dark status/nav bars, or verify valid AppCompat/Material3 theme parents).
+   - Fix any missing `@mipmap/ic_launcher` resources referenced in `AndroidManifest.xml` (use a self-contained XML vector drawable in `res/drawable/ic_launcher.xml` so resource lookup never fails).
+   - Ensure NO network calls (`HttpURLConnection` / socket ping to 127.0.0.1:9119) run on the main thread in `onCreate()`, and wrap all `@JavascriptInterface` WebView calls in `runOnUiThread` / `webView.post`.
+   - Add an `UncaughtExceptionHandler` and `try/catch (e: Throwable)` in `MainActivity.onCreate` that renders the stack trace in a scrollable dark TextView on screen if anything ever throws, so the app NEVER crashes to the home screen silently.
+3. Verify that `app/src/main/assets/hermes/index.html` exists and uses relative paths (`base: "./"`).
+4. Run `./gradlew clean assembleDebug`, copy the APK tcat << EOF > /workspaces/Binder_vps/BOARD.md
+# AGENT TEAM BOARD (SOLO @AGY MODE — CRASH FIX SPRINT)
+### Notice: @OpenCode, @Cline, and @Buffy are ALL OFFLINE. @AGY handles 100% of this sprint solo.
+
+## Active Task: Fix Immediate Startup Crash in `hermes-android`
+The APK currently crashes immediately upon opening (`MainActivity.onCreate`) and returns to the Android home screen.
+
+### @AGY Mandatory Crash Audit & Fix Checklist:
+1. **Theme & Activity Inheritance Fix (`IllegalStateException`):**
+   - Either change `MainActivity` to extend `android.app.Activity` (or `androidx.activity.ComponentActivity`) with `@android:style/Theme.NoTitleBar` / simple dark window styling in Kotlin (`window.statusBarColor = Color.parseColor("#0a0a0a")`), OR ensure `com.google.android.material:material` is in `build.gradle.kts` and `themes.xml` uses a valid `Theme.Material3.DayNight.NoActionBar` or `Theme.AppCompat.DayNight.NoActionBar`.
+   - Zero missing theme attributes!
+
+2. **Manifest & Package Path Verification (`ClassNotFoundException`):**
+   - Verify the `namespace` / `applicationId` in `app/build.gradle.kts` and `AndroidManifest.xml` matches the exact `package` header and directory path of `MainActivity.kt`.
+   - Ensure `android:exported="true"` is set on `MainActivity`.
+
+3. **Missing Resource / Icon Guard (`Resources$NotFoundException`):**
+   - Check every `@mipmap/*`, `@drawable/*`, `@style/*`, and `@string/*` referenced in `AndroidManifest.xml` and `MainActivity.kt`.
+   - Ensure a valid vector/PNG drawable exists for `android:icon` and `android:roundIcon` (or use `@drawable/ic_launcher` with a clean self-contained XML vector drawable so it cannot fail).
+
+4. **Strict Threading & Safe WebView Startup (`NetworkOnMainThreadException`):**
+   - NEVER perform HTTP/socket health checks to `http://127.0.0.1:9119` on the Main UI thread! Run all health checks asynchronously (e.g., `Thread {}` or coroutines `Dispatchers.IO`) or inside JS `fetch()`.
+   - Ensure all `webView.*` calls inside `@JavascriptInterface` (`HermesNativeBridge`) are wrapped in `webView.post { ... }` so they run on the UI thread.
+   - Wrap `MainActivity.onCreate` in a global `try / catch (Throwable)` fallback that displays a clean native diagnostic screen on the phone if any unexpected exception occurs, instead of crashing to the home screen!
+
+5. **Verify Staged WebUI Assets:**
+   - Confirm `/workspaces/Binder_vps/hermes-android/app/src/main/assets/hermes/index.html` actually exists and is non-empty, and that Vite built with `base: ./` so relative asset paths load inside `file:///android_asset/hermes/index.html`.
+
+6. **Prove Startup via JVM Test + Rebuild & Release:**
+   - Run `./gradlew testDebugUnitTest` and `./gradlew assembleDebug`.
+   - Publish the fixed APK to GitHub Releases via `gh release create`.
+EOF
+
+ask agy SOLO CRASH-FIX BRIEFING: The hermes-android APK you built crashes immediately on launch when opened on Android. @Buffy, @Cline, and @OpenCode are offline — do NOT message them.
