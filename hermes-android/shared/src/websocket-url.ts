@@ -88,6 +88,18 @@ export async function resolveGatewayWsUrl(deps: ResolveGatewayWsUrlDeps, conn: G
     if (fresh?.ok) {
       return fresh.wsUrl
     }
+
+    if (fresh && !fresh.ok && fresh.error) {
+      throw new Error(fresh.error)
+    }
+  }
+
+  if (conn.error) {
+    throw new Error(conn.error)
+  }
+
+  if (!conn.wsUrl) {
+    throw new Error('No WebSocket URL available for Hermes gateway')
   }
 
   return conn.wsUrl

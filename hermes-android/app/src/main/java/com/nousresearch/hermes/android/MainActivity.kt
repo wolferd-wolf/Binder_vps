@@ -252,6 +252,9 @@ class MainActivity : ComponentActivity() {
             }
 
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                consoleMessage?.let {
+                    Log.i("HermesWS", "[${it.messageLevel()}] ${it.message()} (${it.sourceId()}:${it.lineNumber()})")
+                }
                 return super.onConsoleMessage(consoleMessage)
             }
         }

@@ -209,6 +209,9 @@ export class JsonRpcGatewayClient {
 
     this.setState('connecting')
 
+    const maskedWsUrl = wsUrl.replace(/([?&](?:token|ticket)=)([^&]{1,4})[^&]*/g, '$1$2...')
+    console.log('[gateway] Connecting to WebSocket URL:', maskedWsUrl)
+
     const socket = this.options.socketFactory?.(wsUrl) ?? new WebSocket(wsUrl)
     const transport = socketTransport(socket)
     this.socket = socket
@@ -275,6 +278,7 @@ export class JsonRpcGatewayClient {
           return
         }
 
+        console.error(`[gateway] WebSocket error before open on URL: ${maskedWsUrl}`)
         settled = true
         cleanup()
         this.setState('error')
@@ -294,6 +298,7 @@ export class JsonRpcGatewayClient {
           return
         }
 
+        console.warn(`[gateway] WebSocket closed during handshake: code=${event.code}, reason="${event.reason}", wasClean=${event.wasClean}`)
         settled = true
         cleanup()
 

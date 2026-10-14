@@ -23,17 +23,56 @@
       } catch (e) {}
       return DEFAULT_GW;
     }
-    function wsFor(profile) {
+
+    function fetchTokenNative() {
+      try {
+        if (window.HermesAndroid && typeof window.HermesAndroid.fetchSessionToken === 'function') {
+          return String(window.HermesAndroid.fetchSessionToken() || '').trim();
+        }
+        if (window.HermesAndroid && typeof window.HermesAndroid.getSessionToken === 'function') {
+          return String(window.HermesAndroid.getSessionToken() || '').trim();
+        }
+        return 'ERROR: HermesAndroid native bridge is not available';
+      } catch (e) {
+        return 'ERROR: ' + (e && e.message ? e.message : String(e));
+      }
+    }
+
+    async function wsFor(profile) {
+      var tokenOrError = fetchTokenNative();
+      if (!tokenOrError || tokenOrError.indexOf('ERROR:') === 0) {
+        var err = tokenOrError ? tokenOrError.replace(/^ERROR:\s*/, '') : 'Session token is empty';
+        console.error('[HermesWS] Native session token error:', err);
+        return { ok: false, error: err };
+      }
       var g = gw();
       var ws = g.indexOf('https://') === 0 ? 'wss://' + g.slice(8) : g.replace(/^http:\/\//, 'ws://');
       var p = (profile || '').trim ? (profile || '').trim() : '';
-      return { ok: true, wsUrl: ws + (p ? '?profile=' + encodeURIComponent(p) : '') };
+      var wsUrl = ws + '/api/ws?token=' + encodeURIComponent(tokenOrError) + (p ? '&profile=' + encodeURIComponent(p) : '');
+      var masked = tokenOrError.length > 4 ? tokenOrError.substring(0, 4) + '...' : '****';
+      console.log('[HermesWS] Minted gateway WebSocket URL: ' + ws + '/api/ws?token=' + masked + (p ? '&profile=' + encodeURIComponent(p) : ''));
+      return { ok: true, wsUrl: wsUrl, token: tokenOrError };
     }
-    function conn(profile) {
+
+    async function conn(profile) {
+      var w = await wsFor(profile);
       var g = gw();
-      var c = { baseUrl: g, isFullscreen: false, isMaximized: false, mode: 'local', source: 'local',
-        token: '', wsUrl: wsFor(profile).wsUrl, logs: [], connectionId: 'local',
-        windowButtonPosition: null, nativeOverlayWidth: 0, customWindowControls: false, registryScoped: false };
+      var c = {
+        baseUrl: g,
+        isFullscreen: false,
+        isMaximized: false,
+        mode: 'local',
+        source: 'local',
+        token: w.ok ? (w.token || '') : '',
+        wsUrl: w.ok ? w.wsUrl : '',
+        error: w.ok ? undefined : w.error,
+        logs: [],
+        connectionId: 'local',
+        windowButtonPosition: null,
+        nativeOverlayWidth: 0,
+        customWindowControls: false,
+        registryScoped: false
+      };
       if (profile) { c.profile = profile; c.sharedPrimary = true; }
       return c;
     }
@@ -51,10 +90,10 @@
     };
 
     var stub = {
-      getConnection: function (p) { return Promise.resolve(conn(p || undefined)); },
-      getConnectionFor: function (o) { return Promise.resolve(conn((o && o.profile) || undefined)); },
-      getGatewayWsUrl: function (p) { return Promise.resolve(wsFor(p || undefined)); },
-      getGatewayWsUrlFor: function (o) { return Promise.resolve(wsFor((o && o.profile) || undefined)); },
+      getConnection: function (p) { return conn(p || undefined); },
+      getConnectionFor: function (o) { return conn((o && o.profile) || undefined); },
+      getGatewayWsUrl: function (p) { return wsFor(p || undefined); },
+      getGatewayWsUrlFor: function (o) { return wsFor((o && o.profile) || undefined); },
       getAgentRoster: function () { return Promise.resolve({ agents: [], sources: [] }); },
       getProfileRoutes: function (profiles) {
         return Promise.resolve((profiles || []).map(function (profile) {
@@ -253,6 +292,32 @@
     try {
       Object.defineProperty(window, 'api', { value: proxyStub, writable: false, configurable: false });
     } catch (e) { window.api = proxyStub; }
+
+    // Temporary diagnostic logger: log final WebSocket URL (token masked to 4 chars) and close/error codes
+    (function () {
+      if (typeof window === 'undefined' || !window.WebSocket) return;
+      var OrigWebSocket = window.WebSocket;
+      function LoggedWebSocket(url, protocols) {
+        var strUrl = String(url || '');
+        var masked = strUrl.replace(/([?&](?:token|ticket)=)([^&]{1,4})[^&]*/g, '$1$2...');
+        console.log('[HermesWS] WebSocket dial: ' + masked);
+        var ws = protocols !== undefined ? new OrigWebSocket(url, protocols) : new OrigWebSocket(url);
+        ws.addEventListener('close', function (event) {
+          console.warn('[HermesWS] WebSocket closed: code=' + event.code + ', reason="' + event.reason + '", wasClean=' + event.wasClean + ' on ' + masked);
+        });
+        ws.addEventListener('error', function () {
+          console.error('[HermesWS] WebSocket error before/during connection on ' + masked);
+        });
+        return ws;
+      }
+      LoggedWebSocket.prototype = OrigWebSocket.prototype;
+      LoggedWebSocket.CONNECTING = OrigWebSocket.CONNECTING;
+      LoggedWebSocket.OPEN = OrigWebSocket.OPEN;
+      LoggedWebSocket.CLOSING = OrigWebSocket.CLOSING;
+      LoggedWebSocket.CLOSED = OrigWebSocket.CLOSED;
+      window.WebSocket = LoggedWebSocket;
+    })();
+
     window.__HERMES_ANDROID_SHIM__ = true;
   } catch (e) { /* never break first paint */ }
 })();
