@@ -550,6 +550,7 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
       }
 
       const dropOptimistic = (sid: null | string) => {
+        console.warn(`[HermesWS] [${new Date().toISOString()}] [dropOptimistic] called with sid=${sid}`)
         // The optimistic bubble is gone, so its blob: previews die with it —
         // unless a rejected-submit restore already re-loaded the attachments
         // into the composer, which re-owns those URLs (#63682 handoff).

@@ -44,6 +44,33 @@ class MainActivity : ComponentActivity() {
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
     private val backgroundExecutor = Executors.newSingleThreadExecutor()
 
+    private val logRingBuffer = java.util.concurrent.ConcurrentLinkedDeque<String>()
+    private val maxLogEntries = 100
+    private var logFile: java.io.File? = null
+
+    fun appendDebugLog(level: String, tag: String, message: String, source: String = "") {
+        val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", java.util.Locale.US).format(Date())
+        val entry = if (source.isNotBlank()) "[$time] [$level/$tag] $message $source" else "[$time] [$level/$tag] $message"
+        logRingBuffer.addLast(entry)
+        while (logRingBuffer.size > maxLogEntries) {
+            logRingBuffer.pollFirst()
+        }
+        when (level) {
+            "ERROR" -> Log.e(tag, if (source.isNotBlank()) "$message $source" else message)
+            "WARN" -> Log.w(tag, if (source.isNotBlank()) "$message $source" else message)
+            else -> Log.i(tag, if (source.isNotBlank()) "$message $source" else message)
+        }
+        backgroundExecutor.execute {
+            try {
+                logFile?.let { file ->
+                    synchronized(file) {
+                        file.appendText("$entry\n")
+                    }
+                }
+            } catch (_: Throwable) {}
+        }
+    }
+
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -84,6 +111,9 @@ class MainActivity : ComponentActivity() {
         }
 
         try {
+            logFile = java.io.File(getExternalFilesDir(null), "hermes_debug.log")
+            appendDebugLog("INFO", "HermesWS", "App starting, debug log initialized at ${logFile?.absolutePath}")
+
             configureEdgeToEdgeDark()
             setContentView(R.layout.activity_main)
 
@@ -94,6 +124,14 @@ class MainActivity : ComponentActivity() {
             gatewayUrlInput = findViewById(R.id.gatewayUrlInput)
             btnRetry = findViewById(R.id.btnRetry)
             btnContinue = findViewById(R.id.btnContinue)
+
+            findViewById<Button>(R.id.btnDebugLogs).setOnClickListener {
+                showDebugLogDialog()
+            }
+            findViewById<View>(R.id.touchDebugTopLeft).setOnLongClickListener {
+                showDebugLogDialog()
+                true
+            }
 
             setupWebView()
             setupOverlayActions()
@@ -253,10 +291,58 @@ class MainActivity : ComponentActivity() {
 
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                 consoleMessage?.let {
-                    Log.i("HermesWS", "[${it.messageLevel()}] ${it.message()} (${it.sourceId()}:${it.lineNumber()})")
+                    val level = when (it.messageLevel()) {
+                        ConsoleMessage.MessageLevel.ERROR -> "ERROR"
+                        ConsoleMessage.MessageLevel.WARNING -> "WARN"
+                        ConsoleMessage.MessageLevel.LOG -> "INFO"
+                        ConsoleMessage.MessageLevel.DEBUG -> "DEBUG"
+                        ConsoleMessage.MessageLevel.TIP -> "TIP"
+                        else -> "LOG"
+                    }
+                    val msg = it.message() ?: ""
+                    val tag = if (msg.contains("HermesWS") || msg.contains("[submit-drift-abort]") || msg.contains("[session.create")) "HermesWS" else "HermesWebUI"
+                    val source = if (!it.sourceId().isNullOrBlank()) "(${it.sourceId()}:${it.lineNumber()})" else ""
+                    appendDebugLog(level, tag, msg, source)
                 }
                 return super.onConsoleMessage(consoleMessage)
             }
+        }
+    }
+
+    private fun showDebugLogDialog() {
+        runOnUiThread {
+            val logs = logRingBuffer.toList().joinToString("\n")
+            val scrollView = ScrollView(this).apply {
+                setBackgroundColor(Color.parseColor("#141414"))
+                setPadding(24, 24, 24, 24)
+            }
+            val textView = TextView(this).apply {
+                setTextColor(Color.parseColor("#E0E0E0"))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                typeface = Typeface.MONOSPACE
+                setTextIsSelectable(true)
+                text = if (logs.isNotBlank()) logs else "No logs recorded yet."
+            }
+            scrollView.addView(textView)
+
+            android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Hermes Debug Logs (${logRingBuffer.size}/$maxLogEntries)")
+                .setView(scrollView)
+                .setPositiveButton("Copy All") { _, _ ->
+                    val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    val clip = android.content.ClipData.newPlainText("Hermes Debug Logs", logs)
+                    clipboard.setPrimaryClip(clip)
+                    android.widget.Toast.makeText(this, "Copied ${logRingBuffer.size} log lines to clipboard", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                .setNeutralButton("Clear") { _, _ ->
+                    logRingBuffer.clear()
+                    backgroundExecutor.execute {
+                        try { logFile?.writeText("") } catch (_: Throwable) {}
+                    }
+                    android.widget.Toast.makeText(this, "Logs cleared", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Close", null)
+                .show()
         }
     }
 

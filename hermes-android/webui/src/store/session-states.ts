@@ -2103,6 +2103,9 @@ export interface UnknownRuntimeReconnectScope {
 export function resetTileRuntimeBindings(
   reconnectedScope?: null | string | RuntimeReconnectScope | UnknownRuntimeReconnectScope
 ) {
+  try {
+    console.warn(`[HermesWS] [${new Date().toISOString()}] [resetTileRuntimeBindings] called with scope=`, JSON.stringify(reconnectedScope))
+  } catch (_) {}
   const tiles = $sessionTiles.get()
 
   const liveConnectionIds =

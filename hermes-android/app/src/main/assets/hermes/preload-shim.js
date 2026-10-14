@@ -388,11 +388,71 @@
       Object.defineProperty(window, 'api', { value: proxyStub, writable: false, configurable: false });
     } catch (e) { window.api = proxyStub; }
 
-    // Temporary diagnostic logger: log final WebSocket URL (token masked to 4 chars), dial count, session.create send count, and close/error codes
+    // Format console.warn and console.error so Android WebView onConsoleMessage gets full serialized strings
+    (function () {
+      if (typeof console === 'undefined') return;
+      function formatArgs(args) {
+        return Array.prototype.slice.call(args).map(function (a) {
+          if (a === null) return 'null';
+          if (a === undefined) return 'undefined';
+          if (typeof a === 'object') {
+            try { return JSON.stringify(a); } catch (e) { return String(a); }
+          }
+          return String(a);
+        }).join(' ');
+      }
+      var origWarn = console.warn.bind(console);
+      var origError = console.error.bind(console);
+      console.warn = function () {
+        var str = formatArgs(arguments);
+        if (str.indexOf('[submit-drift-abort]') !== -1 && str.indexOf('[HermesWS]') === -1) {
+          str = '[HermesWS] [' + getIsoTime() + '] ' + str;
+        }
+        origWarn(str);
+      };
+      console.error = function () {
+        var str = formatArgs(arguments);
+        if (str.indexOf('[HermesWS]') === -1) {
+          str = '[HermesWS] [' + getIsoTime() + '] ' + str;
+        }
+        origError(str);
+      };
+    })();
+
+    // Route change monitoring (hashchange, popstate, pushState, replaceState)
+    (function () {
+      if (typeof window === 'undefined') return;
+      window.addEventListener('hashchange', function (e) {
+        console.warn('[HermesWS] [' + getIsoTime() + '] [route-change:hashchange] oldURL=' + e.oldURL + ' newURL=' + e.newURL + ' hash=' + location.hash + ' path=' + location.pathname);
+      });
+      window.addEventListener('popstate', function (e) {
+        console.warn('[HermesWS] [' + getIsoTime() + '] [route-change:popstate] state=' + JSON.stringify(e.state) + ' href=' + location.href);
+      });
+      if (window.history) {
+        var origPush = window.history.pushState;
+        if (origPush) {
+          window.history.pushState = function (state, unused, url) {
+            console.warn('[HermesWS] [' + getIsoTime() + '] [route-change:pushState] to=' + url + ' hrefBefore=' + location.href);
+            return origPush.apply(this, arguments);
+          };
+        }
+        var origReplace = window.history.replaceState;
+        if (origReplace) {
+          window.history.replaceState = function (state, unused, url) {
+            console.warn('[HermesWS] [' + getIsoTime() + '] [route-change:replaceState] to=' + url + ' hrefBefore=' + location.href);
+            return origReplace.apply(this, arguments);
+          };
+        }
+      }
+    })();
+
+    // Temporary diagnostic logger: log final WebSocket URL (token masked to 4 chars), dial count, session.create send/recv count, and close/error codes
     (function () {
       if (typeof window === 'undefined' || !window.WebSocket) return;
       var OrigWebSocket = window.WebSocket;
       var OrigSend = OrigWebSocket.prototype.send;
+      var pendingCreateRequests = {};
+
       function LoggedWebSocket(url, protocols) {
         wsDialCounter++;
         var currentDialId = wsDialCounter;
@@ -408,6 +468,25 @@
         ws.addEventListener('open', function () {
           hasOpened = true;
           console.log('[HermesWS] [' + getIsoTime() + '] WebSocket opened on dial #' + currentDialId + ' (' + masked + ')');
+        });
+
+        ws.addEventListener('message', function (event) {
+          try {
+            if (typeof event.data === 'string') {
+              var parsed = JSON.parse(event.data);
+              var msgId = parsed.id;
+              if (msgId !== undefined && pendingCreateRequests[msgId]) {
+                if (parsed.error) {
+                  console.error('[HermesWS] [' + getIsoTime() + '] [session.create error] id=' + msgId + ' on dial #' + currentDialId + ':', JSON.stringify(parsed.error));
+                } else {
+                  console.warn('[HermesWS] [' + getIsoTime() + '] [session.create response] id=' + msgId + ' on dial #' + currentDialId + ':', JSON.stringify(parsed.result || parsed));
+                }
+                delete pendingCreateRequests[msgId];
+              } else if (parsed.result && (parsed.result.session_id || parsed.result.stored_session_id)) {
+                console.warn('[HermesWS] [' + getIsoTime() + '] [session.create response (inferred)] on dial #' + currentDialId + ':', JSON.stringify(parsed.result));
+              }
+            }
+          } catch (e) {}
         });
 
         ws.addEventListener('close', function (event) {
@@ -434,7 +513,13 @@
           if (typeof data === 'string' && data.indexOf('"session.create"') !== -1) {
             sessionCreateCounter++;
             var dialNum = this._dialId || '?';
-            console.log('[HermesWS] [' + getIsoTime() + '] session.create send #' + sessionCreateCounter + ' on dial #' + dialNum + ': ' + data);
+            try {
+              var parsed = JSON.parse(data);
+              if (parsed.id !== undefined) {
+                pendingCreateRequests[parsed.id] = { time: getIsoTime(), req: data };
+              }
+            } catch (e) {}
+            console.warn('[HermesWS] [' + getIsoTime() + '] session.create send #' + sessionCreateCounter + ' on dial #' + dialNum + ': ' + data);
           }
         } catch (e) {}
         return OrigSend.apply(this, arguments);

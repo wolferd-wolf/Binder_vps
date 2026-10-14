@@ -146,6 +146,8 @@ export function sessionContextDrift({
   const targetStart = routeTargetFromToken(startRouteToken)
   const targetNow = routeTargetFromToken(nowRouteToken)
 
+  let driftReason: string | null = null
+
   // Route prong: the routed chat moved to a different, real chat. A null target
   // (navigated to settings / a non-chat overlay route) or a search/hash-only
   // change (same target) is not drift, and neither is landing on the submit's
@@ -156,20 +158,32 @@ export function sessionContextDrift({
     targetNow !== submitTargetStoredId &&
     !(targetNow !== '__new__' && activePins.has(targetNow))
   ) {
-    return `route:${targetStart}->${targetNow}`
-  }
-
-  // Selection prong: selection moved to a different, real stored session. A
-  // null-reset (nowSelectedStoredId === null) or a move onto the submit's own
-  // target is not drift.
-  if (
+    driftReason = `route:${targetStart}->${targetNow}`
+  } else if (
+    // Selection prong: selection moved to a different, real stored session. A
+    // null-reset (nowSelectedStoredId === null) or a move onto the submit's own
+    // target is not drift.
     nowSelectedStoredId !== null &&
     nowSelectedStoredId !== startSelectedStoredId &&
     nowSelectedStoredId !== submitTargetStoredId &&
     !activePins.has(nowSelectedStoredId)
   ) {
-    return `selection:${startSelectedStoredId}->${nowSelectedStoredId}`
+    driftReason = `selection:${startSelectedStoredId}->${nowSelectedStoredId}`
   }
 
-  return null
+  console.warn(
+    `[HermesWS] [${new Date().toISOString()}] [submit-drift-abort] payload:`,
+    JSON.stringify({
+      drift: driftReason,
+      startRouteToken,
+      nowRouteToken,
+      startSelectedStoredId,
+      nowSelectedStoredId,
+      submitTargetStoredId,
+      composerScope,
+      submitTargetComposerScope
+    })
+  )
+
+  return driftReason
 }

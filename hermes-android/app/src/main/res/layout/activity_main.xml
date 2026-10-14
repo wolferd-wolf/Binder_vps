@@ -90,4 +90,27 @@
         </LinearLayout>
     </LinearLayout>
 
+    <!-- On-screen debug access: floating button top-right and long-press target top-left -->
+    <View
+        android:id="@+id/touchDebugTopLeft"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_gravity="top|start" />
+
+    <Button
+        android:id="@+id/btnDebugLogs"
+        android:layout_width="wrap_content"
+        android:layout_height="32dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="12dp"
+        android:backgroundTint="#801C1C1E"
+        android:text="Logs"
+        android:textColor="#CCFFFFFF"
+        android:textSize="11sp"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="0dp"
+        android:minWidth="0dp"
+        android:minHeight="0dp" />
+
 </FrameLayout>
