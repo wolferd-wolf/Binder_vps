@@ -10,9 +10,14 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.widget.Toast
 import org.json.JSONObject
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.Callable
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 class HermesNativeBridge(
     private val activity: MainActivity,
@@ -27,6 +32,13 @@ class HermesNativeBridge(
         const val PREF_GATEWAY_URL = "gateway_url"
         const val DEFAULT_GATEWAY_URL = "http://127.0.0.1:9119"
         const val BRIDGE_NAME = "HermesAndroid"
+
+        private val TOKEN_REGEX = Regex("""window\.__HERMES_SESSION_TOKEN__\s*=\s*["']([^"']+)["']""")
+
+        fun parseSessionToken(html: String): String? {
+            val match = TOKEN_REGEX.find(html)
+            return match?.groupValues?.getOrNull(1)?.takeIf { it.isNotBlank() }
+        }
     }
 
     private fun normalizeUrl(raw: String): String {
@@ -81,6 +93,80 @@ class HermesNativeBridge(
                 val js = "if (typeof window['$callbackFunctionName'] === 'function') { window['$callbackFunctionName']($healthy); }"
                 webView.evaluateJavascript(js, null)
             }
+        }
+    }
+
+    /**
+     * Synchronously fetches the session token from http://127.0.0.1:9119/ (or configured gateway)
+     * by executing an HTTP GET on a background executor thread, and parses
+     * `window.__HERMES_SESSION_TOKEN__="<token>"` from the HTML response body.
+     *
+     * No caching: queries the server fresh on every invocation.
+     * Returns the token string on success, or a clear error string prefixed with "ERROR:"
+     * if the server is unreachable or the token is missing.
+     */
+    @JavascriptInterface
+    fun fetchSessionToken(): String {
+        return try {
+            val future = executor.submit(Callable { doFetchSessionToken() })
+            future.get(3500, TimeUnit.MILLISECONDS)
+        } catch (e: TimeoutException) {
+            "ERROR: Timed out fetching session token from ${getGatewayUrl()}"
+        } catch (e: ExecutionException) {
+            "ERROR: ${e.cause?.message ?: e.message}"
+        } catch (e: Throwable) {
+            "ERROR: ${e.message}"
+        }
+    }
+
+    @JavascriptInterface
+    fun getSessionToken(): String = fetchSessionToken()
+
+    @JavascriptInterface
+    fun fetchSessionTokenAsync(callbackFunctionName: String) {
+        executor.execute {
+            val result = doFetchSessionToken()
+            webView.post {
+                val escaped = JSONObject.quote(result)
+                val js = "if (typeof window['$callbackFunctionName'] === 'function') { window['$callbackFunctionName']($escaped); }"
+                webView.evaluateJavascript(js, null)
+            }
+        }
+    }
+
+    fun doFetchSessionToken(): String {
+        val base = getGatewayUrl().trim().removeSuffix("/")
+        val targetUrl = "$base/"
+        var connection: HttpURLConnection? = null
+        return try {
+            val url = URL(targetUrl)
+            connection = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 3000
+                readTimeout = 3000
+                instanceFollowRedirects = true
+                setRequestProperty("Accept", "text/html,application/xhtml+xml,*/*")
+                setRequestProperty("User-Agent", "HermesAndroid/1.0")
+            }
+            val responseCode = connection.responseCode
+            if (responseCode !in 200..299) {
+                return "ERROR: Server returned HTTP $responseCode at $targetUrl"
+            }
+            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            val token = parseSessionToken(body)
+            if (token == null) {
+                "ERROR: Session token not found in response from $targetUrl"
+            } else {
+                token
+            }
+        } catch (e: IOException) {
+            "ERROR: Server unreachable at $targetUrl (${e.message ?: e.javaClass.simpleName})"
+        } catch (e: Throwable) {
+            "ERROR: Failed to fetch session token (${e.message ?: e.javaClass.simpleName})"
+        } finally {
+            try {
+                connection?.disconnect()
+            } catch (_: Throwable) {}
         }
     }
 

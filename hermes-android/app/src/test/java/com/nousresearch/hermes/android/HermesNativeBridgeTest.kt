@@ -37,4 +37,55 @@ class HermesNativeBridgeTest {
         val expectedPackage = "com.nousresearch.hermes.android"
         assertEquals(expectedPackage, MainActivity::class.java.`package`?.name)
     }
+
+    @Test
+    fun testParseSessionTokenWithDoubleQuotes() {
+        val html = """<script>window.__HERMES_SESSION_TOKEN__="c6d7e8f9a0b1c2d3";</script>"""
+        val token = HermesNativeBridge.parseSessionToken(html)
+        assertEquals("c6d7e8f9a0b1c2d3", token)
+    }
+
+    @Test
+    fun testParseSessionTokenWithSingleQuotesAndSpaces() {
+        val html = """<script>window.__HERMES_SESSION_TOKEN__ = 'secret_token_abc_123';</script>"""
+        val token = HermesNativeBridge.parseSessionToken(html)
+        assertEquals("secret_token_abc_123", token)
+    }
+
+    @Test
+    fun testParseSessionTokenInFullHtmlDocument() {
+        val html = """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <title>Hermes Dashboard</title>
+                <script>
+                    window.__HERMES_SESSION_TOKEN__="sess_xyz_789456";
+                    window.__HERMES_GATEWAY_URL__="http://127.0.0.1:9119";
+                </script>
+            </head>
+            <body>
+                <div id="root">Dashboard</div>
+            </body>
+            </html>
+        """.trimIndent()
+        val token = HermesNativeBridge.parseSessionToken(html)
+        assertEquals("sess_xyz_789456", token)
+    }
+
+    @Test
+    fun testParseSessionTokenMissingReturnsNull() {
+        val html = """<!DOCTYPE html><html><body>No token here</body></html>"""
+        val token = HermesNativeBridge.parseSessionToken(html)
+        assertEquals(null, token)
+    }
+
+    @Test
+    fun testParseSessionTokenEmptyStringReturnsNull() {
+        val html = """<script>window.__HERMES_SESSION_TOKEN__="";</script>"""
+        val token = HermesNativeBridge.parseSessionToken(html)
+        assertEquals(null, token)
+    }
 }
+
