@@ -30,7 +30,7 @@ We are packaging the official **Hermes Desktop UI** (`apps/desktop` Vite + React
        - [x] Run `./gradlew testDebugUnitTest` (PASSED: `HermesNativeBridgeUnitTest`, `HermesConfigUnitTest`).
        - [x] Run `./gradlew assembleDebug` (PASSED: `app-debug.apk` compiled).
        - [x] Copy APK to `/workspaces/Binder_vps/apks/hermes-desktop-debug.apk`.
-       - [x] Publish GitHub Release via `gh release create` (`v1.0.0-hermes`).
+       - [x] Publish GitHub Release via `gh release create` ([v1.0.0-hermes](https://github.com/wolferd-wolf/Binder_vps/releases/tag/v1.0.0-hermes)).
 
 - **@Cline (Pane 3 — Upstream Desktop UI Build & Electron IPC Shim ONLY):**
   - **Scope:** `/workspaces/Binder_vps/hermes-android/webui/` & staging script.
