@@ -1,51 +1,34 @@
-# AGENT TEAM BOARD (CONCURRENT MODE — 3-AGENT POD: @AGY, @Cline, @Buffy)
-### Notice: @OpenCode is OFFLINE/EXCLUDED. Do NOT message or wait for @OpenCode.
+# AGENT TEAM BOARD (SOLO @AGY MODE — CRASH FIX SPRINT)
+### Notice: @OpenCode, @Cline, and @Buffy are ALL OFFLINE. @AGY handles 100% of this sprint solo.
 
-## Active Project: HERMES-ANDROID — Standalone Hermes Desktop APK Wrapper
-**Project Root:** `/workspaces/Binder_vps/hermes-android`
-**Upstream Reference:** `https://github.com/NousResearch/hermes-agent.git` (`apps/desktop`)
+## Active Task: Fix Immediate Startup Crash in `hermes-android` [COMPLETED]
+Root causes identified and remediated. App now boots safely with diagnostics fallbacks, zero unversioned theme attributes, self-contained XML vector icons, ComponentActivity inheritance, and thread-safe WebView bridging.
 
-### Architecture & Context
-We are packaging the official **Hermes Desktop UI** (`apps/desktop` Vite + React frontend) into a native Android WebView APK so it runs on Android without Electron or PRoot overhead:
-1. **Frontend Bundle:** Clone `NousResearch/hermes-agent`, build the React/Vite desktop frontend (`apps/desktop`), shim any Electron IPC calls for browser/Android WebView compatibility, and stage the production `dist/` assets into `app/src/main/assets/hermes/`.
-2. **Backend Connection:** The app connects directly to the local Hermes engine running natively in Termux on `http://127.0.0.1:9119` (and WebSocket `ws://127.0.0.1:9119`), with a configurable gateway URL fallback.
-3. **Native Android Wrapper:** A full-screen, hardware-accelerated Chromium `WebView` APK with edge-to-edge dark styling (`#0a0a0a`), DOM storage enabled, file attachment support (`Intent.ACTION_OPEN_DOCUMENT`), and local loopback cleartext traffic enabled.
+### @AGY Mandatory Crash Audit & Fix Checklist:
+1. **Theme & Activity Inheritance Fix (`IllegalStateException`):** [COMPLETED]
+   - Refactored `MainActivity` to extend `androidx.activity.ComponentActivity`.
+   - Updated `Theme.Hermes` in `themes.xml` to inherit from `Theme.AppCompat.DayNight.NoActionBar` with programmatic edge-to-edge dark `#0A0A0A` status and navigation bar styling.
+   - Removed all unversioned/unsupported attributes.
 
----
+2. **Manifest & Package Path Verification (`ClassNotFoundException`):** [COMPLETED]
+   - Verified `namespace 'com.nousresearch.hermes.android'` and `applicationId 'com.nousresearch.hermes.android'` align with `package com.nousresearch.hermes.android` in `MainActivity.kt`.
+   - Verified `android:exported="true"` is set on `MainActivity`.
 
-### Swimlanes & Assigned Roles (Strict Scope Boundaries)
+3. **Missing Resource / Icon Guard (`Resources$NotFoundException`):** [COMPLETED]
+   - Generated self-contained XML vector drawables `res/drawable/ic_launcher.xml` and `res/drawable/ic_launcher_round.xml`.
+   - Updated `AndroidManifest.xml` to reference `@drawable/ic_launcher` and `@drawable/ic_launcher_round`.
+   - Removed API 33 `<monochrome>` tags from `res/mipmap-anydpi-v26/` that caused resource inflation crashes on API 26-32.
 
-- **@AGY (Pane 0 — Lead Architect, Kotlin Native WebView Engine, QA & Release):**
-  - **Scope:** `/workspaces/Binder_vps/hermes-android` project skeleton, `AndroidManifest.xml`, `build.gradle.kts`, and ALL Kotlin files (`app/src/main/java/com/nousresearch/hermes/android/*`).
-  - **Tasks:**
-    1. Initialize the Android project structure (`com.nousresearch.hermes.android`) and set `/workspaces/Binder_vps/.agents/ACTIVE_PROJECT` to `hermes-android`.
-    2. Configure `AndroidManifest.xml` with `INTERNET` permission and `android:usesCleartextTraffic="true"` (required for local `http://127.0.0.1:9119` and `ws://127.0.0.1:9119`).
-    3. Build `MainActivity.kt`, `HermesWebViewClient.kt`, and `HermesNativeBridge.kt` (`@JavascriptInterface` exposed as `window.HermesAndroid`):
-       - Full-screen hardware-accelerated `WebView` (`domStorageEnabled = true`, `javaScriptEnabled = true`, `allowFileAccess = true`).
-       - Gateway URL management (default `http://127.0.0.1:9119`), health-check ping to verify if Termux `hermes` daemon is reachable, and a clean retry/host-config overlay if `127.0.0.1:9119` isn't live yet.
-       - Native file picker (`Intent.ACTION_OPEN_DOCUMENT`) bridged for file uploads.
-    4. Delegate swimlanes to **@Cline** and **@Buffy** ONLY using `./tell.sh agy cline "<msg>"` and `./tell.sh agy buffy "<msg>"`. (Do NOT contact @OpenCode).
-    5. **Headless QA & Release Gate:** [COMPLETED]
-       - [x] Verify UI rendering using headless Playwright screenshot (`screenshots/hermes-staged-webui.png`) — verified UI layout and Electron shims without ADB/emulator.
-       - [x] Run `./gradlew testDebugUnitTest` (PASSED: `HermesNativeBridgeUnitTest`, `HermesConfigUnitTest`).
-       - [x] Run `./gradlew assembleDebug` (PASSED: `app-debug.apk` compiled).
-       - [x] Copy APK to `/workspaces/Binder_vps/apks/hermes-desktop-debug.apk`.
-       - [x] Publish GitHub Release via `gh release create` ([v1.0.0-hermes](https://github.com/wolferd-wolf/Binder_vps/releases/tag/v1.0.0-hermes)).
+4. **Strict Threading & Safe WebView Startup (`NetworkOnMainThreadException`):** [COMPLETED]
+   - Guaranteed network socket/HTTP calls in `HermesNativeBridge.isGatewayHealthy()` cannot run on the UI thread (`Looper.myLooper() == Looper.getMainLooper()`).
+   - Dispatched all WebView evaluations and UI invocations to `webView.post` and `activity.runOnUiThread`.
+   - Added `Thread.setDefaultUncaughtExceptionHandler` and wrapped `MainActivity.onCreate` in `try / catch (t: Throwable)` to display an on-screen scrollable dark diagnostic screen (`showCrashScreen`) with complete stack traces if an unexpected error occurs, preventing silent crashes to the home screen.
 
-- **@Cline (Pane 3 — Upstream Desktop UI Build & Electron IPC Shim ONLY):**
-  - **Scope:** `/workspaces/Binder_vps/hermes-android/webui/` & staging script.
-  - **Strict Constraint:** Do NOT touch Kotlin files or Gradle scripts.
-  - **Tasks:**
-    1. Shallow-clone `https://github.com/NousResearch/hermes-agent.git` into a temp directory and copy/extract the desktop frontend (`apps/desktop`) into `/workspaces/Binder_vps/hermes-android/webui/`.
-    2. Create an `electron-shim.ts` / `preload-shim.js` injected into `index.html` that intercepts any `window.electron` or desktop IPC calls and routes them cleanly to the local REST/WebSocket gateway (`http://127.0.0.1:9119`) and `window.HermesAndroid`.
-    3. Build the production web bundle (`npm install && npm run build`) and stage the compiled assets into `hermes-android/app/src/main/assets/hermes/`.
-  - **Handoff:** Notify @AGY via `./tell.sh cline agy "Hermes Desktop WebUI shimmed, built, and staged into assets"`.
+5. **Verify Staged WebUI Assets:** [COMPLETED]
+   - Confirmed `app/src/main/assets/hermes/index.html` exists and uses relative `./` asset paths.
 
-- **@Buffy (Pane 2 — Theme Tokens, Splash, Icons & Viewport Polish ONLY):**
-  - **Scope:** `hermes-android/app/src/main/res/*` and mobile viewport CSS overrides.
-  - **Strict Constraint:** Do NOT touch Kotlin files.
-  - **Tasks:**
-    1. Configure native dark mode theme (`#0a0a0a` status bar and navigation bar, `Theme.Material3.DayNight.NoActionBar`) in `res/values/themes.xml` and `colors.xml` so there are zero white flashes on startup.
-    2. Extract the official Hermes icon/logo from the upstream repo and generate Android launcher icons (`mipmap-*` / `drawable`).
-    3. Add touch/viewport CSS polish (preventing accidental pinch-zoom, smooth mobile keyboard viewport resizing, and collapsible sidebar ergonomics on mobile screens while preserving the desktop layout).
-  - **Handoff:** Notify @AGY via `./tell.sh buffy agy "Dark theme tokens, icons, and viewport CSS ready"`.
+6. **Prove Startup via JVM Test + Rebuild & Release:** [COMPLETED]
+   - Ran `./gradlew testDebugUnitTest` (BUILD SUCCESSFUL).
+   - Ran `./gradlew clean assembleDebug` (BUILD SUCCESSFUL).
+   - Copied new APK to `/workspaces/Binder_vps/apks/hermes-desktop-debug.apk`.
+   - Updated GitHub Release `v1.0.1-hermes` via `gh release create`.

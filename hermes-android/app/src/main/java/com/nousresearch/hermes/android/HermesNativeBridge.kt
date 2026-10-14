@@ -29,31 +29,46 @@ class HermesNativeBridge(
         const val BRIDGE_NAME = "HermesAndroid"
     }
 
+    private fun normalizeUrl(raw: String): String {
+        val trimmed = raw.trim().removeSuffix("/")
+        if (trimmed.isEmpty()) return DEFAULT_GATEWAY_URL
+        return if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+            "http://$trimmed"
+        } else {
+            trimmed
+        }
+    }
+
     @JavascriptInterface
     fun getGatewayUrl(): String {
-        return prefs.getString(PREF_GATEWAY_URL, DEFAULT_GATEWAY_URL) ?: DEFAULT_GATEWAY_URL
+        val stored = prefs.getString(PREF_GATEWAY_URL, DEFAULT_GATEWAY_URL) ?: DEFAULT_GATEWAY_URL
+        return normalizeUrl(stored)
     }
 
     @JavascriptInterface
     fun setGatewayUrl(url: String) {
-        val trimmed = url.trim()
-        val normalized = if (trimmed.endsWith("/")) trimmed.dropLast(1) else trimmed
+        val normalized = normalizeUrl(url)
         prefs.edit().putString(PREF_GATEWAY_URL, normalized).apply()
     }
 
     @JavascriptInterface
     fun isGatewayHealthy(): Boolean {
+        // Guard against NetworkOnMainThreadException
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return false
+        }
         return try {
             val gateway = getGatewayUrl()
             val conn = (URL(gateway).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 1500
                 readTimeout = 1500
                 requestMethod = "GET"
+                instanceFollowRedirects = true
             }
             val responseCode = conn.responseCode
             conn.disconnect()
             responseCode in 200..399
-        } catch (e: Exception) {
+        } catch (_: Throwable) {
             false
         }
     }
@@ -62,7 +77,7 @@ class HermesNativeBridge(
     fun checkGatewayHealthAsync(callbackFunctionName: String) {
         executor.execute {
             val healthy = isGatewayHealthy()
-            mainHandler.post {
+            webView.post {
                 val js = "if (typeof window['$callbackFunctionName'] === 'function') { window['$callbackFunctionName']($healthy); }"
                 webView.evaluateJavascript(js, null)
             }
@@ -72,52 +87,58 @@ class HermesNativeBridge(
     @JavascriptInterface
     fun showToast(message: String) {
         mainHandler.post {
-            Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+            try {
+                Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+            } catch (_: Throwable) {}
         }
     }
 
     @JavascriptInterface
     fun openExternal(url: String) {
-        try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            activity.startActivity(intent)
-        } catch (e: Exception) {
-            // ignore
+        activity.runOnUiThread {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                activity.startActivity(intent)
+            } catch (_: Throwable) {}
         }
     }
 
     @JavascriptInterface
     fun triggerFilePicker() {
-        mainHandler.post {
+        activity.runOnUiThread {
             activity.launchFilePickerForBridge()
         }
     }
 
     @JavascriptInterface
     fun showGatewayOverlay() {
-        mainHandler.post {
+        activity.runOnUiThread {
             activity.showGatewayOverlay(true)
         }
     }
 
     @JavascriptInterface
     fun hideGatewayOverlay() {
-        mainHandler.post {
+        activity.runOnUiThread {
             activity.showGatewayOverlay(false)
         }
     }
 
     @JavascriptInterface
     fun getAppInfo(): String {
-        val json = JSONObject()
-        json.put("appName", "Hermes Desktop Android")
-        json.put("versionName", BuildConfig.VERSION_NAME)
-        json.put("versionCode", BuildConfig.VERSION_CODE)
-        json.put("buildTime", BuildConfig.BUILD_TIME)
-        json.put("gitCommit", BuildConfig.GIT_COMMIT)
-        json.put("gatewayUrl", getGatewayUrl())
-        return json.toString()
+        return try {
+            val json = JSONObject()
+            json.put("appName", "Hermes Desktop Android")
+            json.put("versionName", BuildConfig.VERSION_NAME)
+            json.put("versionCode", BuildConfig.VERSION_CODE)
+            json.put("buildTime", BuildConfig.BUILD_TIME)
+            json.put("gitCommit", BuildConfig.GIT_COMMIT)
+            json.put("gatewayUrl", getGatewayUrl())
+            json.toString()
+        } catch (_: Throwable) {
+            "{}"
+        }
     }
 }
